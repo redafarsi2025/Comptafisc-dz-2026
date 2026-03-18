@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -24,7 +25,12 @@ import {
   ClipboardList,
   CalendarCheck,
   HardHat,
-  Contact
+  Contact,
+  Briefcase,
+  Layers,
+  MessagesSquare,
+  Repeat,
+  Landmark
 } from "lucide-react"
 
 import {
@@ -59,26 +65,15 @@ const navigation = [
   { name: "Facturation", href: "/dashboard/invoicing", icon: Receipt },
   { name: "Paie & Social", href: "/dashboard/payroll", icon: Users },
   { name: "Déclarations Fisc", href: "/dashboard/declarations", icon: FileText },
-  { name: "Liasse Fiscale G4", href: "/dashboard/declarations/g4", icon: FileStack },
   { name: "Assistant IA", href: "/dashboard/assistant", icon: MessageSquareMore },
   { name: "Capture OCR", href: "/dashboard/ocr", icon: Camera },
 ]
 
-const taxForms = [
-  { name: "G50 Mensuelle", href: "/dashboard/declarations/g50", icon: CalendarCheck },
-  { name: "G12 (IFU)", href: "/dashboard/declarations/g12", icon: FileText },
-]
-
-const legalBooks = [
-  { name: "Livre-Journal", href: "/dashboard/accounting/journal", icon: BookOpenCheck },
-  { name: "Grand Livre", href: "/dashboard/accounting/ledger", icon: Library },
-  { name: "États Financiers", href: "/dashboard/accounting/financial-statements", icon: FileBarChart },
-]
-
-const socialCompliance = [
-  { name: "Bordereau DAC", href: "/dashboard/payroll/dac", icon: FileText },
-  { name: "Déclaration DAS", href: "/dashboard/payroll/das", icon: ClipboardList },
-  { name: "CACOBATPH", href: "/dashboard/payroll/cacobatph", icon: HardHat },
+const cabinetNavigation = [
+  { name: "Dashboard Cabinet", href: "/dashboard/cabinet", icon: Layers },
+  { name: "Collaboration Hub", href: "/dashboard/cabinet/collaboration", icon: MessagesSquare },
+  { name: "G50 Groupées", href: "/dashboard/cabinet/bulk-g50", icon: Repeat },
+  { name: "Rapprochement Bancaire", href: "/dashboard/cabinet/bank-recon", icon: Landmark },
 ]
 
 export function DashboardSidebar() {
@@ -107,59 +102,6 @@ export function DashboardSidebar() {
     if (currentTenantId) return tenants.find(t => t.id === currentTenantId) || tenants[0];
     return tenants[0];
   }, [tenants, currentTenantId]);
-
-  const createDefaultTenant = async () => {
-    if (!db || !user) return;
-    const newTenantRef = doc(collection(db, "tenants"));
-    
-    const tenantData = {
-      id: newTenantRef.id,
-      raisonSociale: "Nouveau Dossier " + (user.displayName || "Client"),
-      formeJuridique: "EURL",
-      nif: "000000000000000",
-      nis: "",
-      registreCommerce: "",
-      articleImposition: "",
-      dateCreation: new Date().toISOString(),
-      capitalSocial: 100000,
-      adresse: { rue: "", commune: "", wilaya: "16 - Alger" },
-      telephone: "",
-      email: user.email || "",
-      siteWeb: "",
-      regimeFiscal: "REGIME_REEL",
-      assujettissementTva: true,
-      tauxTvaApplicable: "TVA_19",
-      periodiciteDeclaration: "MENSUEL",
-      activiteNAP: "",
-      secteurActivite: "SERVICES",
-      centreImpots: "",
-      exerciceFiscal: {
-        debut: new Date(new Date().getFullYear(), 0, 1).toISOString(),
-        fin: new Date(new Date().getFullYear(), 11, 31).toISOString()
-      },
-      effectif: 0,
-      plan: "GRATUIT",
-      subscription: {
-        statut: "ESSAI",
-        dateDebut: new Date().toISOString(),
-        dateExpiration: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      addOns: [],
-      efatura: { active: false, prefixeFacture: "FAC-", dernierNumero: 0 },
-      members: { [user.uid]: 'owner' },
-      userIds: [user.uid],
-      onboardingComplete: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    
-    try {
-      await setDoc(newTenantRef, tenantData);
-      toast({ title: "Dossier créé", description: "Le nouveau dossier fiscal a été configuré avec succès." });
-    } catch (e) {
-      console.error(e);
-    }
-  };
 
   const handleLogout = async () => {
     try {
@@ -201,10 +143,6 @@ export function DashboardSidebar() {
                     </div>
                   </DropdownMenuItem>
                 ))}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={createDefaultTenant} className="cursor-pointer text-primary">
-                  <Plus className="mr-2 h-4 w-4" /> Nouveau dossier fiscal
-                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>
@@ -212,7 +150,7 @@ export function DashboardSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Menu</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Menu Principal</SidebarGroupLabel>
           <SidebarMenu>
             {navigation.map((item) => (
               <SidebarMenuItem key={item.name}>
@@ -225,35 +163,9 @@ export function DashboardSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Formulaires DGI</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Portail Cabinet</SidebarGroupLabel>
           <SidebarMenu>
-            {taxForms.map((item) => (
-              <SidebarMenuItem key={item.name}>
-                <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name} className="hover:bg-sidebar-accent">
-                  <Link href={item.href}><item.icon /><span>{item.name}</span></Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Livres Légaux (SCF)</SidebarGroupLabel>
-          <SidebarMenu>
-            {legalBooks.map((item) => (
-              <SidebarMenuItem key={item.name}>
-                <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name} className="hover:bg-sidebar-accent">
-                  <Link href={item.href}><item.icon /><span>{item.name}</span></Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Conformité Sociale</SidebarGroupLabel>
-          <SidebarMenu>
-            {socialCompliance.map((item) => (
+            {cabinetNavigation.map((item) => (
               <SidebarMenuItem key={item.name}>
                 <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name} className="hover:bg-sidebar-accent">
                   <Link href={item.href}><item.icon /><span>{item.name}</span></Link>
@@ -291,16 +203,16 @@ export function DashboardSidebar() {
                   </Avatar>
                   <div className="flex flex-col gap-0.5 text-left text-sm leading-tight">
                     <span className="font-semibold text-sidebar-foreground truncate w-32">
-                      {user?.displayName || "Expert-Comptable"}
+                      {user?.displayName || "Comptable"}
                     </span>
-                    <span className="text-xs text-sidebar-foreground/70">Dossiers: {tenants?.length || 0}</span>
+                    <span className="text-xs text-sidebar-foreground/70">Expert Cabinet</span>
                   </div>
                   <ChevronDown className="ml-auto size-4" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="top" align="end" className="w-56">
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard/profile" className="flex items-center gap-2 cursor-pointer"><UserIcon className="h-4 w-4" /> Profil Expert</Link>
+                  <Link href="/dashboard/profile" className="flex items-center gap-2 cursor-pointer"><UserIcon className="h-4 w-4" /> Profil</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 cursor-pointer text-destructive"><LogOut className="h-4 w-4" /> Déconnexion</DropdownMenuItem>

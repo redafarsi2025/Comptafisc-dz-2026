@@ -1,5 +1,27 @@
+
 {
   "entities": {
+    "Cabinet": {
+      "title": "Accounting Firm (Cabinet)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "members": { "type": "object", "description": "Map of userIds to roles (admin, accountant)" },
+        "createdAt": { "type": "string" }
+      }
+    },
+    "ManagedClient": {
+      "title": "Cabinet Client Link",
+      "description": "Relationship between cabinet and tenant.",
+      "type": "object",
+      "properties": {
+        "tenantId": { "type": "string" },
+        "raisonSociale": { "type": "string" },
+        "fiscalStatus": { "type": "string", "enum": ["Up to date", "Pending", "Late"] },
+        "lastG50Date": { "type": "string" }
+      }
+    },
     "Tenant": {
       "title": "Tenant",
       "description": "Dossier fiscal complet du client (35 variables).",
@@ -7,13 +29,11 @@
       "properties": {
         "id": { "type": "string" },
         "raisonSociale": { "type": "string" },
+        "cabinetId": { "type": "string", "description": "Link to the accounting firm" },
         "formeJuridique": { "type": "string", "enum": ["SARL", "SPA", "EI", "SNC", "EURL", "Auto-entrepreneur", "Personne physique"] },
         "nif": { "type": "string" },
         "nis": { "type": "string" },
         "registreCommerce": { "type": "string" },
-        "articleImposition": { "type": "string" },
-        "dateCreation": { "type": "string", "format": "date-time" },
-        "capitalSocial": { "type": "number" },
         "adresse": {
           "type": "object",
           "properties": {
@@ -22,92 +42,24 @@
             "wilaya": { "type": "string" }
           }
         },
-        "telephone": { "type": "string" },
-        "email": { "type": "string" },
-        "siteWeb": { "type": "string" },
         "regimeFiscal": { "type": "string", "enum": ["IFU", "REGIME_REEL_SIMPLIFIE", "REGIME_REEL"] },
         "assujettissementTva": { "type": "boolean" },
-        "tauxTvaApplicable": { "type": "string", "enum": ["TVA_19", "TVA_9", "TVA_EXONERE"] },
-        "periodiciteDeclaration": { "type": "string", "enum": ["MENSUEL", "TRIMESTRIEL", "ANNUEL"] },
-        "activiteNAP": { "type": "string" },
-        "secteurActivite": { "type": "string", "enum": ["COMMERCE", "PRODUCTION", "SERVICES", "BTP", "AGRICULTURE"] },
-        "centreImpots": { "type": "string" },
-        "exerciceFiscal": {
-          "type": "object",
-          "properties": {
-            "debut": { "type": "string" },
-            "fin": { "type": "string" }
-          }
-        },
-        "effectif": { "type": "number" },
-        "plan": { "type": "string" },
-        "subscription": {
-          "type": "object",
-          "properties": {
-            "statut": { "type": "string" },
-            "dateDebut": { "type": "string" },
-            "dateExpiration": { "type": "string" }
-          }
-        },
         "members": { "type": "object" },
         "onboardingComplete": { "type": "boolean" },
         "createdAt": { "type": "string" },
         "updatedAt": { "type": "string" }
       }
     },
-    "Invoice": {
-      "title": "Invoice",
+    "CabinetMessage": {
+      "title": "Collaboration Message",
       "type": "object",
       "properties": {
+        "cabinetId": { "type": "string" },
         "tenantId": { "type": "string" },
-        "invoiceNumber": { "type": "string" },
-        "totalAmountExcludingTax": { "type": "number" },
-        "totalTaxAmount": { "type": "number" },
-        "totalStampDutyAmount": { "type": "number" },
-        "totalAmountIncludingTax": { "type": "number" },
-        "status": { "type": "string" }
-      }
-    },
-    "Account": {
-      "title": "Custom Account (PCE)",
-      "description": "Sous-compte personnalisé créé par l'entité.",
-      "type": "object",
-      "properties": {
-        "code": { "type": "string" },
-        "name": { "type": "string" },
-        "rootCode": { "type": "string" },
-        "class": { "type": "number" },
-        "tenantId": { "type": "string" }
-      }
-    },
-    "Asset": {
-      "title": "Asset (Immobilisation)",
-      "description": "Élément d'actif immobilisé.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "designation": { "type": "string" },
-        "acquisitionValue": { "type": "number" },
-        "amortizationRate": { "type": "number" }
-      }
-    },
-    "Employee": {
-      "title": "Employee",
-      "description": "Fiche salarié pour le livre de paye.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "position": { "type": "string" },
-        "baseSalary": { "type": "number" },
-        "primesImposables": { "type": "number" },
-        "indemnitePanier": { "type": "number" },
-        "indemniteTransport": { "type": "number" },
-        "cnasNumber": { "type": "string" },
-        "hireDate": { "type": "string", "format": "date" },
-        "isGrandSud": { "type": "boolean" },
-        "isHandicapped": { "type": "boolean" },
-        "tenantId": { "type": "string" }
+        "senderId": { "type": "string" },
+        "content": { "type": "string" },
+        "attachments": { "type": "array", "items": { "type": "string" } },
+        "timestamp": { "type": "string" }
       }
     }
   },
@@ -115,25 +67,17 @@
     "providers": ["password", "anonymous"]
   },
   "firestore": {
+    "/cabinets/{cabinetId}": {
+      "schema": "#/entities/Cabinet"
+    },
+    "/cabinets/{cabinetId}/clients/{tenantId}": {
+      "schema": "#/entities/ManagedClient"
+    },
+    "/cabinets/{cabinetId}/messages": {
+      "schema": "#/entities/CabinetMessage"
+    },
     "/tenants/{tenantId}": {
-      "schema": "#/entities/Tenant",
-      "description": "Données de base du dossier"
-    },
-    "/tenants/{tenantId}/invoices/{invoiceId}": {
-      "schema": "#/entities/Invoice",
-      "description": "Factures clients du dossier"
-    },
-    "/tenants/{tenantId}/accounts/{accountId}": {
-      "schema": "#/entities/Account",
-      "description": "Plan de comptes personnalisé"
-    },
-    "/tenants/{tenantId}/assets/{assetId}": {
-      "schema": "#/entities/Asset",
-      "description": "Registre des immobilisations"
-    },
-    "/tenants/{tenantId}/employees/{employeeId}": {
-      "schema": "#/entities/Employee",
-      "description": "Registre du personnel"
+      "schema": "#/entities/Tenant"
     }
   }
 }

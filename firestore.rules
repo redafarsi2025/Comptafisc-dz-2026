@@ -3,58 +3,49 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * ComptaFisc-DZ Security Rules
-     * Optimisées pour Next.js 15 & Multi-tenant (LF 2024-2026)
-     */
-
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isMember(membersMap) {
-      return isSignedIn() && membersMap != null && request.auth.uid in membersMap;
+    function isCabinetMember(cabinetId) {
+      return isSignedIn() && 
+        get(/databases/$(database)/documents/cabinets/$(cabinetId)).data.members[request.auth.uid] != null;
     }
 
-    // Vérification de sécurité basée sur le champ tenantMembers requis dans chaque document
-    function hasDocumentAccess() {
-      return isSignedIn() && (
-        resource == null || 
-        (resource.data.tenantMembers != null && request.auth.uid in resource.data.tenantMembers)
-      );
+    function isTenantMember(tenantData) {
+      return isSignedIn() && tenantData.members[request.auth.uid] != null;
+    }
+
+    match /cabinets/{cabinetId} {
+      allow read: if isCabinetMember(cabinetId);
+      allow create: if isSignedIn();
+      allow update: if isCabinetMember(cabinetId) && get(/databases/$(database)/documents/cabinets/$(cabinetId)).data.members[request.auth.uid] == 'admin';
+      
+      match /clients/{clientId} {
+        allow read, write: if isCabinetMember(cabinetId);
+      }
+      
+      match /messages/{messageId} {
+        allow read, write: if isCabinetMember(cabinetId) || 
+          (isSignedIn() && get(/databases/$(database)/documents/tenants/$(resource.data.tenantId)).data.members[request.auth.uid] != null);
+      }
     }
 
     match /tenants/{tenantId} {
-      allow get: if isMember(resource.data.members);
-      allow list: if isSignedIn() && resource.data.members[request.auth.uid] != null;
+      allow get: if isSignedIn() && (resource.data.members[request.auth.uid] != null || 
+        (resource.data.cabinetId != null && isCabinetMember(resource.data.cabinetId)));
+      allow list: if isSignedIn();
       allow create: if isSignedIn();
-      allow update: if isMember(resource.data.members);
-      allow delete: if isMember(resource.data.members) && resource.data.members[request.auth.uid] == 'owner';
+      allow update: if isSignedIn() && (resource.data.members[request.auth.uid] != null || 
+        (resource.data.cabinetId != null && isCabinetMember(resource.data.cabinetId)));
     }
 
-    // Toutes les sous-collections utilisent le pattern de sécurité par champ 'tenantMembers'
-    match /tenants/{tenantId}/accounts/{accountId} {
-      allow read, write: if hasDocumentAccess();
-    }
-
-    match /tenants/{tenantId}/journal_entries/{journalEntryId} {
-      allow read, write: if hasDocumentAccess();
-    }
-
-    match /tenants/{tenantId}/invoices/{invoiceId} {
-      allow read, write: if hasDocumentAccess();
-    }
-
-    match /tenants/{tenantId}/assets/{assetId} {
-      allow read, write: if hasDocumentAccess();
-    }
-
-    match /tenants/{tenantId}/employees/{employeeId} {
-      allow read, write: if hasDocumentAccess();
-    }
-
-    match /tax_regulations/{taxRegulationId} {
-      allow get, list: if isSignedIn();
+    match /tenants/{tenantId}/{allSubcollections=**} {
+      allow read, write: if isSignedIn() && (
+        get(/databases/$(database)/documents/tenants/$(tenantId)).data.members[request.auth.uid] != null ||
+        (get(/databases/$(database)/documents/tenants/$(tenantId)).data.cabinetId != null && 
+         isCabinetMember(get(/databases/$(database)/documents/tenants/$(tenantId)).data.cabinetId))
+      );
     }
   }
 }
