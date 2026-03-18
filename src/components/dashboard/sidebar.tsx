@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -32,7 +31,8 @@ import {
   Repeat,
   Landmark,
   ShieldAlert,
-  BookOpen
+  BookOpen,
+  CalendarDays
 } from "lucide-react"
 
 import {
@@ -75,6 +75,7 @@ const socialNavigation = [
   { name: "Livre de Paie", href: "/dashboard/payroll/ledger", icon: BookOpen },
   { name: "Bordereau DAC", href: "/dashboard/payroll/dac", icon: CalendarCheck },
   { name: "DAS Annuelle", href: "/dashboard/payroll/das", icon: ClipboardList },
+  { name: "G50 ter (Trimestriel)", href: "/dashboard/declarations/g50ter", icon: CalendarDays },
   { name: "CACOBATPH", href: "/dashboard/payroll/cacobatph", icon: HardHat },
 ]
 
