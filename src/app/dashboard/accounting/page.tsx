@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { SCF_ACCOUNTS, JournalEntryLine, JournalType } from "@/lib/scf-accounts"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Trash2, CheckCircle, Calculator, Loader2, BookOpen } from "lucide-react"
+import { Plus, Trash2, CheckCircle, Calculator, Loader2, BookOpen, Search } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useFirestore, useUser, addDocumentNonBlocking } from "@/firebase"
 import { collection, query, where, limit } from "firebase/firestore"
@@ -16,12 +16,13 @@ import { toast } from "@/hooks/use-toast"
 
 export default function AccountingJournal() {
   const db = useFirestore()
-  const { user, isUserLoading } = useUser()
+  const { user } = useUser()
   const [description, setDescription] = React.useState("")
   const [entryDate, setEntryDate] = React.useState(new Date().toISOString().split('T')[0])
   const [reference, setReference] = React.useState("")
   const [journalType, setJournalType] = React.useState<JournalType>("ACHATS")
   const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const [searchAccount, setSearchAccount] = React.useState("")
 
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -105,6 +106,14 @@ export default function AccountingJournal() {
     }
   }
 
+  const filteredAccounts = React.useMemo(() => {
+    if (!searchAccount) return SCF_ACCOUNTS;
+    return SCF_ACCOUNTS.filter(a => 
+      a.code.includes(searchAccount) || 
+      a.name.toLowerCase().includes(searchAccount.toLowerCase())
+    );
+  }, [searchAccount]);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -168,11 +177,20 @@ export default function AccountingJournal() {
           </div>
         </CardHeader>
         <CardContent className="pt-6">
+          <div className="mb-4 flex items-center gap-2 max-w-sm">
+            <Search className="h-4 w-4 text-muted-foreground" />
+            <Input 
+              placeholder="Rechercher un compte (nom ou code)..." 
+              value={searchAccount}
+              onChange={(e) => setSearchAccount(e.target.value)}
+              className="h-8 text-xs"
+            />
+          </div>
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50">
-                <TableHead className="w-[180px]">Compte SCF</TableHead>
-                <TableHead>Intitulé</TableHead>
+                <TableHead className="w-[220px]">Compte SCF</TableHead>
+                <TableHead>Intitulé (Automatique)</TableHead>
                 <TableHead className="w-[150px] text-right">Débit</TableHead>
                 <TableHead className="w-[150px] text-right">Crédit</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
@@ -186,12 +204,14 @@ export default function AccountingJournal() {
                       value={line.accountCode}
                       onValueChange={(val) => updateLine(index, "accountCode", val)}
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Code" />
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Code SCF" />
                       </SelectTrigger>
-                      <SelectContent>
-                        {SCF_ACCOUNTS.map(acc => (
-                          <SelectItem key={acc.code} value={acc.code}>{acc.code}</SelectItem>
+                      <SelectContent className="max-h-[300px]">
+                        {filteredAccounts.map(acc => (
+                          <SelectItem key={acc.code} value={acc.code}>
+                            <span className="font-mono font-bold">{acc.code}</span> - {acc.name}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -200,13 +220,13 @@ export default function AccountingJournal() {
                     <Input
                       value={line.accountName}
                       readOnly
-                      className="bg-muted/30 border-none shadow-none text-xs"
+                      className="bg-muted/10 border-none shadow-none text-xs text-muted-foreground h-9"
                     />
                   </TableCell>
                   <TableCell>
                     <Input
                       type="number"
-                      className="text-right font-mono"
+                      className="text-right font-mono h-9"
                       value={line.debit || ""}
                       onChange={(e) => updateLine(index, "debit", parseFloat(e.target.value) || 0)}
                     />
@@ -214,7 +234,7 @@ export default function AccountingJournal() {
                   <TableCell>
                     <Input
                       type="number"
-                      className="text-right font-mono"
+                      className="text-right font-mono h-9"
                       value={line.credit || ""}
                       onChange={(e) => updateLine(index, "credit", parseFloat(e.target.value) || 0)}
                     />
@@ -223,7 +243,7 @@ export default function AccountingJournal() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="text-destructive hover:bg-destructive/10"
+                      className="text-destructive hover:bg-destructive/10 h-8 w-8"
                       onClick={() => removeLine(index)}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -238,11 +258,11 @@ export default function AccountingJournal() {
           <div className="flex w-full justify-between items-center">
             <div className="flex items-center gap-2 text-sm">
               <Calculator className="h-4 w-4 text-muted-foreground" />
-              <span className="font-semibold">Statut d'équilibre :</span>
+              <span className="font-semibold text-xs">Statut d'équilibre :</span>
               {isBalanced ? (
-                <Badge className="bg-emerald-500">Document Équilibré</Badge>
+                <Badge className="bg-emerald-500 h-5 text-[10px]">Document Équilibré</Badge>
               ) : (
-                <Badge variant="destructive">Écart: {Math.abs(totals.debit - totals.credit).toLocaleString()} DA</Badge>
+                <Badge variant="destructive" className="h-5 text-[10px]">Écart: {Math.abs(totals.debit - totals.credit).toLocaleString()} DA</Badge>
               )}
             </div>
             <div className="flex gap-12 text-lg font-bold">
@@ -261,10 +281,13 @@ export default function AccountingJournal() {
       
       <div className="p-4 bg-primary/5 border rounded-lg flex items-start gap-3">
         <div className="mt-1 h-2 w-2 rounded-full bg-primary animate-pulse shrink-0" />
-        <p className="text-xs text-muted-foreground italic">
-          Rappel SCF : Les livres comptables doivent être conservés pendant 10 ans. 
-          Cette saisie alimentera automatiquement le Livre-Journal Centralisateur et le Grand Livre du dossier.
-        </p>
+        <div className="text-xs text-muted-foreground">
+          <p className="font-bold text-primary mb-1">Rappel Réglementaire SCF</p>
+          <p className="italic">
+            Les écritures doivent être appuyées par des pièces justificatives datées et numérotées. 
+            La nomenclature utilisée ici est conforme au Plan Comptable National Algérien.
+          </p>
+        </div>
       </div>
     </div>
   )
