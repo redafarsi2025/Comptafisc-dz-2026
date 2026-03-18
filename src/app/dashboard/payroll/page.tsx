@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Plus, Users, Calculator, Wallet, Printer, FileDown, Search, Loader2, Info, ReceiptText, MapPin, ShieldCheck, BookOpen } from "lucide-react"
+import { Plus, Users, Calculator, Wallet, Printer, FileDown, Search, Loader2, Info, ReceiptText, MapPin, ShieldCheck, BookOpen, Fingerprint } from "lucide-react"
 import { PAYROLL_CONSTANTS, calculateIRG } from "@/lib/calculations"
 import { toast } from "@/hooks/use-toast"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -32,6 +32,7 @@ export default function PayrollPage() {
     indemnitePanier: 0,
     indemniteTransport: 0,
     cnasNumber: "",
+    nin: "",
     isGrandSud: false,
     isHandicapped: false
   })
@@ -105,7 +106,7 @@ export default function PayrollPage() {
       setIsDialogOpen(false);
       setNewEmployee({ 
         name: "", position: "", baseSalary: 24000, primesImposables: 0, 
-        indemnitePanier: 0, indemniteTransport: 0, cnasNumber: "",
+        indemnitePanier: 0, indemniteTransport: 0, cnasNumber: "", nin: "",
         isGrandSud: false, isHandicapped: false
       });
     } catch (e) {
@@ -159,8 +160,19 @@ export default function PayrollPage() {
                     <Input value={newEmployee.name} onChange={e => setNewEmployee({...newEmployee, name: e.target.value})} placeholder="Ex: Mohamed Amine" />
                   </div>
                   <div className="grid gap-2">
+                    <Label className="flex items-center gap-1"><Fingerprint className="h-3 w-3 text-primary" /> NIN (Obligatoire G29)</Label>
+                    <Input value={newEmployee.nin} onChange={e => setNewEmployee({...newEmployee, nin: e.target.value})} placeholder="18 chiffres" maxLength={18} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
                     <Label>N° CNAS</Label>
                     <Input value={newEmployee.cnasNumber} onChange={e => setNewEmployee({...newEmployee, cnasNumber: e.target.value})} placeholder="XX XXXX XXXX XX" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Fonction / Poste</Label>
+                    <Input value={newEmployee.position} onChange={e => setNewEmployee({...newEmployee, position: e.target.value})} placeholder="Ex: Comptable" />
                   </div>
                 </div>
 
@@ -300,7 +312,8 @@ export default function PayrollPage() {
                           <TableCell>
                             <div className="flex flex-col">
                               <span className="font-bold">{e.name}</span>
-                              <span className="text-[10px] text-muted-foreground uppercase">{e.position || 'N/A'}</span>
+                              <span className="text-[9px] text-muted-foreground uppercase">{e.position || 'N/A'}</span>
+                              <span className="text-[8px] text-muted-foreground font-mono">NIN: {e.nin || 'REQUIS'}</span>
                             </div>
                           </TableCell>
                           <TableCell className="text-right font-mono text-xs">{formatAmount(calc.salairePoste)}</TableCell>
