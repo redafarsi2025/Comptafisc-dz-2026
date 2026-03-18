@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -11,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { 
   Gavel, Settings2, CalendarClock, Plus, 
-  Trash2, Edit3, Save, Info, RefreshCw, DatabaseZap 
+  Trash2, Info, DatabaseZap, Loader2 
 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -27,13 +26,13 @@ export default function FiscalEngineAdmin() {
 
   // Subscriptions
   const lawsQuery = useMemoFirebase(() => db ? query(collection(db, "fiscal_laws"), orderBy("publicationDate", "desc")) : null, [db]);
-  const { data: laws } = useCollection(lawsQuery);
+  const { data: laws, isLoading: isLoadingLaws } = useCollection(lawsQuery);
 
   const typesQuery = useMemoFirebase(() => db ? query(collection(db, "fiscal_variable_types"), orderBy("name", "asc")) : null, [db]);
-  const { data: types } = useCollection(typesQuery);
+  const { data: types, isLoading: isLoadingTypes } = useCollection(typesQuery);
 
   const valuesQuery = useMemoFirebase(() => db ? query(collection(db, "fiscal_variable_values"), orderBy("effectiveStartDate", "desc")) : null, [db]);
-  const { data: values } = useCollection(valuesQuery);
+  const { data: values, isLoading: isLoadingValues } = useCollection(valuesQuery);
 
   // States for new entries
   const [newLaw, setNewLaw] = React.useState({ name: "", effectiveStartDate: "", publicationDate: "", description: "" })
@@ -42,23 +41,32 @@ export default function FiscalEngineAdmin() {
 
   const handleCreateLaw = () => {
     if (!db || !newLaw.name) return;
-    addDocumentNonBlocking(collection(db, "fiscal_laws"), { ...newLaw, id: crypto.randomUUID() });
+    const id = crypto.randomUUID();
+    addDocumentNonBlocking(collection(db, "fiscal_laws"), { ...newLaw, id });
     setIsLawDialogOpen(false);
     toast({ title: "Loi enregistrée", description: "Le nouveau cadre législatif est prêt." });
   }
 
   const handleCreateType = () => {
     if (!db || !newType.code) return;
-    addDocumentNonBlocking(collection(db, "fiscal_variable_types"), { ...newType, id: crypto.randomUUID() });
+    const id = crypto.randomUUID();
+    addDocumentNonBlocking(collection(db, "fiscal_variable_types"), { ...newType, id });
     setIsTypeDialogOpen(false);
     toast({ title: "Variable créée", description: "Le moteur de calcul supporte désormais cette clé." });
   }
 
   const handleCreateValue = () => {
     if (!db || !newValue.value) return;
-    addDocumentNonBlocking(collection(db, "fiscal_variable_values"), { ...newValue, id: crypto.randomUUID() });
+    const id = crypto.randomUUID();
+    addDocumentNonBlocking(collection(db, "fiscal_variable_values"), { ...newValue, id });
     setIsValueDialogOpen(false);
     toast({ title: "Taux appliqué", description: "La variable a été mise à jour pour la période définie." });
+  }
+
+  const handleDelete = (col: string, id: string) => {
+    if (!db) return;
+    deleteDocumentNonBlocking(doc(db, col, id));
+    toast({ title: "Supprimé", description: "L'entrée a été retirée du moteur fiscal." });
   }
 
   return (
@@ -79,7 +87,6 @@ export default function FiscalEngineAdmin() {
           <TabsTrigger value="laws" className="py-2"><Gavel className="h-4 w-4 mr-2" /> Cadres Légaux (LF)</TabsTrigger>
         </TabsList>
 
-        {/* VALUES TAB */}
         <TabsContent value="values" className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="font-bold">Historique des Applications de Taux</h3>
@@ -110,7 +117,7 @@ export default function FiscalEngineAdmin() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Valeur (Nombre ou JSON)</Label>
+                      <Label>Valeur</Label>
                       <Input value={newValue.value} onChange={e => setNewValue({...newValue, value: e.target.value})} placeholder="Ex: 0.19" />
                     </div>
                     <div className="space-y-2">
@@ -137,7 +144,11 @@ export default function FiscalEngineAdmin() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {values?.map((v) => {
+                  {isLoadingValues ? (
+                    <TableRow><TableCell colSpan={5} className="text-center py-10"><Loader2 className="animate-spin inline mr-2" />Chargement...</TableCell></TableRow>
+                  ) : values?.length === 0 ? (
+                    <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground">Aucune valeur configurée.</TableCell></TableRow>
+                  ) : values?.map((v) => {
                     const type = types?.find(t => t.id === v.fiscalVariableTypeId);
                     const law = laws?.find(l => l.id === v.fiscalLawId);
                     return (
@@ -147,7 +158,7 @@ export default function FiscalEngineAdmin() {
                         <TableCell className="text-xs">{v.effectiveStartDate}</TableCell>
                         <TableCell className="text-xs">{law?.name}</TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteDocumentNonBlocking(doc(db!, "fiscal_variable_values", v.id))}><Trash2 className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete("fiscal_variable_values", v.id)}><Trash2 className="h-4 w-4" /></Button>
                         </TableCell>
                       </TableRow>
                     );
@@ -158,7 +169,6 @@ export default function FiscalEngineAdmin() {
           </Card>
         </TabsContent>
 
-        {/* TYPES TAB */}
         <TabsContent value="types" className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="font-bold">Dictionnaire des Variables Système</h3>
@@ -195,13 +205,15 @@ export default function FiscalEngineAdmin() {
                   <TableRow><TableHead>Nom</TableHead><TableHead>Code (Clé)</TableHead><TableHead>Unité</TableHead><TableHead className="text-right">Actions</TableHead></TableRow>
                 </TableHeader>
                 <TableBody>
-                  {types?.map((t) => (
+                  {isLoadingTypes ? (
+                    <TableRow><TableCell colSpan={4} className="text-center py-10"><Loader2 className="animate-spin inline mr-2" />Chargement...</TableCell></TableRow>
+                  ) : types?.map((t) => (
                     <TableRow key={t.id}>
                       <TableCell className="font-bold">{t.name}</TableCell>
                       <TableCell><code className="bg-muted px-1.5 py-0.5 rounded text-[10px]">{t.code}</code></TableCell>
                       <TableCell>{t.unit}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteDocumentNonBlocking(doc(db!, "fiscal_variable_types", t.id))}><Trash2 className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete("fiscal_variable_types", t.id)}><Trash2 className="h-4 w-4" /></Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -211,7 +223,6 @@ export default function FiscalEngineAdmin() {
           </Card>
         </TabsContent>
 
-        {/* LAWS TAB */}
         <TabsContent value="laws" className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="font-bold">Journal des Lois de Finances</h3>
@@ -239,13 +250,15 @@ export default function FiscalEngineAdmin() {
                   <TableRow><TableHead>Nom de la Loi</TableHead><TableHead>Publication</TableHead><TableHead>En vigueur le</TableHead><TableHead className="text-right">Actions</TableHead></TableRow>
                 </TableHeader>
                 <TableBody>
-                  {laws?.map((l) => (
+                  {isLoadingLaws ? (
+                    <TableRow><TableCell colSpan={4} className="text-center py-10"><Loader2 className="animate-spin inline mr-2" />Chargement...</TableCell></TableRow>
+                  ) : laws?.map((l) => (
                     <TableRow key={l.id}>
                       <TableCell className="font-black text-primary">{l.name}</TableCell>
                       <TableCell className="text-xs">{l.publicationDate}</TableCell>
                       <TableCell className="text-xs font-bold text-emerald-600">{l.effectiveStartDate}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteDocumentNonBlocking(doc(db!, "fiscal_laws", l.id))}><Trash2 className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete("fiscal_laws", l.id)}><Trash2 className="h-4 w-4" /></Button>
                       </TableCell>
                     </TableRow>
                   ))}

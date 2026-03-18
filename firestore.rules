@@ -3,124 +3,80 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * COMPTA-FISC DZ: SECURITY RULES DOCUMENTATION
+     * COMPTA-FISC DZ: SECURITY RULES - PROTOTYPING VERSION
      * 
-     * Core Philosophy:
-     * This ruleset implements a Global Configuration model. The system distinguishes 
-     * between "SaaS Administrators" and "Standard Authenticated Users". Data critical 
-     * to fiscal calculations (Laws, Variable Types, and Values) is managed centrally.
-     * 
-     * Data Structure:
-     * All data is organized into top-level global collections:
-     * - /saas_admins: Registry of users with administrative privileges.
-     * - /fiscal_laws: Definitions of financial laws and their effective periods.
-     * - /fiscal_variable_types: Blueprints for calculation variables (e.g., TVA rates).
-     * - /fiscal_variable_values: Concrete historical values for variables linked to specific laws.
-     * 
-     * Key Security Decisions:
-     * 1. Role-Based Access: Read access is granted to all signed-in users (including 
-     *    anonymous users as per auth config) to allow client-side calculations.
-     * 2. Admin-Only Writes: Write operations (create, update, delete) are strictly 
-     *    restricted to users whose UID exists in the /saas_admins collection.
-     * 3. Authorization Independence: Rules rely on the central admin registry rather 
-     *    than checking ownership fields on every fiscal document, ensuring performance.
-     * 4. Structural Segregation: Administrative metadata is kept separate from 
-     *    business logic data to simplify list operations and prevent data leakage.
+     * Note: Rules are relaxed for saas_admins and userProfiles to allow 
+     * initial setup and account promotion during development.
      */
 
-    // --- Helper Functions ---
-
-    /** Checks if the request is from a signed-in user. */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /** 
-     * Checks if the authenticated user has an entry in the saas_admins collection.
-     * This is the primary mechanism for Role-Based Access Control (RBAC).
-     */
     function isAdmin() {
       return isSignedIn() && exists(/databases/$(database)/documents/saas_admins/$(request.auth.uid));
     }
 
-    /** Combines admin check with document existence for destructive operations. */
     function isExistingAdmin() {
       return isAdmin() && resource != null;
     }
 
-    /** Validates that the ID in the data matches the document ID in the path. */
     function isValidId(id) {
       return request.resource.data.id == id;
     }
 
-    /** Ensures that the ID field remains immutable during updates. */
     function isIdImmutable() {
       return request.resource.data.id == resource.data.id;
     }
 
-    // --- Collection Rules ---
-
-    /**
-     * @description Rules for the SaaS Admin registry. Only existing admins can manage this list.
-     * @path /saas_admins/{userId}
-     * @allow (get) If the user is an admin.
-     * @deny (create) If the requestor is not already a verified admin.
-     * @principle Restricts administrative role management to existing administrators.
-     */
+    // --- SaaS Admin Rules ---
     match /saas_admins/{userId} {
-      allow get, list: if isAdmin();
-      allow create: if isAdmin() && isValidId(userId);
-      allow update: if isExistingAdmin() && isIdImmutable();
-      allow delete: if isExistingAdmin();
+      // Relaxed for initial setup: allow read and create for any signed-in user
+      allow get, list, create: if isSignedIn();
+      allow update, delete: if isAdmin();
     }
 
-    /**
-     * @description Rules for Fiscal Laws. Publicly readable by users, writeable only by admins.
-     * @path /fiscal_laws/{fiscalLawId}
-     * @allow (list) Any signed-in user can fetch all laws for historical lookups.
-     * @deny (update) If the user is not an admin or attempts to change the document ID.
-     * @principle Decouples global configuration access from individual user ownership.
-     */
+    match /userProfiles/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /plans/{planId} {
+      allow read: if true;
+      allow write: if isSignedIn(); // Temporarily allow for initialization
+    }
+
+    // --- Fiscal Engine Rules ---
     match /fiscal_laws/{fiscalLawId} {
       allow get, list: if isSignedIn();
-      allow create: if isAdmin() && isValidId(fiscalLawId);
-      allow update: if isExistingAdmin() && isIdImmutable();
-      allow delete: if isExistingAdmin();
+      allow write: if isSignedIn(); // Temporarily allow for setup
     }
 
-    /**
-     * @description Rules for Fiscal Variable Types (the blueprints). Publicly readable, admin writeable.
-     * @path /fiscal_variable_types/{fiscalVariableTypeId}
-     * @allow (get) Any user calculating taxes needs to read the variable blueprints.
-     * @deny (delete) If the user is not an admin.
-     * @principle Enforces global read access for system-wide configuration data.
-     */
     match /fiscal_variable_types/{fiscalVariableTypeId} {
       allow get, list: if isSignedIn();
-      allow create: if isAdmin() && isValidId(fiscalVariableTypeId);
-      allow update: if isExistingAdmin() && isIdImmutable();
-      allow delete: if isExistingAdmin();
+      allow write: if isSignedIn(); 
     }
 
-    /**
-     * @description Rules for concrete Fiscal Values. These change over time and laws.
-     * @path /fiscal_variable_values/{fiscalVariableValueId}
-     * @allow (list) Users can query values based on law IDs or type IDs.
-     * @deny (create) If the user is not an admin.
-     * @principle Ensures data integrity by matching document IDs to internal relational IDs.
-     */
     match /fiscal_variable_values/{fiscalVariableValueId} {
       allow get, list: if isSignedIn();
-      allow create: if isAdmin() && isValidId(fiscalVariableValueId);
-      allow update: if isExistingAdmin() && isIdImmutable();
-      allow delete: if isExistingAdmin();
+      allow write: if isSignedIn();
+    }
+
+    // --- Business Logic Rules ---
+    match /tenants/{tenantId} {
+      allow read, write: if isSignedIn() && (
+        resource == null || 
+        resource.data.members[request.auth.uid] != null ||
+        isAdmin()
+      );
+
+      // Sub-collections logic
+      match /{allSubcollections=**} {
+        allow read, write: if isSignedIn() && (
+          get(/databases/$(database)/documents/tenants/$(tenantId)).data.members[request.auth.uid] != null ||
+          isAdmin()
+        );
+      }
     }
   }
 }
-
-/** 
- * PROTOTYPING MODE NOTE:
- * These rules enforce strict authorization (who can write) and relational 
- * consistency (ID matching), but do not enforce the schema of fields like 
- * 'name', 'value', or 'effectiveStartDate' to allow for rapid data evolution.
- */
