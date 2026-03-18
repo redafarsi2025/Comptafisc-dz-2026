@@ -12,8 +12,7 @@ import {
   Settings,
   ArrowLeft,
   Briefcase,
-  Layers,
-  ChevronRight
+  Layers
 } from "lucide-react"
 
 import {
@@ -43,21 +42,21 @@ export function AdminSidebar() {
   const pathname = usePathname()
 
   return (
-    <Sidebar variant="sidebar" className="border-r bg-white">
-      <SidebarHeader className="p-6 border-b bg-slate-50/50">
+    <Sidebar variant="sidebar" className="border-r border-slate-200">
+      <SidebarHeader className="p-6 border-b border-slate-100">
         <div className="flex items-center gap-3 px-2">
           <div className="bg-primary/10 p-2 rounded-xl border border-primary/20">
             <Settings className="text-primary h-6 w-6" />
           </div>
           <div className="flex flex-col">
-            <span className="font-black text-xl text-primary tracking-tighter leading-none">SaaS Admin</span>
+            <span className="font-black text-xl text-slate-900 tracking-tighter leading-none">SaaS Admin</span>
             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Console Master</span>
           </div>
         </div>
       </SidebarHeader>
-      <SidebarContent className="px-3 pt-6">
+      <SidebarContent className="px-3 pt-6 bg-white">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-slate-400 uppercase text-[10px] font-black px-4 mb-4 tracking-wider opacity-80">
+          <SidebarGroupLabel className="text-slate-400 uppercase text-[10px] font-black px-4 mb-4 tracking-wider">
             Menu Administration
           </SidebarGroupLabel>
           <SidebarMenu className="gap-1">
@@ -69,15 +68,15 @@ export function AdminSidebar() {
                     asChild 
                     isActive={isActive} 
                     className={cn(
-                      "group relative py-6 px-4 rounded-xl transition-all duration-200 border border-transparent",
+                      "group relative py-6 px-4 rounded-xl transition-all duration-200 border",
                       isActive 
-                        ? "bg-primary/5 text-primary border-primary/10 font-bold" 
-                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                        ? "bg-slate-50 text-primary border-slate-200 font-black" 
+                        : "text-slate-600 border-transparent hover:bg-slate-50 hover:text-slate-900 hover:border-slate-100"
                     )}
                   >
                     <Link href={item.href} className="flex items-center justify-between w-full">
                       <div className="flex items-center gap-3">
-                        <item.icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-slate-400 group-hover:text-slate-600")} />
+                        <item.icon className={cn("h-5 w-5 transition-colors", isActive ? "text-primary" : "text-slate-400 group-hover:text-slate-600")} />
                         <span className="text-sm">{item.name}</span>
                       </div>
                       {isActive && (
@@ -91,12 +90,12 @@ export function AdminSidebar() {
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-4 border-t bg-slate-50/30">
+      <SidebarFooter className="p-4 border-t border-slate-100 bg-slate-50/30">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton 
               asChild 
-              className="text-slate-400 hover:text-primary hover:bg-white transition-all font-bold rounded-lg border border-transparent hover:border-slate-200"
+              className="text-slate-500 hover:text-primary hover:bg-white transition-all font-bold rounded-lg border border-transparent hover:border-slate-200"
             >
               <Link href="/dashboard" className="flex items-center gap-3">
                 <div className="bg-white p-1.5 rounded-md border border-slate-200 shadow-sm">
