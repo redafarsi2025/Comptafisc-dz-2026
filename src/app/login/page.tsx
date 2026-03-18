@@ -27,7 +27,7 @@ export default function LoginPage() {
     }
   }, [user, isUserLoading, router])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.email || !formData.password) {
       toast({
@@ -39,17 +39,12 @@ export default function LoginPage() {
     }
 
     setIsLoading(true)
-    try {
-      initiateEmailSignIn(auth, formData.email, formData.password)
-      // The auth state listener in Provider will handle redirection via the useEffect above
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Erreur de connexion",
-        description: "Identifiants invalides ou problème technique.",
-      })
-      setIsLoading(false)
-    }
+    // Non-blocking call. Errors are handled by AuthErrorListener.
+    initiateEmailSignIn(auth, formData.email, formData.password)
+    
+    // We stop the spinner after a delay to give the user feedback, 
+    // since the actual success is handled by the auth state listener
+    setTimeout(() => setIsLoading(false), 2000)
   }
 
   return (
