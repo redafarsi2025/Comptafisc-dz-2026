@@ -1,40 +1,27 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
      * ComptaFisc-DZ Security Rules
-     * 
-     * Core Philosophy:
-     * This ruleset implements a robust multi-tenant architecture designed for the Algerian fiscal context.
-     * The security model is based on "Authorization Independence," where access control metadata 
-     * is denormalized directly onto every document to ensure high performance and simplify 
-     * complex list operations without relying on expensive cross-document lookups.
      */
 
-    // --- Helper Functions ---
-
-    /** @description Checks if a user is signed into the application. */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /** @description Checks if the current user's UID is present in a provided membership map. */
     function isMember(membersMap) {
       return isSignedIn() && membersMap != null && request.auth.uid in membersMap;
     }
 
-    /** @description Validates that the document exists and the user is a member. */
     function isExistingMember(membersMap) {
       return resource != null && isMember(membersMap);
     }
 
-    /** @description Enforces that a field remains unchanged during an update operation. */
     function isImmutable(fieldName) {
       return request.resource.data[fieldName] == resource.data[fieldName];
     }
-
-    // --- Collection Rules ---
 
     match /tenants/{tenantId} {
       allow get, list: if isMember(resource.data.members);
@@ -43,18 +30,16 @@ service cloud.firestore {
       allow delete: if isExistingMember(resource.data.members) && resource.data.members[request.auth.uid] == 'owner';
     }
 
+    match /tenants/{tenantId}/accounts/{accountId} {
+      allow get, list: if isMember(get(/databases/$(database)/documents/tenants/$(tenantId)).data.members);
+      allow create, update, delete: if isMember(get(/databases/$(database)/documents/tenants/$(tenantId)).data.members);
+    }
+
     match /tenants/{tenantId}/journal_entries/{journalEntryId} {
       allow get, list: if isMember(resource.data.tenantMembers);
       allow create: if isMember(request.resource.data.tenantMembers) && request.resource.data.tenantId == tenantId;
       allow update: if isExistingMember(resource.data.tenantMembers) && isImmutable('tenantId');
       allow delete: if isExistingMember(resource.data.tenantMembers);
-
-      match /line_items/{lineItemId} {
-        allow get, list: if isMember(resource.data.tenantMembers);
-        allow create: if isMember(request.resource.data.tenantMembers) && request.resource.data.journalEntryId == journalEntryId;
-        allow update: if isExistingMember(resource.data.tenantMembers) && isImmutable('journalEntryId');
-        allow delete: if isExistingMember(resource.data.tenantMembers);
-      }
     }
 
     match /tenants/{tenantId}/clients/{clientId} {

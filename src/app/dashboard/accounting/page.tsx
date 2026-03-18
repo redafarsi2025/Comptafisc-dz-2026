@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -5,14 +6,15 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { SCF_ACCOUNTS, JournalEntryLine, JournalType } from "@/lib/scf-accounts"
+import { SCF_ACCOUNTS, JournalEntryLine, JournalType, SCF_Account } from "@/lib/scf-accounts"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select"
-import { Plus, Trash2, CheckCircle, Calculator, Loader2, BookOpen, Search } from "lucide-react"
+import { Plus, Trash2, CheckCircle, Calculator, Loader2, BookOpen, Search, PlusCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { useFirestore, useUser, addDocumentNonBlocking } from "@/firebase"
+import { useFirestore, useUser, addDocumentNonBlocking, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, query, where, limit } from "firebase/firestore"
-import { useCollection, useMemoFirebase } from "@/firebase"
 import { toast } from "@/hooks/use-toast"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 
 export default function AccountingJournal() {
   const db = useFirestore()
@@ -24,12 +26,41 @@ export default function AccountingJournal() {
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [searchAccount, setSearchAccount] = React.useState("")
 
+  // New account state
+  const [isAccountDialogOpen, setIsAccountDialogOpen] = React.useState(false)
+  const [newAccountData, setNewAccountData] = React.useState({ code: "", name: "" })
+
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null), limit(1));
   }, [db, user]);
   const { data: tenants } = useCollection(tenantsQuery);
   const currentTenant = tenants?.[0];
+
+  // Fetch custom accounts
+  const customAccountsQuery = useMemoFirebase(() => {
+    if (!db || !currentTenant) return null;
+    return collection(db, "tenants", currentTenant.id, "accounts");
+  }, [db, currentTenant]);
+  const { data: customAccounts } = useCollection(customAccountsQuery);
+
+  const allAccounts = React.useMemo(() => {
+    const combined = [...SCF_ACCOUNTS];
+    if (customAccounts) {
+      customAccounts.forEach(acc => {
+        if (!combined.find(c => c.code === acc.code)) {
+          combined.push({
+            code: acc.code,
+            name: acc.name,
+            category: acc.category || "Personnalisé",
+            class: acc.class,
+            isRoot: false
+          });
+        }
+      });
+    }
+    return combined.sort((a, b) => a.code.localeCompare(b.code));
+  }, [customAccounts]);
 
   const [lines, setLines] = React.useState<JournalEntryLine[]>([
     { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0 },
@@ -57,7 +88,7 @@ export default function AccountingJournal() {
     const newLines = [...lines]
     newLines[index] = { ...newLines[index], [field]: value }
     if (field === "accountCode") {
-      const account = SCF_ACCOUNTS.find(a => a.code === value)
+      const account = allAccounts.find(a => a.code === value)
       if (account) newLines[index].accountName = account.name
     }
     setLines(newLines)
@@ -106,15 +137,52 @@ export default function AccountingJournal() {
     }
   }
 
+  const handleCreateAccount = async () => {
+    if (!db || !currentTenant || !newAccountData.code || !newAccountData.name) return;
+
+    const rootCode = newAccountData.code.substring(0, 2);
+    const rootAccount = SCF_ACCOUNTS.find(a => a.code === rootCode && a.isRoot);
+
+    if (!rootAccount) {
+      toast({
+        variant: "destructive",
+        title: "Racine invalide",
+        description: "Le code doit commencer par une racine SCF valide (2 chiffres).",
+      });
+      return;
+    }
+
+    const accountRef = collection(db, "tenants", currentTenant.id, "accounts");
+    const accountData = {
+      code: newAccountData.code,
+      name: newAccountData.name,
+      rootCode,
+      class: rootAccount.class,
+      tenantId: currentTenant.id,
+      category: rootAccount.category
+    };
+
+    try {
+      addDocumentNonBlocking(accountRef, accountData);
+      toast({
+        title: "Compte créé",
+        description: `Le compte ${newAccountData.code} a été ajouté à votre PCE.`,
+      });
+      setIsAccountDialogOpen(false);
+      setNewAccountData({ code: "", name: "" });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const filteredAccounts = React.useMemo(() => {
     const search = searchAccount.toLowerCase();
-    return SCF_ACCOUNTS.filter(a => 
+    return allAccounts.filter(a => 
       a.code.includes(search) || 
       a.name.toLowerCase().includes(search)
     );
-  }, [searchAccount]);
+  }, [allAccounts, searchAccount]);
 
-  // Groupement des comptes par classe pour une meilleure UX
   const groupedAccounts = React.useMemo(() => {
     const groups: Record<number, typeof SCF_ACCOUNTS> = {};
     filteredAccounts.forEach(acc => {
@@ -144,6 +212,46 @@ export default function AccountingJournal() {
           <p className="text-muted-foreground text-sm">Établissez votre Plan de Comptes de l'Entité en subdivisant les racines du SCF.</p>
         </div>
         <div className="flex gap-2">
+          <Dialog open={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="border-accent text-accent hover:bg-accent/10">
+                <PlusCircle className="mr-2 h-4 w-4" /> Nouveau Compte PCE
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Créer un sous-compte personnalisé</DialogTitle>
+                <DialogDescription>
+                  Subdivisez une racine SCF existante pour votre Plan de Comptes de l'Entité.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="code" className="text-right">Code</Label>
+                  <Input 
+                    id="code" 
+                    placeholder="Ex: 3001" 
+                    className="col-span-3" 
+                    value={newAccountData.code}
+                    onChange={(e) => setNewAccountData({...newAccountData, code: e.target.value})}
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="name" className="text-right">Intitulé</Label>
+                  <Input 
+                    id="name" 
+                    placeholder="Ex: Stocks - Alimentation" 
+                    className="col-span-3" 
+                    value={newAccountData.name}
+                    onChange={(e) => setNewAccountData({...newAccountData, name: e.target.value})}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button onClick={handleCreateAccount} className="bg-accent text-accent-foreground">Enregistrer le compte</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           <Button variant="outline" onClick={addLine}>
             <Plus className="mr-2 h-4 w-4" /> Ajouter ligne
           </Button>

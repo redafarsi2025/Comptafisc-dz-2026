@@ -68,6 +68,19 @@
         "totalAmountIncludingTax": { "type": "number" },
         "status": { "type": "string" }
       }
+    },
+    "Account": {
+      "title": "Custom Account (PCE)",
+      "description": "Sous-compte personnalisé créé par l'entité.",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "description": "Code du compte (ex: 30001)" },
+        "name": { "type": "string", "description": "Nom du compte" },
+        "rootCode": { "type": "string", "description": "Code racine SCF (2 chiffres)" },
+        "class": { "type": "number" },
+        "tenantId": { "type": "string" }
+      },
+      "required": ["code", "name", "rootCode", "class", "tenantId"]
     }
   },
   "auth": {
@@ -81,6 +94,10 @@
     "/tenants/{tenantId}/invoices/{invoiceId}": {
       "schema": "#/entities/Invoice",
       "description": "Factures clients du dossier"
+    },
+    "/tenants/{tenantId}/accounts/{accountId}": {
+      "schema": "#/entities/Account",
+      "description": "Plan de comptes personnalisé de l'entité"
     }
   }
 }
