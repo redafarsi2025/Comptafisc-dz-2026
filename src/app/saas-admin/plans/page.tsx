@@ -13,7 +13,7 @@ import { Switch } from "@/components/ui/switch"
 import { 
   Layers, Plus, Save, Trash2, Edit3, Check, X, 
   Package, Info, Calculator, FileText, BarChart3, ShieldCheck, 
-  Users as UsersIcon, Database, Zap
+  Users as UsersIcon, Database, Zap, RefreshCcw, Sparkles
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -42,6 +42,7 @@ export default function PlansManagement() {
   const db = useFirestore()
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [editingPlan, setEditingPlan] = React.useState<any>(null)
+  const [isInitializing, setIsInitializing] = React.useState(false)
 
   const plansQuery = useMemoFirebase(() => {
     if (!db) return null;
@@ -67,6 +68,81 @@ export default function PlansManagement() {
   }
 
   const [currentPlan, setCurrentPlan] = React.useState(initialPlanState)
+
+  const handleInitializePlans = async () => {
+    if (!db) return;
+    setIsInitializing(true);
+
+    const standardPlans = [
+      {
+        id: "GRATUIT",
+        name: "GRATUIT",
+        price: 0,
+        period: "DA/mois",
+        description: "Je veux tester sans risque et voir ce que c'est.",
+        isActive: true,
+        modules: {
+          billing: "included", ocr: "limited", accounting: "limited", bank: "excluded",
+          tva: "excluded", g50: "excluded", alerts: "limited", ibs: "excluded",
+          tap: "excluded", analytics: "limited", cashflow: "excluded", reports: "excluded",
+          efatura: "excluded", cabinet: "excluded"
+        },
+        limits: { invoices: "15", users: "1", companies: "1", storage: "500 MB", support: "Email" }
+      },
+      {
+        id: "ESSENTIEL",
+        name: "ESSENTIEL",
+        price: 1500,
+        period: "DA/mois",
+        description: "Je veux être en règle et ne plus avoir peur du 20 du mois.",
+        isActive: true,
+        modules: {
+          billing: "included", ocr: "included", accounting: "included", bank: "included",
+          tva: "included", g50: "included", alerts: "included", ibs: "excluded",
+          tap: "excluded", analytics: "included", cashflow: "excluded", reports: "excluded",
+          efatura: "included", cabinet: "excluded"
+        },
+        limits: { invoices: "200", users: "2", companies: "1", storage: "5 GB", support: "Email+Chat" }
+      },
+      {
+        id: "PRO",
+        name: "PRO",
+        price: 5000,
+        period: "DA/mois",
+        description: "Je veux optimiser ma fiscalité et piloter mon entreprise comme un grand.",
+        isActive: true,
+        modules: {
+          billing: "included", ocr: "included", accounting: "included", bank: "included",
+          tva: "included", g50: "included", alerts: "included", ibs: "included",
+          tap: "included", analytics: "included", cashflow: "included", reports: "included",
+          efatura: "limited", cabinet: "excluded"
+        },
+        limits: { invoices: "Illimité", users: "5", companies: "1", storage: "20 GB", support: "Prioritaire" }
+      },
+      {
+        id: "CABINET",
+        name: "CABINET",
+        price: 0,
+        period: "Sur devis",
+        description: "Je veux gérer tous mes clients efficacement et offrir un service premium.",
+        isActive: true,
+        modules: MODULES.reduce((acc, m) => ({ ...acc, [m.key]: 'included' }), {}),
+        limits: { invoices: "Illimité", users: "Illimité", companies: "Illimité", storage: "100 GB", support: "Dédié" }
+      }
+    ];
+
+    try {
+      for (const p of standardPlans) {
+        const planRef = doc(db, "plans", p.id);
+        setDocumentNonBlocking(planRef, { ...p, updatedAt: new Date().toISOString() }, { merge: true });
+      }
+      toast({ title: "Plans initialisés", description: "Les 4 offres standards ont été créées." });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsInitializing(false);
+    }
+  }
 
   const handleSavePlan = async () => {
     if (!db || !currentPlan.id || !currentPlan.name) {
@@ -127,129 +203,151 @@ export default function PlansManagement() {
           </h1>
           <p className="text-slate-400">Configurez les briques fonctionnelles et les limites tarifaires de votre SaaS.</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) {
-            setCurrentPlan(initialPlanState);
-            setEditingPlan(null);
-          }
-        }}>
-          <DialogTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90">
-              <Plus className="mr-2 h-4 w-4" /> Créer un Plan
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-slate-950 text-white border-slate-800">
-            <DialogHeader>
-              <DialogTitle>{editingPlan ? "Modifier le Plan" : "Nouveau Plan Commercial"}</DialogTitle>
-              <DialogDescription className="text-slate-400">Définissez le prix, les limites et les modules inclus.</DialogDescription>
-            </DialogHeader>
-            
-            <div className="grid gap-6 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>ID Unique (Slug)</Label>
-                  <Input 
-                    disabled={!!editingPlan}
-                    placeholder="ex: PRO_ANNUEL" 
-                    value={currentPlan.id} 
-                    onChange={e => setCurrentPlan({...currentPlan, id: e.target.value})}
-                    className="bg-slate-900 border-slate-800"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Nom de l'offre</Label>
-                  <Input 
-                    placeholder="ex: Pack Excellence" 
-                    value={currentPlan.name} 
-                    onChange={e => setCurrentPlan({...currentPlan, name: e.target.value})}
-                    className="bg-slate-900 border-slate-800"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Prix (DA)</Label>
-                  <Input 
-                    type="number" 
-                    value={currentPlan.price} 
-                    onChange={e => setCurrentPlan({...currentPlan, price: parseFloat(e.target.value)})}
-                    className="bg-slate-900 border-slate-800"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Périodicité</Label>
-                  <Select value={currentPlan.period} onValueChange={v => setCurrentPlan({...currentPlan, period: v})}>
-                    <SelectTrigger className="bg-slate-900 border-slate-800">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-900 text-white border-slate-800">
-                      <SelectItem value="DA/mois">Mensuel</SelectItem>
-                      <SelectItem value="DA/an">Annuel</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-end pb-2">
-                  <div className="flex items-center space-x-2">
-                    <Switch 
-                      checked={currentPlan.isActive} 
-                      onCheckedChange={v => setCurrentPlan({...currentPlan, isActive: v})}
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            className="border-primary text-primary hover:bg-primary/10" 
+            onClick={handleInitializePlans}
+            disabled={isInitializing}
+          >
+            {isInitializing ? <RefreshCcw className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+            Initialiser Plans Standards
+          </Button>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) {
+              setCurrentPlan(initialPlanState);
+              setEditingPlan(null);
+            }
+          }}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary hover:bg-primary/90">
+                <Plus className="mr-2 h-4 w-4" /> Créer un Plan
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-slate-950 text-white border-slate-800">
+              <DialogHeader>
+                <DialogTitle>{editingPlan ? "Modifier le Plan" : "Nouveau Plan Commercial"}</DialogTitle>
+                <DialogDescription className="text-slate-400">Définissez le prix, les limites et les modules inclus.</DialogDescription>
+              </DialogHeader>
+              
+              <div className="grid gap-6 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>ID Unique (Slug)</Label>
+                    <Input 
+                      disabled={!!editingPlan}
+                      placeholder="ex: PRO_ANNUEL" 
+                      value={currentPlan.id} 
+                      onChange={e => setCurrentPlan({...currentPlan, id: e.target.value})}
+                      className="bg-slate-900 border-slate-800"
                     />
-                    <Label>Plan Actif</Label>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Nom de l'offre</Label>
+                    <Input 
+                      placeholder="ex: Pack Excellence" 
+                      value={currentPlan.name} 
+                      onChange={e => setCurrentPlan({...currentPlan, name: e.target.value})}
+                      className="bg-slate-900 border-slate-800"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Philosophie / Description (Bénéfice client)</Label>
+                  <Input 
+                    placeholder="Ex: Je veux être en règle..." 
+                    value={currentPlan.description} 
+                    onChange={e => setCurrentPlan({...currentPlan, description: e.target.value})}
+                    className="bg-slate-900 border-slate-800"
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>Prix (DA)</Label>
+                    <Input 
+                      type="number" 
+                      value={currentPlan.price} 
+                      onChange={e => setCurrentPlan({...currentPlan, price: parseFloat(e.target.value)})}
+                      className="bg-slate-900 border-slate-800"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Périodicité</Label>
+                    <Select value={currentPlan.period} onValueChange={v => setCurrentPlan({...currentPlan, period: v})}>
+                      <SelectTrigger className="bg-slate-900 border-slate-800">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-900 text-white border-slate-800">
+                        <SelectItem value="DA/mois">Mensuel</SelectItem>
+                        <SelectItem value="DA/an">Annuel</SelectItem>
+                        <SelectItem value="Sur devis">Sur devis</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-end pb-2">
+                    <div className="flex items-center space-x-2">
+                      <Switch 
+                        checked={currentPlan.isActive} 
+                        onCheckedChange={v => setCurrentPlan({...currentPlan, isActive: v})}
+                      />
+                      <Label>Plan Actif</Label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-4 border-t border-slate-800">
+                  <h4 className="text-sm font-bold flex items-center gap-2"><Zap className="h-4 w-4 text-primary" /> Matrice des Modules</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {MODULES.map((m) => (
+                      <button
+                        key={m.key}
+                        onClick={() => toggleModule(m.key)}
+                        className={`flex items-center justify-between p-3 rounded-lg border transition-all text-left ${
+                          currentPlan.modules[m.key] === 'included' ? 'bg-emerald-500/10 border-emerald-500/50' :
+                          currentPlan.modules[m.key] === 'limited' ? 'bg-amber-500/10 border-amber-500/50' :
+                          'bg-slate-900 border-slate-800 opacity-50'
+                        }`}
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold">{m.label}</span>
+                          <span className="text-[10px] opacity-60">{m.category}</span>
+                        </div>
+                        {currentPlan.modules[m.key] === 'included' ? <Check className="h-3 w-3 text-emerald-500" /> :
+                         currentPlan.modules[m.key] === 'limited' ? <div className="h-2 w-2 rounded-full bg-amber-500" /> :
+                         <X className="h-3 w-3 text-slate-600" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-4 border-t border-slate-800">
+                  <h4 className="text-sm font-bold flex items-center gap-2"><Database className="h-4 w-4 text-primary" /> Limites Techniques</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {Object.entries(currentPlan.limits).map(([key, val]) => (
+                      <div key={key} className="space-y-1">
+                        <Label className="text-[10px] uppercase text-slate-500">{key}</Label>
+                        <Input 
+                          value={val as string} 
+                          onChange={e => setCurrentPlan({...currentPlan, limits: {...currentPlan.limits, [key]: e.target.value}})}
+                          className="bg-slate-900 border-slate-800 h-8 text-xs"
+                        />
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-4 pt-4 border-t border-slate-800">
-                <h4 className="text-sm font-bold flex items-center gap-2"><Zap className="h-4 w-4 text-primary" /> Matrice des Modules</h4>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {MODULES.map((m) => (
-                    <button
-                      key={m.key}
-                      onClick={() => toggleModule(m.key)}
-                      className={`flex items-center justify-between p-3 rounded-lg border transition-all text-left ${
-                        currentPlan.modules[m.key] === 'included' ? 'bg-emerald-500/10 border-emerald-500/50' :
-                        currentPlan.modules[m.key] === 'limited' ? 'bg-amber-500/10 border-amber-500/50' :
-                        'bg-slate-900 border-slate-800 opacity-50'
-                      }`}
-                    >
-                      <div className="flex flex-col">
-                        <span className="text-xs font-bold">{m.label}</span>
-                        <span className="text-[10px] opacity-60">{m.category}</span>
-                      </div>
-                      {currentPlan.modules[m.key] === 'included' ? <Check className="h-3 w-3 text-emerald-500" /> :
-                       currentPlan.modules[m.key] === 'limited' ? <div className="h-2 w-2 rounded-full bg-amber-500" /> :
-                       <X className="h-3 w-3 text-slate-600" />}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-4 pt-4 border-t border-slate-800">
-                <h4 className="text-sm font-bold flex items-center gap-2"><Database className="h-4 w-4 text-primary" /> Limites Techniques</h4>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {Object.entries(currentPlan.limits).map(([key, val]) => (
-                    <div key={key} className="space-y-1">
-                      <Label className="text-[10px] uppercase text-slate-500">{key}</Label>
-                      <Input 
-                        value={val} 
-                        onChange={e => setCurrentPlan({...currentPlan, limits: {...currentPlan.limits, [key]: e.target.value}})}
-                        className="bg-slate-900 border-slate-800 h-8 text-xs"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <DialogFooter className="pt-6 border-t border-slate-800">
-              <Button onClick={handleSavePlan} className="w-full bg-primary hover:bg-primary/90">
-                <Save className="mr-2 h-4 w-4" /> {editingPlan ? "Mettre à jour le plan" : "Publier le nouveau plan"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <DialogFooter className="pt-6 border-t border-slate-800">
+                <Button onClick={handleSavePlan} className="w-full bg-primary hover:bg-primary/90">
+                  <Save className="mr-2 h-4 w-4" /> {editingPlan ? "Mettre à jour le plan" : "Publier le nouveau plan"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6">
@@ -273,6 +371,12 @@ export default function PlansManagement() {
               <TableBody>
                 {isLoading ? (
                   <TableRow><TableCell colSpan={6} className="text-center py-12">Chargement du catalogue...</TableCell></TableRow>
+                ) : plans?.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-12 text-slate-500 italic">
+                      Aucun plan configuré. Utilisez le bouton "Initialiser Plans Standards" pour démarrer.
+                    </TableCell>
+                  </TableRow>
                 ) : plans?.map((p) => (
                   <TableRow key={p.id} className="border-slate-800 hover:bg-slate-900/50 transition-colors">
                     <TableCell>
