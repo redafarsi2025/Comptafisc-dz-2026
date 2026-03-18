@@ -5,6 +5,7 @@ service cloud.firestore {
 
     /**
      * ComptaFisc-DZ Security Rules
+     * Optimisées pour le filtrage multi-tenant (LF 2024-2026)
      */
 
     function isSignedIn() {
@@ -15,12 +16,12 @@ service cloud.firestore {
       return isSignedIn() && membersMap != null && request.auth.uid in membersMap;
     }
 
-    function getTenantMembers(tenantId) {
-      return get(/databases/$(database)/documents/tenants/$(tenantId)).data.members;
-    }
-
-    function isTenantMember(tenantId) {
-      return isSignedIn() && isMember(getTenantMembers(tenantId));
+    // Vérifie l'accès basé sur le champ tenantMembers présent dans chaque document de sous-collection
+    function hasDocumentAccess() {
+      return isSignedIn() && (
+        resource == null || 
+        (resource.data.tenantMembers != null && request.auth.uid in resource.data.tenantMembers)
+      );
     }
 
     match /tenants/{tenantId} {
@@ -31,24 +32,25 @@ service cloud.firestore {
       allow delete: if isMember(resource.data.members) && resource.data.members[request.auth.uid] == 'owner';
     }
 
+    // Toutes les sous-collections utilisent le pattern de sécurité par champ 'tenantMembers'
     match /tenants/{tenantId}/accounts/{accountId} {
-      allow read, write: if isTenantMember(tenantId);
+      allow read, write: if hasDocumentAccess();
     }
 
     match /tenants/{tenantId}/journal_entries/{journalEntryId} {
-      allow read, write: if isTenantMember(tenantId);
+      allow read, write: if hasDocumentAccess();
     }
 
     match /tenants/{tenantId}/clients/{clientId} {
-      allow read, write: if isTenantMember(tenantId);
+      allow read, write: if hasDocumentAccess();
     }
 
     match /tenants/{tenantId}/invoices/{invoiceId} {
-      allow read, write: if isTenantMember(tenantId);
+      allow read, write: if hasDocumentAccess();
     }
 
     match /tenants/{tenantId}/assets/{assetId} {
-      allow read, write: if isTenantMember(tenantId);
+      allow read, write: if hasDocumentAccess();
     }
 
     match /tax_regulations/{taxRegulationId} {

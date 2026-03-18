@@ -24,18 +24,22 @@ export default function LiasseFiscaleG4() {
   const currentTenant = tenants?.[0];
 
   const entriesQuery = useMemoFirebase(() => {
-    if (!db || !currentTenant) return null;
+    if (!db || !currentTenant || !user) return null;
     return query(
       collection(db, "tenants", currentTenant.id, "journal_entries"),
+      where(`tenantMembers.${user.uid}`, "!=", null),
       orderBy("entryDate", "asc")
     );
-  }, [db, currentTenant]);
+  }, [db, currentTenant, user]);
   const { data: entries, isLoading: isEntriesLoading } = useCollection(entriesQuery);
 
   const assetsQuery = useMemoFirebase(() => {
-    if (!db || !currentTenant) return null;
-    return collection(db, "tenants", currentTenant.id, "assets");
-  }, [db, currentTenant]);
+    if (!db || !currentTenant || !user) return null;
+    return query(
+      collection(db, "tenants", currentTenant.id, "assets"),
+      where(`tenantMembers.${user.uid}`, "!=", null)
+    );
+  }, [db, currentTenant, user]);
   const { data: assets, isLoading: isAssetsLoading } = useCollection(assetsQuery);
 
   // Agrégation des données pour la G4
