@@ -30,11 +30,14 @@ export default function InvoicingPage() {
   const { data: tenants } = useCollection(tenantsQuery);
   const currentTenant = tenants?.[0];
 
-  // Fetch clients for the active tenant
+  // Fetch clients for the active tenant with security filter
   const clientsQuery = useMemoFirebase(() => {
-    if (!db || !currentTenant) return null;
-    return collection(db, "tenants", currentTenant.id, "clients");
-  }, [db, currentTenant]);
+    if (!db || !currentTenant || !user) return null;
+    return query(
+      collection(db, "tenants", currentTenant.id, "clients"),
+      where(`tenantMembers.${user.uid}`, "!=", null)
+    );
+  }, [db, currentTenant, user]);
   const { data: clients } = useCollection(clientsQuery);
 
   const totals = React.useMemo(() => {

@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -39,11 +40,14 @@ export default function DashboardOverview() {
   const { data: tenants } = useCollection(tenantsQuery);
   const currentTenant = tenants?.[0];
 
-  // 2. Fetch Invoices for real totals
+  // 2. Fetch Invoices for real totals with security filter
   const invoicesQuery = useMemoFirebase(() => {
-    if (!db || !currentTenant) return null;
-    return collection(db, "tenants", currentTenant.id, "invoices");
-  }, [db, currentTenant]);
+    if (!db || !currentTenant || !user) return null;
+    return query(
+      collection(db, "tenants", currentTenant.id, "invoices"),
+      where(`tenantMembers.${user.uid}`, "!=", null)
+    );
+  }, [db, currentTenant, user]);
   const { data: invoices } = useCollection(invoicesQuery);
 
   const stats = React.useMemo(() => {
