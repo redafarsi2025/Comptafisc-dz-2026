@@ -27,7 +27,7 @@ export type FiscalUpdateOutput = z.infer<typeof FiscalUpdateOutputSchema>;
 export async function parseFiscalUpdate(input: { text: string }): Promise<FiscalUpdateOutput> {
   const { output } = await ai.generate({
     model: 'googleai/gemini-2.5-flash',
-    input: input.text,
+    prompt: input.text,
     output: { schema: FiscalUpdateOutputSchema },
     system: `Tu es un expert en réglementation fiscale algérienne. 
     Ton rôle est d'extraire des données structurées à partir de textes officiels (Loi de Finances, circulaires DGI).
@@ -42,5 +42,9 @@ export async function parseFiscalUpdate(input: { text: string }): Promise<Fiscal
     Assure-toi que les dates sont au format ISO YYYY-MM-DD.`
   });
 
-  return output!;
+  if (!output) {
+    throw new Error("L'IA n'a pas pu extraire de données valides du texte fourni.");
+  }
+
+  return output;
 }
