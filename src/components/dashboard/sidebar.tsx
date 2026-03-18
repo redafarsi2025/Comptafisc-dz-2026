@@ -30,7 +30,8 @@ import {
   Layers,
   MessagesSquare,
   Repeat,
-  Landmark
+  Landmark,
+  ShieldAlert
 } from "lucide-react"
 
 import {
@@ -172,6 +173,17 @@ export function DashboardSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
+          </SidebarMenu>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Système</SidebarGroupLabel>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={pathname.startsWith("/saas-admin")} tooltip="Admin SaaS" className="text-accent hover:bg-accent/10">
+                <Link href="/saas-admin"><ShieldAlert /><span>Administration SaaS</span></Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
 
