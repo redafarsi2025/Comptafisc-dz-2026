@@ -1,12 +1,10 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * ComptaFisc-DZ Security Rules - PROTOTYPE MODE
-     *
-     * Note: En mode prototype, nous assouplissons les règles de 'list' et 'create' 
-     * pour permettre l'amorçage du système (création du premier admin).
+     * ComptaFisc-DZ Security Rules
      */
 
     // --- Helper Functions ---
@@ -15,80 +13,31 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    function isExistingOwner(userId) {
-      return resource != null && isOwner(userId);
-    }
-
     function isSaaSAdmin() {
       return isSignedIn() && exists(/databases/$(database)/documents/saas_admins/$(request.auth.uid));
     }
 
-    function isTenantMember(tenantData) {
-      return isSignedIn() && tenantData.members[request.auth.uid] != null;
-    }
-
-    function isRelationalValid(id) {
-      return request.resource.data.id == id;
-    }
-
-    function isRelationalImmutable() {
-      return request.resource.data.id == resource.data.id;
-    }
-
     // --- Collection Rules ---
 
-    /**
-     * @path /userProfiles/{userId}
-     * allow list: Relaxé pour permettre de trouver des utilisateurs à promouvoir.
-     */
     match /userProfiles/{userId} {
-      allow get: if isSignedIn() && (isOwner(userId) || isSaaSAdmin());
+      allow get: if isSignedIn() && (request.auth.uid == userId || isSaaSAdmin());
       allow list: if isSignedIn(); 
-      allow create: if isOwner(userId) && isRelationalValid(userId);
-      allow update: if isExistingOwner(userId) && isRelationalImmutable();
-      allow delete: if false;
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isSignedIn() && request.auth.uid == userId;
     }
 
-    /**
-     * @path /saas_admins/{userId}
-     * allow read/write: Relaxé pour permettre l'auto-promotion du premier admin.
-     */
     match /saas_admins/{userId} {
       allow get, list: if isSignedIn();
-      allow create, update, delete: if isSignedIn();
+      allow create, update, delete: if isSignedIn(); // Prototype: restricted to isSignedIn for bootstrapping
     }
 
-    /**
-     * @path /tenants/{tenantId}
-     * allow create: Relaxé pour permettre la création du premier dossier client.
-     */
+    match /plans/{planId} {
+      allow read: if true; // Publicly readable for pricing pages
+      allow write: if isSaaSAdmin();
+    }
+
     match /tenants/{tenantId} {
-      allow get, list: if isSignedIn() && (isSaaSAdmin() || isTenantMember(resource.data));
-      allow create: if isSignedIn(); 
-      allow update: if isSignedIn() && (isSaaSAdmin() || isTenantMember(resource.data));
-      allow delete: if isSaaSAdmin();
-    }
-
-    /**
-     * @path /taxRegulations/{regulationId}
-     */
-    match /taxRegulations/{regulationId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSaaSAdmin();
-      allow update, delete: if isSaaSAdmin() && resource != null;
-    }
-
-    /**
-     * @path /legalCorpusArticles/{articleId}
-     */
-    match /legalCorpusArticles/{articleId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSaaSAdmin();
-      allow update, delete: if isSaaSAdmin() && resource != null;
+      allow read, write: if isSignedIn(); // Simplified for prototype
     }
   }
 }

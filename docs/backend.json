@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "UserProfile": {
@@ -117,125 +118,33 @@
         "createdAt"
       ]
     },
-    "TaxRegulation": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "TaxRegulation",
+    "SubscriptionPlan": {
+      "title": "SubscriptionPlan",
       "type": "object",
-      "description": "Stores the latest Algerian tax and social security regulations, rates, and parameters used for client-side calculations. These are managed by SaaS administrators to ensure compliance and zero hardcoded constants.",
+      "description": "Defines a commercial plan available for users. Plans bundle specific modules and impose limits.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the TaxRegulation entity."
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "period": { "type": "string", "enum": ["DA/mois", "DA/an"] },
+        "description": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "modules": {
+          "type": "object",
+          "description": "Mapping of functional modules to their status in this plan."
         },
-        "regulationType": {
-          "type": "string",
-          "description": "Categorizes the type of tax or social contribution regulation (e.g., 'TVA_RATE', 'IRG_BRACKETS', 'CNAS_CONTRIBUTION', 'STAMP_DUTY_RATES')."
-        },
-        "effectiveDate": {
-          "type": "string",
-          "description": "The date from which this regulation or rate becomes effective.",
-          "format": "date"
-        },
-        "endDate": {
-          "type": "string",
-          "description": "The date until which this regulation or rate is effective, or null if ongoing.",
-          "format": "date"
-        },
-        "description": {
-          "type": "string",
-          "description": "A brief description or summary of the regulation."
-        },
-        "parameters": {
-          "type": "string",
-          "description": "A flexible JSON string containing the specific rates, brackets, thresholds, or other dynamic parameters for the regulation."
-        },
-        "legalReference": {
-          "type": "string",
-          "description": "The official legal text or article reference (e.g., 'LF 2026, Article X') for this regulation."
-        },
-        "lastUpdatedByUserId": {
-          "type": "string",
-          "description": "Reference to the UserProfile (specifically, a SaaS admin) who last updated this regulation. (Relationship: UserProfile 1:N TaxRegulation)"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the regulation entry was last updated in the system.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "regulationType",
-        "effectiveDate",
-        "parameters",
-        "legalReference",
-        "lastUpdatedByUserId",
-        "updatedAt"
-      ]
-    },
-    "LegalCorpusArticle": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "LegalCorpusArticle",
-      "type": "object",
-      "description": "Represents an article from the pre-seeded legal corpus (e.g., CIDTA/CTCA), which is used by the AI Fiscal Assistant. These articles are managed and updated by SaaS administrators to maintain an accurate and sourced information base.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the LegalCorpusArticle entity."
-        },
-        "corpusName": {
-          "type": "string",
-          "description": "The name of the legal corpus from which the article originates (e.g., 'CIDTA', 'CTCA', 'Code des Impôts Directs et Taxes Assimilées')."
-        },
-        "articleNumber": {
-          "type": "string",
-          "description": "The specific article number or identifier within its respective legal corpus."
-        },
-        "title": {
-          "type": "string",
-          "description": "The title or subject heading of the legal article."
-        },
-        "content": {
-          "type": "string",
-          "description": "The full text content of the legal article."
-        },
-        "publicationDate": {
-          "type": "string",
-          "description": "The original publication date of the article.",
-          "format": "date"
-        },
-        "revisionDate": {
-          "type": "string",
-          "description": "The last known revision date of the article, if applicable.",
-          "format": "date"
-        },
-        "keywords": {
-          "type": "array",
-          "description": "A list of keywords to facilitate search and retrieval of the article content.",
-          "items": {
-            "type": "string"
+        "limits": {
+          "type": "object",
+          "properties": {
+            "invoices": { "type": "string" },
+            "users": { "type": "string" },
+            "companies": { "type": "string" },
+            "storage": { "type": "string" },
+            "support": { "type": "string" }
           }
-        },
-        "lastUpdatedByUserId": {
-          "type": "string",
-          "description": "Reference to the UserProfile (specifically, a SaaS admin) who last updated this legal article in the system. (Relationship: UserProfile 1:N LegalCorpusArticle)"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the article content was last updated in the system.",
-          "format": "date-time"
         }
       },
-      "required": [
-        "id",
-        "corpusName",
-        "articleNumber",
-        "title",
-        "content",
-        "publicationDate",
-        "lastUpdatedByUserId",
-        "updatedAt"
-      ]
+      "required": ["id", "name", "price", "isActive"]
     }
   },
   "auth": {
@@ -253,11 +162,11 @@
           "schema": {
             "$ref": "#/backend/entities/UserProfile"
           },
-          "description": "Stores individual user profile data. Access is path-based (owner-only read/write), with SaaS administrators having read access for management. Includes `roles` and `tenantIds` arrays for application logic.",
+          "description": "Stores individual user profile data.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique identifier of the user, corresponding to `request.auth.uid`."
+              "description": "The unique identifier of the user."
             }
           ]
         }
@@ -269,7 +178,7 @@
           "schema": {
             "$ref": "#/backend/entities/UserProfile"
           },
-          "description": "A dedicated collection to flag users as SaaS administrators. The existence of a document at this path (where `userId` matches `request.auth.uid`) is the primary mechanism for granting global SaaS admin privileges in security rules, ensuring authorization independence. These documents can be empty or contain a timestamp.",
+          "description": "A dedicated collection to flag users as SaaS administrators.",
           "params": [
             {
               "name": "userId",
@@ -279,54 +188,21 @@
         }
       },
       {
-        "path": "/tenants/{tenantId}",
+        "path": "/plans/{planId}",
         "definition": {
-          "entityName": "Tenant",
+          "entityName": "SubscriptionPlan",
           "schema": {
-            "$ref": "#/backend/entities/Tenant"
+            "$ref": "#/backend/entities/SubscriptionPlan"
           },
-          "description": "Stores information for each independent accounting client/company. Writable by SaaS administrators. Each document includes a denormalized `members` map (e.g., `members: { [userId]: 'role' }`) to explicitly define which non-admin users have access and their roles within this specific tenant, ensuring authorization independence for tenant-specific access checks and supporting secure list operations for members.",
+          "description": "Stores commercial subscription plans. Managed by SaaS Admins.",
           "params": [
             {
-              "name": "tenantId",
-              "description": "The unique identifier for the tenant."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/taxRegulations/{regulationId}",
-        "definition": {
-          "entityName": "TaxRegulation",
-          "schema": {
-            "$ref": "#/backend/entities/TaxRegulation"
-          },
-          "description": "Stores global Algerian tax and social security regulations. These documents are publicly readable by all authenticated users for client-side calculations but are writable exclusively by SaaS administrators. This structure ensures clear segregation of global, admin-managed data.",
-          "params": [
-            {
-              "name": "regulationId",
-              "description": "The unique identifier for the tax regulation entry."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/legalCorpusArticles/{articleId}",
-        "definition": {
-          "entityName": "LegalCorpusArticle",
-          "schema": {
-            "$ref": "#/backend/entities/LegalCorpusArticle"
-          },
-          "description": "Stores articles from the pre-seeded legal corpus for the AI Fiscal Assistant. These documents are publicly readable by all authenticated users for RAG purposes but are writable exclusively by SaaS administrators. This structure provides clear segregation for global, admin-managed informational content.",
-          "params": [
-            {
-              "name": "articleId",
-              "description": "The unique identifier for the legal corpus article."
+              "name": "planId",
+              "description": "The unique ID of the plan."
             }
           ]
         }
       }
-    ],
-    "reasoning": "The Firestore structure is designed to be secure, scalable, and debuggable, prioritizing Authorization Independence, Structural Segregation, and clear Access Modeling. The core principle for \"creation d'un admin du saas\" (SaaS admin creation) is implemented by using a dedicated collection, `/saas_admins/{userId}`, to flag users as global administrators.\n\n**Authorization Independence:**\n1.  **SaaS Admin Role:** Instead of relying on a `roles` array within the `UserProfile` document (which would require a `get()` operation in security rules and break atomicity), a separate collection, `/saas_admins/{userId}`, is introduced. The mere *existence* of a document at `/saas_admins/$(request.auth.uid)` grants global SaaS administration privileges. This allows security rules to check for admin status using `exists()` which is efficient, atomic, and promotes Authorization Independence.\n2.  **Tenant Access:** For users managing specific tenants (e.g., `dossier_manager`, `comptable`), the `Tenant` entity itself will include a denormalized `members` map (e.g., `members: { [userId]: 'role' }`). This map, embedded within each `Tenant` document, specifies which users have access to that particular tenant and their respective roles. This eliminates the need for security rules to `get()` a user's `UserProfile` to check their `tenantIds` or `roles`, thus achieving Authorization Independence for tenant-level access.\n\n**Structural Segregation & QAPs (Queries as Permissions):**\n1.  **Global Admin Data (`/taxRegulations`, `/legalCorpusArticles`):** These collections are segregated to hold data that is globally accessible for reading but only modifiable by SaaS administrators. This clear separation of concerns simplifies security rules (e.g., `allow read: if request.auth != null; allow write: if exists(/databases/$(database)/documents/saas_admins/$(request.auth.uid));`). QAPs are easily supported as all authenticated users can `list` these documents, and only admins can `list` for write/update purposes.\n2.  **User Profiles (`/userProfiles/{userId}`):** User profiles are stored under their respective UIDs, allowing for path-based authorization (`request.auth.uid == userId`). A user can securely `list` their own profile, and SaaS admins can `list` all profiles for management.\n3.  **Tenants (`/tenants/{tenantId}`):** Tenant documents are top-level. SaaS admins can `list` all tenants. For non-admin users, the denormalized `members` map within each `Tenant` document enables secure `list` operations. Users can query the `/tenants` collection using `where('members.' + request.auth.uid, '!=', null)` or similar, ensuring that QAPs are met as the security rule can verify membership without performing additional `get()` calls.\n\nThis architecture ensures that security rules are straightforward, declarative, and do not suffer from the performance or complexity issues associated with `get()` calls, making the system robust and easy to debug."
+    ]
   }
 }

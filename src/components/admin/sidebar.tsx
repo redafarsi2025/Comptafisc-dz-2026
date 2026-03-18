@@ -13,7 +13,8 @@ import {
   BarChart3,
   Settings,
   ArrowLeft,
-  Briefcase
+  Briefcase,
+  Layers
 } from "lucide-react"
 
 import {
@@ -26,12 +27,12 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarProvider,
   SidebarFooter
 } from "@/components/ui/sidebar"
 
 const adminNavigation = [
   { name: "Dashboard Revenus", href: "/saas-admin", icon: BarChart3 },
+  { name: "Gestion des Plans", href: "/saas-admin/plans", icon: Layers },
   { name: "Formulaires DGI", href: "/saas-admin/forms", icon: FileEdit },
   { name: "Règles Métier", href: "/saas-admin/rules", icon: ShieldAlert },
   { name: "Partenaires / Revendeurs", href: "/saas-admin/partners", icon: Briefcase },
