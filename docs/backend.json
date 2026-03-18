@@ -2,17 +2,16 @@
 {
   "entities": {
     "Tenant": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Tenant",
+      "description": "Dossier fiscal complet du client (35 variables).",
       "type": "object",
-      "description": "Représente une entité comptable ou un dossier d'entreprise dans ComptaFisc-DZ.",
       "properties": {
         "id": { "type": "string" },
-        "raisonSociale": { "type": "string", "description": "Dénomination officielle (CNRC)" },
+        "raisonSociale": { "type": "string" },
         "formeJuridique": { "type": "string", "enum": ["SARL", "SPA", "EI", "SNC", "EURL", "Auto-entrepreneur", "Personne physique"] },
-        "nif": { "type": "string", "description": "Numéro d'Identification Fiscale (15 chiffres)" },
-        "nis": { "type": "string", "description": "Numéro d'Identification Statistique" },
-        "registreCommerce": { "type": "string", "description": "Format: WW/YY/BXXXXXX" },
+        "nif": { "type": "string" },
+        "nis": { "type": "string" },
+        "registreCommerce": { "type": "string" },
         "articleImposition": { "type": "string" },
         "dateCreation": { "type": "string", "format": "date-time" },
         "capitalSocial": { "type": "number" },
@@ -25,45 +24,49 @@
           }
         },
         "telephone": { "type": "string" },
-        "email": { "type": "string", "format": "email" },
+        "email": { "type": "string" },
         "siteWeb": { "type": "string" },
         "regimeFiscal": { "type": "string", "enum": ["IFU", "REGIME_REEL_SIMPLIFIE", "REGIME_REEL"] },
         "assujettissementTva": { "type": "boolean" },
         "tauxTvaApplicable": { "type": "string", "enum": ["TVA_19", "TVA_9", "TVA_EXONERE"] },
         "periodiciteDeclaration": { "type": "string", "enum": ["MENSUEL", "TRIMESTRIEL", "ANNUEL"] },
-        "activiteNAP": { "type": "string", "description": "Code Nomenclature des Activités" },
+        "activiteNAP": { "type": "string" },
         "secteurActivite": { "type": "string", "enum": ["COMMERCE", "PRODUCTION", "SERVICES", "BTP", "AGRICULTURE"] },
         "centreImpots": { "type": "string" },
         "exerciceFiscal": {
           "type": "object",
           "properties": {
-            "debut": { "type": "string", "format": "date-time" },
-            "fin": { "type": "string", "format": "date-time" }
+            "debut": { "type": "string" },
+            "fin": { "type": "string" }
           }
         },
         "effectif": { "type": "number" },
-        "plan": { "type": "string", "enum": ["GRATUIT", "ESSENTIEL", "PRO", "CABINET"] },
+        "plan": { "type": "string" },
         "subscription": {
           "type": "object",
           "properties": {
-            "statut": { "type": "string", "enum": ["ACTIF", "ESSAI", "SUSPENDU", "EXPIRE", "RESILIE"] },
-            "dateDebut": { "type": "string", "format": "date-time" },
-            "dateExpiration": { "type": "string", "format": "date-time" }
+            "statut": { "type": "string" },
+            "dateDebut": { "type": "string" },
+            "dateExpiration": { "type": "string" }
           }
         },
-        "addOns": { "type": "array", "items": { "type": "string" } },
-        "efatura": {
-          "type": "object",
-          "properties": {
-            "active": { "type": "boolean" },
-            "prefixeFacture": { "type": "string" },
-            "dernierNumero": { "type": "number" }
-          }
-        },
-        "members": { "type": "object", "description": "Map des UIDs vers les rôles" },
+        "members": { "type": "object" },
         "onboardingComplete": { "type": "boolean" },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "updatedAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      }
+    },
+    "Invoice": {
+      "title": "Invoice",
+      "type": "object",
+      "properties": {
+        "tenantId": { "type": "string" },
+        "invoiceNumber": { "type": "string" },
+        "totalAmountExcludingTax": { "type": "number" },
+        "totalTaxAmount": { "type": "number" },
+        "totalStampDutyAmount": { "type": "number" },
+        "totalAmountIncludingTax": { "type": "number" },
+        "status": { "type": "string" }
       }
     }
   },
@@ -71,15 +74,13 @@
     "providers": ["password", "anonymous"]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/tenants/{tenantId}",
-        "definition": {
-          "entityName": "Tenant",
-          "schema": { "$ref": "#/backend/entities/Tenant" },
-          "description": "Dossier fiscal complet du client."
-        }
-      }
-    ]
+    "/tenants/{tenantId}": {
+      "schema": "#/entities/Tenant",
+      "description": "Données de base du dossier"
+    },
+    "/tenants/{tenantId}/invoices/{invoiceId}": {
+      "schema": "#/entities/Invoice",
+      "description": "Factures clients du dossier"
+    }
   }
 }
