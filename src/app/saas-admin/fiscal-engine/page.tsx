@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase"
+import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase"
 import { collection, query, orderBy, doc } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { 
   Gavel, Settings2, CalendarClock, Plus, 
-  Trash2, Info, DatabaseZap, Loader2 
+  Trash2, Info, DatabaseZap, Loader2, Sparkles, RefreshCcw 
 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -23,6 +23,7 @@ export default function FiscalEngineAdmin() {
   const [isLawDialogOpen, setIsLawDialogOpen] = React.useState(false)
   const [isTypeDialogOpen, setIsTypeDialogOpen] = React.useState(false)
   const [isValueDialogOpen, setIsValueDialogOpen] = React.useState(false)
+  const [isInitializing, setIsInitializing] = React.useState(false)
 
   // Subscriptions
   const lawsQuery = useMemoFirebase(() => db ? query(collection(db, "fiscal_laws"), orderBy("publicationDate", "desc")) : null, [db]);
@@ -42,15 +43,15 @@ export default function FiscalEngineAdmin() {
   const handleCreateLaw = () => {
     if (!db || !newLaw.name) return;
     const id = crypto.randomUUID();
-    addDocumentNonBlocking(collection(db, "fiscal_laws"), { ...newLaw, id });
+    setDocumentNonBlocking(doc(db, "fiscal_laws", id), { ...newLaw, id }, { merge: true });
     setIsLawDialogOpen(false);
     toast({ title: "Loi enregistrée", description: "Le nouveau cadre législatif est prêt." });
   }
 
   const handleCreateType = () => {
     if (!db || !newType.code) return;
-    const id = crypto.randomUUID();
-    addDocumentNonBlocking(collection(db, "fiscal_variable_types"), { ...newType, id });
+    const id = newType.code; // Use code as ID for better stability
+    setDocumentNonBlocking(doc(db, "fiscal_variable_types", id), { ...newType, id }, { merge: true });
     setIsTypeDialogOpen(false);
     toast({ title: "Variable créée", description: "Le moteur de calcul supporte désormais cette clé." });
   }
@@ -58,7 +59,7 @@ export default function FiscalEngineAdmin() {
   const handleCreateValue = () => {
     if (!db || !newValue.value) return;
     const id = crypto.randomUUID();
-    addDocumentNonBlocking(collection(db, "fiscal_variable_values"), { ...newValue, id });
+    setDocumentNonBlocking(doc(db, "fiscal_variable_values", id), { ...newValue, id }, { merge: true });
     setIsValueDialogOpen(false);
     toast({ title: "Taux appliqué", description: "La variable a été mise à jour pour la période définie." });
   }
@@ -69,6 +70,75 @@ export default function FiscalEngineAdmin() {
     toast({ title: "Supprimé", description: "L'entrée a été retirée du moteur fiscal." });
   }
 
+  const handleInitialize2026 = async () => {
+    if (!db) return;
+    setIsInitializing(true);
+
+    try {
+      // 1. Loi de Finances 2026
+      const lawId = "LF_2026";
+      await setDocumentNonBlocking(doc(db, "fiscal_laws", lawId), {
+        id: lawId,
+        name: "Loi de Finances 2026",
+        description: "Cadre fiscal de référence pour l'exercice 2026 incluant les prorogations G12 et suppression TAP.",
+        effectiveStartDate: "2026-01-01",
+        publicationDate: "2025-12-30"
+      }, { merge: true });
+
+      // 2. Types de Variables
+      const varTypes = [
+        { code: "TVA_STD", name: "TVA Taux Normal", unit: "%", dataType: "number" },
+        { code: "TVA_RED", name: "TVA Taux Réduit", unit: "%", dataType: "number" },
+        { code: "TAP_RATE", name: "Taux TAP", unit: "%", dataType: "number" },
+        { code: "SNMG", name: "SNMG", unit: "DA", dataType: "number" },
+        { code: "IFU_PROD", name: "IFU - Production/Vente", unit: "%", dataType: "number" },
+        { code: "IFU_SERV", name: "IFU - Services/Libéral", unit: "%", dataType: "number" },
+        { code: "IFU_AUTO", name: "IFU - Auto-entrepreneur", unit: "%", dataType: "number" },
+        { code: "IBS_PROD", name: "IBS - Production", unit: "%", dataType: "number" },
+        { code: "IBS_BTP", name: "IBS - BTPH / Tourisme", unit: "%", dataType: "number" },
+        { code: "IBS_SERV", name: "IBS - Services / Commerce", unit: "%", dataType: "number" },
+        { code: "IRG_LIMIT", name: "Seuil Exonération IRG", unit: "DA", dataType: "number" },
+      ];
+
+      for (const t of varTypes) {
+        await setDocumentNonBlocking(doc(db, "fiscal_variable_types", t.code), { ...t, id: t.code }, { merge: true });
+      }
+
+      // 3. Valeurs pour 2026
+      const values = [
+        { type: "TVA_STD", val: "0.19" },
+        { type: "TVA_RED", val: "0.09" },
+        { type: "TAP_RATE", val: "0.00" },
+        { type: "SNMG", val: "24000" },
+        { type: "IFU_PROD", val: "0.05" },
+        { type: "IFU_SERV", val: "0.12" },
+        { type: "IFU_AUTO", val: "0.005" },
+        { type: "IBS_PROD", val: "0.19" },
+        { type: "IBS_BTP", val: "0.23" },
+        { type: "IBS_SERV", val: "0.26" },
+        { type: "IRG_LIMIT", val: "30000" },
+      ];
+
+      for (const v of values) {
+        const vid = `VAL_2026_${v.type}`;
+        await setDocumentNonBlocking(doc(db, "fiscal_variable_values", vid), {
+          id: vid,
+          fiscalLawId: lawId,
+          fiscalVariableTypeId: v.type,
+          value: v.val,
+          effectiveStartDate: "2026-01-01",
+          notes: "Initialisation automatique LF 2026"
+        }, { merge: true });
+      }
+
+      toast({ title: "Moteur Fiscal 2026 Initialisé", description: "Tous les taux et seuils ont été synchronisés." });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsInitializing(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -77,6 +147,12 @@ export default function FiscalEngineAdmin() {
             <DatabaseZap className="text-accent h-8 w-8" /> Moteur Fiscal (Variables)
           </h1>
           <p className="text-muted-foreground">Configuration centralisée des taux et seuils légaux sans modification de code.</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleInitialize2026} disabled={isInitializing}>
+            {isInitializing ? <RefreshCcw className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+            Initialiser Moteur 2026
+          </Button>
         </div>
       </div>
 
@@ -96,7 +172,7 @@ export default function FiscalEngineAdmin() {
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>Définir une valeur fiscale</DialogTitle></DialogHeader>
-                <div className="grid gap-4 py-4">
+                <div className="grid gap-4 py-4 text-foreground">
                   <div className="space-y-2">
                     <Label>Variable concernée</Label>
                     <Select onValueChange={(v) => setNewValue({...newValue, fiscalVariableTypeId: v})}>
@@ -131,7 +207,7 @@ export default function FiscalEngineAdmin() {
             </Dialog>
           </div>
 
-          <Card>
+          <Card className="shadow-md border-none">
             <CardContent className="p-0">
               <Table>
                 <TableHeader className="bg-muted/50">
@@ -152,7 +228,7 @@ export default function FiscalEngineAdmin() {
                     const type = types?.find(t => t.id === v.fiscalVariableTypeId);
                     const law = laws?.find(l => l.id === v.fiscalLawId);
                     return (
-                      <TableRow key={v.id}>
+                      <TableRow key={v.id} className="hover:bg-muted/20">
                         <TableCell className="font-bold">{type?.name || 'Inconnu'}</TableCell>
                         <TableCell><Badge variant="outline" className="font-mono text-primary bg-primary/5">{v.value} {type?.unit}</Badge></TableCell>
                         <TableCell className="text-xs">{v.effectiveStartDate}</TableCell>
@@ -178,7 +254,7 @@ export default function FiscalEngineAdmin() {
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>Nouveau type de variable</DialogTitle></DialogHeader>
-                <div className="grid gap-4 py-4">
+                <div className="grid gap-4 py-4 text-foreground">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2"><Label>Nom</Label><Input value={newType.name} onChange={e => setNewType({...newType, name: e.target.value})} /></div>
                     <div className="space-y-2"><Label>Code Machine</Label><Input value={newType.code} onChange={e => setNewType({...newType, code: e.target.value})} placeholder="TVA_STD" /></div>
@@ -198,7 +274,7 @@ export default function FiscalEngineAdmin() {
               </DialogContent>
             </Dialog>
           </div>
-          <Card>
+          <Card className="shadow-md border-none">
             <CardContent className="p-0">
               <Table>
                 <TableHeader className="bg-muted/50">
@@ -208,7 +284,7 @@ export default function FiscalEngineAdmin() {
                   {isLoadingTypes ? (
                     <TableRow><TableCell colSpan={4} className="text-center py-10"><Loader2 className="animate-spin inline mr-2" />Chargement...</TableCell></TableRow>
                   ) : types?.map((t) => (
-                    <TableRow key={t.id}>
+                    <TableRow key={t.id} className="hover:bg-muted/20">
                       <TableCell className="font-bold">{t.name}</TableCell>
                       <TableCell><code className="bg-muted px-1.5 py-0.5 rounded text-[10px]">{t.code}</code></TableCell>
                       <TableCell>{t.unit}</TableCell>
@@ -232,7 +308,7 @@ export default function FiscalEngineAdmin() {
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>Enregistrer une Loi de Finances</DialogTitle></DialogHeader>
-                <div className="grid gap-4 py-4">
+                <div className="grid gap-4 py-4 text-foreground">
                   <div className="space-y-2"><Label>Désignation Officielle</Label><Input value={newLaw.name} onChange={e => setNewLaw({...newLaw, name: e.target.value})} placeholder="Loi de Finances 2026" /></div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2"><Label>Date de Publication (J.O)</Label><Input type="date" value={newLaw.publicationDate} onChange={e => setNewLaw({...newLaw, publicationDate: e.target.value})} /></div>
@@ -243,7 +319,7 @@ export default function FiscalEngineAdmin() {
               </DialogContent>
             </Dialog>
           </div>
-          <Card>
+          <Card className="shadow-md border-none">
             <CardContent className="p-0">
               <Table>
                 <TableHeader className="bg-muted/50">
@@ -253,7 +329,7 @@ export default function FiscalEngineAdmin() {
                   {isLoadingLaws ? (
                     <TableRow><TableCell colSpan={4} className="text-center py-10"><Loader2 className="animate-spin inline mr-2" />Chargement...</TableCell></TableRow>
                   ) : laws?.map((l) => (
-                    <TableRow key={l.id}>
+                    <TableRow key={l.id} className="hover:bg-muted/20">
                       <TableCell className="font-black text-primary">{l.name}</TableCell>
                       <TableCell className="text-xs">{l.publicationDate}</TableCell>
                       <TableCell className="text-xs font-bold text-emerald-600">{l.effectiveStartDate}</TableCell>
