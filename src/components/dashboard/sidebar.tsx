@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -32,7 +33,8 @@ import {
   Landmark,
   ShieldAlert,
   BookOpen,
-  CalendarDays
+  CalendarDays,
+  Eye
 } from "lucide-react"
 
 import {
@@ -81,6 +83,7 @@ const socialNavigation = [
 
 const cabinetNavigation = [
   { name: "Dashboard Cabinet", href: "/dashboard/cabinet", icon: Layers },
+  { name: "DGI Watch", href: "/dashboard/cabinet/dgi-watch", icon: Eye },
   { name: "Collaboration Hub", href: "/dashboard/cabinet/collaboration", icon: MessagesSquare },
   { name: "G50 Groupées", href: "/dashboard/cabinet/bulk-g50", icon: Repeat },
   { name: "Rapprochement Bancaire", href: "/dashboard/cabinet/bank-recon", icon: Landmark },

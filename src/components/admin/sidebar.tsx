@@ -14,7 +14,8 @@ import {
   ArrowLeft,
   Briefcase,
   Layers,
-  DatabaseZap
+  DatabaseZap,
+  Eye
 } from "lucide-react"
 
 import {
@@ -33,6 +34,7 @@ import { cn } from "@/lib/utils"
 const adminNavigation = [
   { name: "Pilotage Revenus", href: "/saas-admin", icon: BarChart3 },
   { name: "Moteur Fiscal", href: "/saas-admin/fiscal-engine", icon: DatabaseZap },
+  { name: "DGI Watch Console", href: "/saas-admin/dgi-watch", icon: Eye },
   { name: "Gestion des Plans", href: "/saas-admin/plans", icon: Layers },
   { name: "Formulaires DGI", href: "/saas-admin/forms", icon: FileEdit },
   { name: "Règles Métier", href: "/saas-admin/rules", icon: ShieldAlert },

@@ -1,12 +1,10 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * COMPTA-FISC DZ: SECURITY RULES - PROTOTYPING VERSION
-     * 
-     * Note: Rules are relaxed for saas_admins and userProfiles to allow 
-     * initial setup and account promotion during development.
+     * COMPTA-FISC DZ: SECURITY RULES
      */
 
     function isSignedIn() {
@@ -17,22 +15,9 @@ service cloud.firestore {
       return isSignedIn() && exists(/databases/$(database)/documents/saas_admins/$(request.auth.uid));
     }
 
-    function isExistingAdmin() {
-      return isAdmin() && resource != null;
-    }
-
-    function isValidId(id) {
-      return request.resource.data.id == id;
-    }
-
-    function isIdImmutable() {
-      return request.resource.data.id == resource.data.id;
-    }
-
     // --- SaaS Admin Rules ---
     match /saas_admins/{userId} {
-      // Relaxed for initial setup: allow read and create for any signed-in user
-      allow get, list, create: if isSignedIn();
+      allow read, create: if isSignedIn();
       allow update, delete: if isAdmin();
     }
 
@@ -43,23 +28,39 @@ service cloud.firestore {
 
     match /plans/{planId} {
       allow read: if true;
-      allow write: if isSignedIn(); // Temporarily allow for initialization
+      allow write: if isAdmin();
     }
 
     // --- Fiscal Engine Rules ---
     match /fiscal_laws/{fiscalLawId} {
       allow get, list: if isSignedIn();
-      allow write: if isSignedIn(); // Temporarily allow for setup
+      allow write: if isAdmin();
     }
 
     match /fiscal_variable_types/{fiscalVariableTypeId} {
       allow get, list: if isSignedIn();
-      allow write: if isSignedIn(); 
+      allow write: if isAdmin(); 
     }
 
     match /fiscal_variable_values/{fiscalVariableValueId} {
       allow get, list: if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // --- DGI Watch Rules ---
+    match /dgi_publications/{pubId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /dgi_alerts/{alertId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /dgi_scraper_status/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
 
     // --- Business Logic Rules ---
@@ -73,8 +74,8 @@ service cloud.firestore {
       // Sub-collections logic
       match /{allSubcollections=**} {
         allow read, write: if isSignedIn() && (
-          get(/databases/$(database)/documents/tenants/$(tenantId)).data.members[request.auth.uid] != null ||
-          isAdmin()
+          exists(/databases/$(database)/documents/tenants/$(tenantId)) && 
+          (get(/databases/$(database)/documents/tenants/$(tenantId)).data.members[request.auth.uid] != null || isAdmin())
         );
       }
     }
