@@ -31,7 +31,8 @@ import {
   MessagesSquare,
   Repeat,
   Landmark,
-  ShieldAlert
+  ShieldAlert,
+  BookOpen
 } from "lucide-react"
 
 import {
@@ -64,10 +65,17 @@ const navigation = [
   { name: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard },
   { name: "Saisie Comptable", href: "/dashboard/accounting", icon: BookText },
   { name: "Facturation", href: "/dashboard/invoicing", icon: Receipt },
-  { name: "Paie & Social", href: "/dashboard/payroll", icon: Users },
+  { name: "Paie & Livre de Paie", href: "/dashboard/payroll", icon: Users },
   { name: "Déclarations Fisc", href: "/dashboard/declarations", icon: FileText },
   { name: "Assistant IA", href: "/dashboard/assistant", icon: MessageSquareMore },
   { name: "Capture OCR", href: "/dashboard/ocr", icon: Camera },
+]
+
+const socialNavigation = [
+  { name: "Livre de Paie", href: "/dashboard/payroll/ledger", icon: BookOpen },
+  { name: "Bordereau DAC", href: "/dashboard/payroll/dac", icon: CalendarCheck },
+  { name: "DAS Annuelle", href: "/dashboard/payroll/das", icon: ClipboardList },
+  { name: "CACOBATPH", href: "/dashboard/payroll/cacobatph", icon: HardHat },
 ]
 
 const cabinetNavigation = [
@@ -154,6 +162,19 @@ export function DashboardSidebar() {
           <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Menu Principal</SidebarGroupLabel>
           <SidebarMenu>
             {navigation.map((item) => (
+              <SidebarMenuItem key={item.name}>
+                <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name} className="hover:bg-sidebar-accent">
+                  <Link href={item.href}><item.icon /><span>{item.name}</span></Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Déclarations Sociales</SidebarGroupLabel>
+          <SidebarMenu>
+            {socialNavigation.map((item) => (
               <SidebarMenuItem key={item.name}>
                 <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name} className="hover:bg-sidebar-accent">
                   <Link href={item.href}><item.icon /><span>{item.name}</span></Link>

@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -11,10 +12,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Plus, Users, Calculator, Wallet, Printer, FileDown, Search, Loader2, Info, ReceiptText, MapPin, ShieldCheck } from "lucide-react"
+import { Plus, Users, Calculator, Wallet, Printer, FileDown, Search, Loader2, Info, ReceiptText, MapPin, ShieldCheck, BookOpen } from "lucide-react"
 import { PAYROLL_CONSTANTS, calculateIRG } from "@/lib/calculations"
 import { toast } from "@/hooks/use-toast"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import Link from "next/link"
 
 export default function PayrollPage() {
   const db = useFirestore()
@@ -64,18 +66,11 @@ export default function PayrollPage() {
     const panier = Number(emp.indemnitePanier) || 0;
     const transport = Number(emp.indemniteTransport) || 0;
 
-    // Salaire de Poste (Assiette CNAS)
     const salairePoste = base + primes;
     const cnasEmployee = salairePoste * PAYROLL_CONSTANTS.CNAS_EMPLOYEE;
-    
-    // Net Imposable
     const imposable = salairePoste - cnasEmployee;
     const irg = calculateIRG(imposable, emp.isGrandSud, emp.isHandicapped);
-    
-    // Salaire Net
     const net = imposable - irg + panier + transport;
-    
-    // Cotisations Patronales
     const cnasEmployer = salairePoste * PAYROLL_CONSTANTS.CNAS_EMPLOYER;
     
     return { salairePoste, cnasEmployee, irg, net, cnasEmployer, imposable };
@@ -223,7 +218,11 @@ export default function PayrollPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-          <Button variant="outline"><Printer className="h-4 w-4 mr-2" /> Livre de Paie</Button>
+          <Button variant="outline" asChild>
+            <Link href="/dashboard/payroll/ledger">
+              <BookOpen className="h-4 w-4 mr-2" /> Livre de Paie
+            </Link>
+          </Button>
         </div>
       </div>
 
