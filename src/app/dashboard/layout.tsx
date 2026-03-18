@@ -1,16 +1,41 @@
+
 "use client"
 
+import * as React from "react"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { DashboardSidebar } from "@/components/dashboard/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { Bell, Search, Globe } from "lucide-react"
+import { useUser, useFirestore } from "@/firebase"
+import { doc, setDoc, serverTimestamp } from "firebase/firestore"
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const { user, isUserLoading } = useUser()
+  const db = useFirestore()
+
+  // Synchronisation du profil utilisateur vers Firestore
+  React.useEffect(() => {
+    if (user && !isUserLoading && db && !user.isAnonymous) {
+      const profileRef = doc(db, "userProfiles", user.uid)
+      
+      // On utilise setDoc avec merge: true pour créer le profil s'il n'existe pas
+      // sans écraser les données existantes (comme les rôles)
+      setDoc(profileRef, {
+        id: user.uid,
+        email: user.email,
+        firstName: user.displayName?.split(' ')[0] || user.email?.split('@')[0] || 'Utilisateur',
+        lastName: user.displayName?.split(' ').slice(1).join(' ') || 'DZ',
+        updatedAt: new Date().toISOString(),
+        // On ne définit createdAt que s'il n'existe pas via une logique simple ou merge
+      }, { merge: true }).catch(console.error)
+    }
+  }, [user, isUserLoading, db])
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
