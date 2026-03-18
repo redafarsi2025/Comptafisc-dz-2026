@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -12,11 +11,12 @@ import { useFirestore, useUser, useCollection, useMemoFirebase, updateDocumentNo
 import { collection, query, where, limit, doc } from "firebase/firestore"
 import { findActivityByNap, NAP_ACTIVITIES } from "@/lib/nap-data"
 import { 
-  Building2, Save, MapPin, CreditCard, ShieldCheck, Zap, Loader2, Info, Search, Check, Star
+  Building2, Save, MapPin, ShieldCheck, Zap, Loader2, Info, Search, Check, Rocket, Landmark
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
 import { PLANS } from "@/lib/plans"
+import { IFU_EXCLUDED_ACTIVITIES } from "@/lib/calculations"
 
 export default function TenantSettingsPage() {
   const db = useFirestore()
@@ -53,7 +53,6 @@ export default function TenantSettingsPage() {
       }
       current[keys[keys.length - 1]] = value
 
-      // Règle IFU : Pas de TVA
       if (path === "regimeFiscal" && value === "IFU") {
         newData.assujettissementTva = false;
         newData.tauxTvaApplicable = "TVA_EXONERE";
@@ -103,6 +102,12 @@ export default function TenantSettingsPage() {
     return findActivityByNap(formData.activiteNAP || "");
   }, [formData.activiteNAP]);
 
+  const isExcludedFromIFU = React.useMemo(() => {
+    if (!formData.activiteNAP) return false;
+    // Logic to check if activity code is in exclusion list (Mapping needed between NAP and exclusion keys)
+    return false; 
+  }, [formData.activiteNAP]);
+
   if (isTenantsLoading) return <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
   if (!currentTenant) return <div className="text-center p-12 text-muted-foreground">Aucun dossier actif trouvé.</div>
 
@@ -111,7 +116,7 @@ export default function TenantSettingsPage() {
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-1">
           <h1 className="text-3xl font-bold text-primary">Configuration du Dossier</h1>
-          <p className="text-muted-foreground">Paramétrage complet du moteur fiscal conforme à la Nomenclature NAP.</p>
+          <p className="text-muted-foreground">Paramétrage complet du moteur fiscal conforme à la Nomenclature NAP et Loi 2026.</p>
         </div>
         <Button onClick={handleSave} disabled={isSaving} className="shadow-lg">
           {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
@@ -124,9 +129,9 @@ export default function TenantSettingsPage() {
           <TabsTrigger value="identification" className="py-2 text-xs">Identification</TabsTrigger>
           <TabsTrigger value="contact" className="py-2 text-xs">Contact</TabsTrigger>
           <TabsTrigger value="fiscal" className="py-2 text-xs">Profil Fiscal</TabsTrigger>
+          <TabsTrigger value="exemptions" className="py-2 text-xs">Exonérations</TabsTrigger>
           <TabsTrigger value="subscription" className="py-2 text-xs">Abonnement</TabsTrigger>
           <TabsTrigger value="efatura" className="py-2 text-xs">e-Fatura</TabsTrigger>
-          <TabsTrigger value="audit" className="py-2 text-xs">Audit</TabsTrigger>
         </TabsList>
 
         <TabsContent value="identification" className="mt-6">
@@ -142,7 +147,7 @@ export default function TenantSettingsPage() {
                 <Select value={formData.formeJuridique} onValueChange={(v) => handleUpdate("formeJuridique", v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {["SARL", "SPA", "EI", "SNC", "EURL", "Auto-entrepreneur", "Personne physique"].map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                    {["SARL", "SPA", "EI", "SNC", "EURL", "Auto-entrepreneur", "SCP", "Personne physique"].map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -151,8 +156,8 @@ export default function TenantSettingsPage() {
                 <Input value={formData.nif || ""} onChange={(e) => handleUpdate("nif", e.target.value)} maxLength={15} />
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-bold uppercase">Registre Commerce</label>
-                <Input placeholder="WW/YY/BXXXXXX" value={formData.registreCommerce || ""} onChange={(e) => handleUpdate("registreCommerce", e.target.value)} />
+                <label className="text-xs font-bold uppercase">NIN (Obligatoire 2026)</label>
+                <Input placeholder="Numéro d'Identification Nationale" value={formData.nin || ""} onChange={(e) => handleUpdate("nin", e.target.value)} />
               </div>
             </CardContent>
           </Card>
@@ -161,8 +166,8 @@ export default function TenantSettingsPage() {
         <TabsContent value="fiscal" className="mt-6">
           <Card className="border-primary/20 bg-primary/5">
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2 text-primary"><Zap className="h-5 w-5" />Profil Fiscal (Moteur de calcul)</CardTitle>
-              <CardDescription>Le régime IFU désactive automatiquement la TVA.</CardDescription>
+              <CardTitle className="text-lg flex items-center gap-2 text-primary"><Zap className="h-5 w-5" />Profil Fiscal (Moteur 2026)</CardTitle>
+              <CardDescription>Adaptation dynamique des seuils IFU (8M DA) et Auto-entrepreneur (5M DA).</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
@@ -178,21 +183,16 @@ export default function TenantSettingsPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase">Code NAP Direct (Optionnel)</label>
-                  <div className="relative">
-                    <Input 
-                      value={formData.activiteNAP || ""} 
-                      onChange={(e) => handleUpdate("activiteNAP", e.target.value)} 
-                      placeholder="Ex: 6201, 4711..." 
-                      className="pr-10"
-                    />
-                    <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <label className="text-xs font-bold uppercase">Activité Mixte ?</label>
+                  <div className="flex items-center space-x-2 mt-2">
+                    <Checkbox checked={formData.isMixedActivity} onCheckedChange={(v) => handleUpdate("isMixedActivity", !!v)} />
+                    <span className="text-sm">Calcul au prorata du CA par activité (Art. 282sexies)</span>
                   </div>
                 </div>
               </div>
 
               <div className="p-4 bg-background border rounded-lg space-y-4">
-                <h4 className="text-sm font-bold flex items-center gap-2"><Search className="h-4 w-4 text-primary" /> Aide à la recherche d'activité</h4>
+                <h4 className="text-sm font-bold flex items-center gap-2"><Search className="h-4 w-4 text-primary" /> Aide à la recherche d'activité (NAP)</h4>
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase text-muted-foreground">1. Choisir le Secteur</label>
@@ -227,44 +227,60 @@ export default function TenantSettingsPage() {
                     <Info className="h-5 w-5 text-emerald-600" />
                   </div>
                   <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <p className="font-bold text-emerald-800">{selectedActivityInfo.label}</p>
-                      <Badge className="bg-emerald-600">NAP {selectedActivityInfo.code}</Badge>
-                    </div>
+                    <p className="font-bold text-emerald-800">{selectedActivityInfo.label}</p>
                     <div className="mt-1 flex gap-4 text-xs text-emerald-700">
-                      <p>Secteur : <span className="font-semibold">{selectedActivityInfo.sector}</span></p>
-                      <p>Taux TAP : <span className="font-bold">{(selectedActivityInfo.tapRate * 100).toFixed(2)}%</span></p>
+                      <p>NAP : <span className="font-bold">{selectedActivityInfo.code}</span></p>
+                      <p>Taux IFU : <span className="font-bold">{formData.formeJuridique === "Auto-entrepreneur" ? "0.5%" : (selectedActivityInfo.sector === "SERVICES" ? "12%" : "5%")}</span></p>
                     </div>
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-              <div className="grid md:grid-cols-2 gap-6 pt-4 border-t">
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="tva" 
-                    checked={formData.assujettissementTva} 
-                    disabled={formData.regimeFiscal === "IFU"}
-                    onCheckedChange={(c) => handleUpdate("assujettissementTva", !!c)} 
-                  />
-                  <label htmlFor="tva" className={`text-sm font-medium leading-none ${formData.regimeFiscal === "IFU" ? "text-muted-foreground" : "cursor-pointer"}`}>
-                    Assujetti à la TVA {formData.regimeFiscal === "IFU" && "(Non applicable en IFU)"}
-                  </label>
+        <TabsContent value="exemptions" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2 text-primary"><Rocket className="h-5 w-5" />Exonérations Temporaires (LF 2026)</CardTitle>
+              <CardDescription>Gérez vos périodes de grâce fiscale (Startup, ANADE, ANGEM).</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="p-4 border rounded-xl space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="font-bold">Label "Start-up"</Label>
+                    <Switch checked={formData.isStartup} onCheckedChange={(v) => handleUpdate("isStartup", v)} />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Exonération IFU de 4 ans + 1 an si renouvellement (Art. 100 LF 2026).</p>
+                  {formData.isStartup && (
+                    <div className="space-y-2">
+                      <Label className="text-[10px] uppercase">Date d'obtention du label</Label>
+                      <Input type="date" value={formData.startupLabelDate || ""} onChange={(e) => handleUpdate("startupLabelDate", e.target.value)} />
+                    </div>
+                  )}
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase">Taux TVA par défaut</label>
-                  <Select 
-                    value={formData.tauxTvaApplicable} 
-                    disabled={formData.regimeFiscal === "IFU"}
-                    onValueChange={(v) => handleUpdate("tauxTvaApplicable", v)}
-                  >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="TVA_19">Taux Normal (19%)</SelectItem>
-                      <SelectItem value="TVA_9">Taux Réduit (9%)</SelectItem>
-                      <SelectItem value="TVA_EXONERE">Exonéré (0%)</SelectItem>
-                    </SelectContent>
-                  </Select>
+
+                <div className="p-4 border rounded-xl space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="font-bold">Dispositif ANADE/ANGEM/CNAC</Label>
+                    <Switch checked={formData.isJobSponsor} onCheckedChange={(v) => handleUpdate("isJobSponsor", v)} />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Exonération de 3 ans (6 ans en zone à promouvoir) (Art. 20 LF 2024).</p>
+                  {formData.isJobSponsor && (
+                    <div className="flex items-center space-x-2">
+                      <Checkbox checked={formData.isPromoteZone} onCheckedChange={(v) => handleUpdate("isPromoteZone", !!v)} />
+                      <span className="text-xs">Implanté en zone à promouvoir</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+                <Landmark className="h-5 w-5 text-amber-600 mt-0.5" />
+                <div className="text-xs text-amber-900 leading-relaxed">
+                  <p className="font-bold">Important :</p>
+                  Les exonérations IFU ne sont pas applicables aux activités via plates-formes numériques soumises à la retenue à la source de 5%.
                 </div>
               </div>
             </CardContent>
@@ -272,101 +288,32 @@ export default function TenantSettingsPage() {
         </TabsContent>
 
         <TabsContent value="subscription" className="mt-6">
-          <div className="grid grid-cols-1 gap-8">
-            <Card className="border-t-4 border-t-primary">
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle className="text-lg">Votre Plan Actuel</CardTitle>
-                    <CardDescription>Gérez votre engagement et vos capacités.</CardDescription>
-                  </div>
-                  <Badge className="text-lg py-1 px-4 bg-primary/10 text-primary border-primary/20" variant="outline">
-                    {formData.plan || "GRATUIT"}
-                  </Badge>
+          <Card className="border-t-4 border-t-primary">
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle className="text-lg">Votre Plan Actuel</CardTitle>
+                  <CardDescription>Gérez votre engagement et vos capacités.</CardDescription>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-3 gap-6">
-                  <div className="p-4 bg-muted/20 rounded-xl">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Expiration</p>
-                    <p className="text-sm font-bold">{formData.subscription?.dateExpiration?.split('T')[0] || "Permanent"}</p>
-                  </div>
-                  <div className="p-4 bg-muted/20 rounded-xl">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Utilisateurs</p>
-                    <p className="text-sm font-bold">1 / {PLANS.find(p => p.id === (formData.plan || 'GRATUIT'))?.limits.users}</p>
-                  </div>
-                  <div className="p-4 bg-muted/20 rounded-xl">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Stockage</p>
-                    <p className="text-sm font-bold">45 MB / {PLANS.find(p => p.id === (formData.plan || 'GRATUIT'))?.limits.storage}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {PLANS.filter(p => p.id !== 'CABINET').map((plan) => (
-                <Card key={plan.id} className={`flex flex-col border-2 ${formData.plan === plan.id ? 'border-primary bg-primary/5' : 'border-transparent'}`}>
-                  <CardHeader className="pb-4">
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="text-sm font-bold">{plan.name}</CardTitle>
-                      {formData.plan === plan.id && <Badge className="bg-primary text-white"><Check className="h-3 w-3 mr-1" /> Actif</Badge>}
-                    </div>
-                    <div className="text-2xl font-black mt-2">{plan.price} DA</div>
-                  </CardHeader>
-                  <CardContent className="flex-1">
-                    <ul className="space-y-2 text-xs">
-                      {plan.categories.flatMap(c => c.features).slice(0, 4).map((f, i) => (
-                        <li key={i} className="flex items-center gap-2">
-                          <Check className="h-3 w-3 text-emerald-500" />
-                          <span>{f.name}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                  <CardFooter>
-                    <Button 
-                      variant={formData.plan === plan.id ? "outline" : "default"} 
-                      className="w-full"
-                      disabled={formData.plan === plan.id}
-                    >
-                      {formData.plan === plan.id ? "Plan Actuel" : "Changer de Plan"}
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="contact" className="mt-6">
-          <Card>
-            <CardHeader><CardTitle className="text-lg flex items-center gap-2"><MapPin className="h-5 w-5" />Coordonnées & Contact</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase">Téléphone</label>
-                  <Input value={formData.telephone || ""} onChange={(e) => handleUpdate("telephone", e.target.value)} placeholder="+213..." />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase">Wilaya</label>
-                  <Input value={formData.adresse?.wilaya || ""} onChange={(e) => handleUpdate("adresse.wilaya", e.target.value)} placeholder="Ex: 16 - Alger" />
-                </div>
+                <Badge className="text-lg py-1 px-4 bg-primary/10 text-primary border-primary/20" variant="outline">
+                  {formData.plan || "GRATUIT"}
+                </Badge>
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase">Adresse du siège</label>
-                <Input value={formData.adresse?.rue || ""} onChange={(e) => handleUpdate("adresse.rue", e.target.value)} />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="efatura" className="mt-6">
-          <Card>
-            <CardHeader><CardTitle className="text-lg flex items-center gap-2"><ShieldCheck className="h-5 w-5" />Facturation Électronique</CardTitle></CardHeader>
+            </CardHeader>
             <CardContent>
-              <div className="flex items-center space-x-2">
-                <Checkbox id="efatura" checked={formData.efatura?.active} onCheckedChange={(c) => handleUpdate("efatura.active", !!c)} />
-                <label htmlFor="efatura" className="text-sm font-medium">Activer la connexion API e-Fatura DGI (Expérimental)</label>
+              <div className="grid md:grid-cols-3 gap-6">
+                <div className="p-4 bg-muted/20 rounded-xl">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Expiration</p>
+                  <p className="text-sm font-bold">{formData.subscription?.dateExpiration?.split('T')[0] || "Permanent"}</p>
+                </div>
+                <div className="p-4 bg-muted/20 rounded-xl">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Utilisateurs</p>
+                  <p className="text-sm font-bold">1 / {PLANS.find(p => p.id === (formData.plan || 'GRATUIT'))?.limits.users}</p>
+                </div>
+                <div className="p-4 bg-muted/20 rounded-xl">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Stockage</p>
+                  <p className="text-sm font-bold">45 MB / {PLANS.find(p => p.id === (formData.plan || 'GRATUIT'))?.limits.storage}</p>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -374,4 +321,16 @@ export default function TenantSettingsPage() {
       </Tabs>
     </div>
   )
+}
+
+function Switch({ checked, onCheckedChange }: { checked: boolean, onCheckedChange: (v: boolean) => void }) {
+  return (
+    <button 
+      type="button"
+      onClick={() => onCheckedChange(!checked)}
+      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${checked ? 'bg-primary' : 'bg-muted'}`}
+    >
+      <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
+    </button>
+  );
 }

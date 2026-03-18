@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -7,10 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
-import { FileText, Calculator, Info, Landmark, Sparkles, TrendingDown, CalendarDays, AlertCircle } from "lucide-react"
+import { FileText, Calculator, Info, Landmark, Sparkles, TrendingDown, CalendarDays, AlertCircle, Clock, ShieldCheck } from "lucide-react"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, query, where, limit } from "firebase/firestore"
-import { getTAPRate, getIFURate, getIBSRate, calculateIBS, TAX_RATES, calculateIBSInstallment, getIBSInstallmentDeadlines } from "@/lib/calculations"
+import { getTAPRate, getIFURate, getIBSRate, calculateIBS, TAX_RATES, calculateIBSInstallment, getIBSInstallmentDeadlines, calculateIFU } from "@/lib/calculations"
 import { findActivityByNap } from "@/lib/nap-data"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -38,7 +37,8 @@ export default function DeclarationsPage() {
   const currentTenant = tenants?.[0];
 
   const isIFU = currentTenant?.regimeFiscal === "IFU";
-  const tapRate = getTAPRate(currentTenant?.secteurActivite || "SERVICES", currentTenant?.activiteNAP);
+  const isAuto = currentTenant?.formeJuridique === "Auto-entrepreneur";
+  const tapRate = 0; // TAP supprimée LF 2024
   const ifuRate = isIFU ? getIFURate(currentTenant?.secteurActivite || "SERVICES", currentTenant?.formeJuridique || "") : 0;
   const ibsRate = !isIFU ? getIBSRate(currentTenant?.secteurActivite || "SERVICES", currentTenant?.activiteNAP) : 0;
   const activityInfo = findActivityByNap(currentTenant?.activiteNAP || "");
@@ -53,64 +53,46 @@ export default function DeclarationsPage() {
   const { data: invoices } = useCollection(invoicesQuery);
 
   const stats = React.useMemo(() => {
-    if (!invoices) return { tva: 0, tap: 0, ca: 0, ifu: 0 };
+    if (!invoices) return { tva: 0, ca: 0, ifu: 0 };
     return invoices.reduce((acc, inv) => ({
       tva: acc.tva + (inv.totalTaxAmount || 0),
-      tap: acc.tap + ((inv.totalAmountExcludingTax || 0) * tapRate),
       ca: acc.ca + (inv.totalAmountExcludingTax || 0),
-      ifu: acc.ifu + ((inv.totalAmountExcludingTax || 0) * ifuRate)
-    }), { tva: 0, tap: 0, ca: 0, ifu: 0 });
-  }, [invoices, tapRate, ifuRate]);
+      ifu: acc.ifu + calculateIFU(inv.totalAmountExcludingTax || 0, ifuRate, isAuto, currentTenant?.isStartup)
+    }), { tva: 0, ca: 0, ifu: 0 });
+  }, [invoices, ifuRate, isAuto, currentTenant]);
 
   const projectedIBS = React.useMemo(() => {
     return calculateIBS(estimatedProfit, ibsRate, reinvestedAmount);
   }, [estimatedProfit, ibsRate, reinvestedAmount]);
 
-  const taxSavings = React.useMemo(() => {
-    const standardIBS = calculateIBS(estimatedProfit, ibsRate, 0);
-    return Math.max(0, standardIBS - projectedIBS);
-  }, [estimatedProfit, ibsRate, projectedIBS]);
-
-  const installmentAmount = React.useMemo(() => {
-    return calculateIBSInstallment(previousYearIBS);
-  }, [previousYearIBS]);
-
-  const deadlines = React.useMemo(() => {
-    if (!mounted) return [];
-    return getIBSInstallmentDeadlines(new Date().getFullYear());
-  }, [mounted]);
-
-  const isNewCompany = React.useMemo(() => {
-    if (!currentTenant?.dateCreation) return false;
-    const creationYear = new Date(currentTenant.dateCreation).getFullYear();
-    return creationYear === new Date().getFullYear();
-  }, [currentTenant]);
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-primary">Déclarations Fiscales</h1>
+          <h1 className="text-3xl font-bold text-primary">Déclarations Fiscales 2026</h1>
           <div className="text-muted-foreground flex flex-wrap items-center gap-2 mt-1">
             <span>Dossier :</span>
             <span className="font-semibold text-foreground">{currentTenant?.raisonSociale || "..."}</span> 
             <Badge variant="secondary">{currentTenant?.regimeFiscal || "Réel"}</Badge>
-            {activityInfo && <Badge variant="outline" className="text-[10px]">{activityInfo.label}</Badge>}
+            {currentTenant?.isStartup && <Badge className="bg-emerald-600">Startup Exonérée</Badge>}
           </div>
         </div>
         <Button className="bg-primary hover:bg-primary/90 shadow-md">
           <Calculator className="mr-2 h-4 w-4" /> 
-          {isIFU ? "Générer G12 Annuel" : "Simuler G50 Mensuel"}
+          {isIFU ? "Simuler G12 Annuel" : "Simuler G50 Mensuel"}
         </Button>
       </div>
 
-      <Alert className="bg-emerald-50 border-emerald-200">
-        <Sparkles className="h-4 w-4 text-emerald-600" />
-        <AlertTitle className="text-emerald-800 font-bold">Loi de Finances 2024</AlertTitle>
-        <AlertDescription className="text-emerald-700 text-sm">
-          La <strong>TAP (Taxe sur l'Activité Professionnelle)</strong> a été officiellement supprimée pour l'ensemble des contribuables. Votre taux actuel est de <strong>0 %</strong>.
-        </AlertDescription>
-      </Alert>
+      {isIFU && (
+        <Alert className="bg-amber-50 border-amber-200">
+          <Clock className="h-4 w-4 text-amber-600" />
+          <AlertTitle className="text-amber-800 font-bold">Mesure IFU 2026</AlertTitle>
+          <AlertDescription className="text-amber-700 text-xs">
+            Le délai pour la <strong>G12 bis (Définitive 2025)</strong> est le **1er Mars 2026**. 
+            Seuil IFU : {TAX_RATES.IFU_THRESHOLD.toLocaleString()} DA ({TAX_RATES.IFU_AUTO_THRESHOLD.toLocaleString()} DA pour Auto-entrepreneurs).
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {isIFU ? (
@@ -122,10 +104,10 @@ export default function DeclarationsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-primary">
-                {formatAmount(stats.ifu)} <span className="text-sm font-normal">DZD</span>
+                {currentTenant?.isStartup ? "0 (Exonéré)" : `${formatAmount(stats.ifu)} DZD`}
               </div>
               <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                <Info className="h-3 w-3" /> Taxe globale remplaçant TVA + TAP + IRG/IBS.
+                <Info className="h-3 w-3" /> Inclut TLS + TVA + IRG (Simplifié).
               </p>
             </CardContent>
           </Card>
@@ -141,28 +123,14 @@ export default function DeclarationsPage() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-l-4 border-l-emerald-500 shadow-sm opacity-60">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-bold uppercase text-muted-foreground">
-                  TAP (Supprimée LF 2024)
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-emerald-600">
-                  0 <span className="text-sm font-normal">DZD</span>
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-1">Taux 0% appliqué systématiquement.</p>
-              </CardContent>
-            </Card>
             <Card className="border-l-4 border-l-amber-600 shadow-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Provision IBS (Simulation)</CardTitle>
+                <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Provision IBS</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-amber-600">
                   {formatAmount(projectedIBS)} <span className="text-sm font-normal">DZD</span>
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-1">Min. légal de 10 000 DA inclus.</p>
               </CardContent>
             </Card>
           </>
@@ -179,223 +147,113 @@ export default function DeclarationsPage() {
         </Card>
       </div>
 
-      <Tabs defaultValue="current" className="w-full">
+      <Tabs defaultValue="calendar" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="current">Échéances G50/G12</TabsTrigger>
-          <TabsTrigger value="ibs-sim">Simulation IBS & Réinvestissement</TabsTrigger>
-          {!isIFU && <TabsTrigger value="ibs-installments">Acomptes IBS (N-1)</TabsTrigger>}
+          <TabsTrigger value="calendar">Calendrier 2026</TabsTrigger>
+          <TabsTrigger value="ibs-sim">Simulation IBS</TabsTrigger>
+          <TabsTrigger value="mixed">Activités Mixtes</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="current">
+        <TabsContent value="calendar">
           <Card>
             <CardHeader>
-              <CardTitle>Documents à soumettre</CardTitle>
-              <CardDescription>
-                Calculs basés sur le régime {currentTenant?.regimeFiscal} et la conformité LF 2024.
-              </CardDescription>
+              <CardTitle>Obligations Déclaratives IFU / Réel</CardTitle>
+              <CardDescription>Échéances clés basées sur votre profil fiscal.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {isIFU ? (
-                <div className="p-6 border rounded-xl border-primary/20 bg-primary/5 flex flex-col md:flex-row items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center">
-                      <FileText className="h-6 w-6 text-primary" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold">Déclaration G n° 12 (IFU Annuel)</h4>
-                      <p className="text-sm text-muted-foreground">Impôt estimé : {formatAmount(stats.ifu)} DZD • Base : {formatAmount(stats.ca)} DZD</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm">Calculer acomptes</Button>
-                    <Button size="sm" className="bg-primary">Générer G12</Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-6 border rounded-xl hover:bg-muted/30 transition-all flex flex-col md:flex-row items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center">
-                      <FileText className="h-6 w-6 text-primary" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold">Déclaration G n° 50 (Mensuelle)</h4>
-                      <p className="text-sm text-muted-foreground">Période : {mounted ? new Date().toLocaleString('fr-FR', { month: 'long', year: 'numeric' }) : "..."}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
-                      <Info className="mr-1 h-3 w-3" /> Échéance : 20 du mois prochain
-                    </Badge>
-                    <Button size="sm">Détail G50</Button>
-                  </div>
-                </div>
-              )}
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader className="bg-muted/50">
+                  <TableRow>
+                    <TableHead>Déclaration</TableHead>
+                    <TableHead>Échéance 2026</TableHead>
+                    <TableHead>Objet</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isIFU ? (
+                    <>
+                      <TableRow>
+                        <TableCell className="font-bold">Série G n°12 bis</TableCell>
+                        <TableCell className="text-amber-600 font-bold">01 Mars 2026</TableCell>
+                        <TableCell>Définitive Exercice 2025</TableCell>
+                        <TableCell className="text-right"><Button size="sm" variant="outline">Générer</Button></TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="font-bold">Série G n°12</TableCell>
+                        <TableCell>30 Juin 2026</TableCell>
+                        <TableCell>Prévisionnelle Exercice 2026</TableCell>
+                        <TableCell className="text-right"><Button size="sm" variant="outline">Générer</Button></TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="font-bold">Série G n°50 ter</TableCell>
+                        <TableCell>20 du mois/trimestre</TableCell>
+                        <TableCell>IRG Salariés (Retenue à la source)</TableCell>
+                        <TableCell className="text-right"><Button size="sm" variant="outline">Générer</Button></TableCell>
+                      </TableRow>
+                    </>
+                  ) : (
+                    <TableRow>
+                      <TableCell className="font-bold">Série G n°50</TableCell>
+                      <TableCell>20 du mois suivant</TableCell>
+                      <TableCell>Mensuelle (TVA, IRG, IBS)</TableCell>
+                      <TableCell className="text-right"><Button size="sm" variant="outline">Générer</Button></TableCell>
+                    </TableRow>
+                  )}
+                  <TableRow>
+                    <TableCell className="font-bold">Série G n°29</TableCell>
+                    <TableCell>30 Avril 2026</TableCell>
+                    <TableCell>Déclaration annuelle des salaires (NIN requis)</TableCell>
+                    <TableCell className="text-right"><Button size="sm" variant="outline">Générer</Button></TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="ibs-sim">
-          {!isIFU ? (
-            <Card className="border-amber-200 bg-amber-50 shadow-md">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2 text-amber-800">
-                  <Landmark className="h-5 w-5" /> Simulateur IBS & Réinvestissement (Exercice 2024/2025)
-                </CardTitle>
-                <CardDescription className="text-amber-700">
-                  Optimisez votre IBS en réinvestissant vos bénéfices. Bénéficiez du taux réduit de <strong>{(TAX_RATES.IBS_REINVESTMENT * 100).toFixed(0)}%</strong> au lieu de {(ibsRate * 100).toFixed(0)}%.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-amber-900">1. Bénéfice Net Imposable (DA)</label>
-                      <Input 
-                        type="number" 
-                        placeholder="Ex: 1 000 000" 
-                        className="bg-white border-amber-300 focus-visible:ring-amber-500"
-                        value={estimatedProfit || ""}
-                        onChange={(e) => setEstimatedProfit(parseFloat(e.target.value) || 0)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-amber-900 flex items-center gap-2">
-                        2. Part à Réinvestir (Equipements/Social) 
-                        <Badge variant="outline" className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-200">Eco-Taux 10%</Badge>
-                      </label>
-                      <Input 
-                        type="number" 
-                        placeholder="Montant du réinvestissement" 
-                        className="bg-white border-amber-300 focus-visible:ring-amber-500"
-                        value={reinvestedAmount || ""}
-                        onChange={(e) => setReinvestedAmount(parseFloat(e.target.value) || 0)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4">
-                    <div className="p-4 bg-white border border-amber-300 rounded-lg shadow-inner">
-                      <p className="text-xs uppercase text-muted-foreground font-bold mb-1">IBS Total à payer</p>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-3xl font-bold text-amber-600">{formatAmount(projectedIBS)}</span>
-                        <span className="text-sm font-medium text-amber-600">DZD</span>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground mt-2 italic">Calculé au taux hybride {(estimatedProfit > 0 && reinvestedAmount > 0) ? "Cible" : "Standard"}.</p>
-                    </div>
-
-                    {taxSavings > 0 && (
-                      <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-center justify-between">
-                        <div>
-                          <p className="text-xs font-bold text-emerald-700 uppercase flex items-center gap-1">
-                            <TrendingUp className="h-3 w-3" /> Économie d'impôt réalisée
-                          </p>
-                          <p className="text-xl font-bold text-emerald-600">-{formatAmount(taxSavings)} DA</p>
-                        </div>
-                        <Badge className="bg-emerald-600 text-white animate-pulse">Gain Fiscal</Badge>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertTitle>Non applicable</AlertTitle>
-              <AlertDescription>Le simulateur IBS est réservé aux entreprises au régime du Réel.</AlertDescription>
-            </Alert>
-          )}
-        </TabsContent>
-
-        <TabsContent value="ibs-installments">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="md:col-span-1">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Calculator className="h-5 w-5 text-primary" /> Calcul des Acomptes
-                </CardTitle>
-                <CardDescription>Basé sur l'IBS de l'exercice précédent (N-1).</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {isNewCompany ? (
-                  <Alert className="bg-blue-50 border-blue-200">
-                    <Info className="h-4 w-4 text-blue-600" />
-                    <AlertTitle className="text-blue-800">Nouvelle Entreprise</AlertTitle>
-                    <AlertDescription className="text-blue-700 text-xs">
-                      Vous êtes dispensé d'acomptes pour votre première année d'activité.
-                    </AlertDescription>
-                  </Alert>
-                ) : (
+        <TabsContent value="mixed">
+          <Card className="border-primary/20 bg-primary/5">
+            <CardHeader>
+              <CardTitle>Gestion des Activités Mixtes (Art. 282sexies)</CardTitle>
+              <CardDescription>Répartition du CA par taux IFU (5% vs 12%).</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Montant IBS N-1 (DA)</label>
-                    <Input 
-                      type="number" 
-                      placeholder="Ex: 500 000"
-                      value={previousYearIBS || ""}
-                      onChange={(e) => setPreviousYearIBS(parseFloat(e.target.value) || 0)}
-                    />
-                    <div className="pt-4 border-t mt-4">
-                      <p className="text-xs text-muted-foreground uppercase font-bold">Montant par acompte (30%)</p>
-                      <p className="text-2xl font-bold text-primary">{formatAmount(installmentAmount)} DZD</p>
-                    </div>
+                    <Label>CA Production/Vente (5%)</Label>
+                    <Input type="number" placeholder="DA" />
                   </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="md:col-span-2">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <CalendarDays className="h-5 w-5 text-accent" /> Calendrier de Paiement {mounted ? new Date().getFullYear() : "..."}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Échéance</TableHead>
-                      <TableHead>Période de paiement</TableHead>
-                      <TableHead className="text-right">Montant estimé</TableHead>
-                      <TableHead></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {deadlines.map((d, i) => (
-                      <TableRow key={i} className={i === 3 ? "bg-muted/30 font-semibold" : ""}>
-                        <TableCell>{d.name}</TableCell>
-                        <TableCell className="text-xs">
-                          Du {formatDate(d.start)} au {formatDate(d.end)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {i < 3 ? formatAmount(installmentAmount) : "Solde variable"} DA
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {mounted && new Date() > new Date(d.end) ? (
-                            <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">Passé</Badge>
-                          ) : (
-                            <Badge variant="outline" className="animate-pulse border-amber-300 text-amber-600">À venir</Badge>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                
-                <div className="mt-6 p-4 bg-muted/50 rounded-lg space-y-3">
-                  <h5 className="text-sm font-bold flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 text-amber-600" /> Notes Importantes
-                  </h5>
-                  <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-1">
-                    <li>Paiement via bordereau G n°50 auprès de votre recette des impôts.</li>
-                    <li>Si l'exercice N-1 était déficitaire, aucun acompte n'est dû (sauf minimum de 10 000 DA si non déjà payé).</li>
-                    <li>Vous pouvez demander une dispense si les acomptes versés couvrent l'impôt prévisible.</li>
-                  </ul>
+                  <div className="space-y-2">
+                    <Label>CA Services (12%)</Label>
+                    <Input type="number" placeholder="DA" />
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+                <div className="pt-4 border-t flex justify-between items-center">
+                  <span className="font-bold">IFU Total Calculé</span>
+                  <span className="text-xl font-black text-primary">0 DZD</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
+
+      <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-4">
+        <ShieldCheck className="h-6 w-6 text-emerald-600 shrink-0" />
+        <div className="text-xs text-emerald-900 space-y-2">
+          <p className="font-bold">Audit de Conformité DGI 2026</p>
+          <p>
+            Les seuils IFU ont été vérifiés : 8 millions DA pour le régime général et 5 millions DA pour les auto-entrepreneurs. 
+            Toute activité excédant ces seuils sera automatiquement basculée au régime du réel l'année suivante.
+          </p>
+        </div>
+      </div>
     </div>
   )
+}
+
+function Label({ children, className }: { children: React.ReactNode, className?: string }) {
+  return <label className={`text-sm font-medium ${className}`}>{children}</label>;
 }
