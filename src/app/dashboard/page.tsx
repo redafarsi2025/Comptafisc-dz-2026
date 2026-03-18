@@ -23,7 +23,7 @@ import {
 } from "recharts"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { AlertCircle, CheckCircle2, TrendingUp, Wallet, ArrowUpRight, ArrowDownRight } from "lucide-react"
+import { AlertCircle, CheckCircle2, TrendingUp, Wallet, ArrowUpRight, ArrowDownRight, BadgeCheck } from "lucide-react"
 
 const healthData = [
   { name: "Compliant", value: 85, color: "hsl(var(--primary))" },
