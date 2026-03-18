@@ -10,9 +10,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useFirestore, useUser, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase"
 import { collection, query, where, limit, doc } from "firebase/firestore"
-import { findActivityByNap } from "@/lib/nap-data"
+import { findActivityByNap, NAP_ACTIVITIES } from "@/lib/nap-data"
 import { 
-  Building2, Save, MapPin, CreditCard, ShieldCheck, Zap, Loader2, Info
+  Building2, Save, MapPin, CreditCard, ShieldCheck, Zap, Loader2, Info, Search
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
@@ -31,10 +31,14 @@ export default function TenantSettingsPage() {
   const currentTenant = tenants?.[0];
 
   const [formData, setFormData] = React.useState<any>({})
+  const [selectedSector, setSelectedSector] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     if (currentTenant) {
       setFormData(currentTenant)
+      // Auto-set sector if NAP exists
+      const activity = findActivityByNap(currentTenant.activiteNAP);
+      if (activity) setSelectedSector(activity.sector);
     }
   }, [currentTenant])
 
@@ -50,6 +54,12 @@ export default function TenantSettingsPage() {
       current[keys[keys.length - 1]] = value
       return newData
     })
+
+    // If updating NAP via direct input, try to sync sector
+    if (path === "activiteNAP") {
+      const activity = findActivityByNap(value);
+      if (activity) setSelectedSector(activity.sector);
+    }
   }
 
   const handleSave = async () => {
@@ -74,7 +84,16 @@ export default function TenantSettingsPage() {
     }
   }
 
-  const selectedActivity = React.useMemo(() => {
+  const sectors = React.useMemo(() => {
+    return Array.from(new Set(NAP_ACTIVITIES.map(a => a.sector))).sort();
+  }, []);
+
+  const filteredActivities = React.useMemo(() => {
+    if (!selectedSector) return [];
+    return NAP_ACTIVITIES.filter(a => a.sector === selectedSector).sort((a, b) => a.label.localeCompare(b.label));
+  }, [selectedSector]);
+
+  const selectedActivityInfo = React.useMemo(() => {
     return findActivityByNap(formData.activiteNAP || "");
   }, [formData.activiteNAP]);
 
@@ -94,7 +113,7 @@ export default function TenantSettingsPage() {
         </Button>
       </div>
 
-      <Tabs defaultValue="identification" className="w-full">
+      <Tabs defaultValue="fiscal" className="w-full">
         <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 h-auto p-1 bg-muted/50">
           <TabsTrigger value="identification" className="py-2 text-xs">Identification</TabsTrigger>
           <TabsTrigger value="contact" className="py-2 text-xs">Contact</TabsTrigger>
@@ -137,57 +156,103 @@ export default function TenantSettingsPage() {
           <Card className="border-primary/20 bg-primary/5">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2 text-primary"><Zap className="h-5 w-5" />Profil Fiscal (Moteur de calcul)</CardTitle>
-              <CardDescription>Données pilotant l'intelligence fiscale du dossier.</CardDescription>
+              <CardDescription>Configurez votre régime et votre activité NAP pour activer les calculs automatiques.</CardDescription>
             </CardHeader>
-            <CardContent className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase">Régime Fiscal</label>
-                <Select value={formData.regimeFiscal} onValueChange={(v) => handleUpdate("regimeFiscal", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="IFU">IFU (Impôt Forfaitaire Unique)</SelectItem>
-                    <SelectItem value="REGIME_REEL_SIMPLIFIE">Réel Simplifié</SelectItem>
-                    <SelectItem value="REGIME_REEL">Régime du Réel</SelectItem>
-                  </SelectContent>
-                </Select>
+            <CardContent className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase">Régime Fiscal</label>
+                  <Select value={formData.regimeFiscal} onValueChange={(v) => handleUpdate("regimeFiscal", v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="IFU">IFU (Impôt Forfaitaire Unique)</SelectItem>
+                      <SelectItem value="REGIME_REEL_SIMPLIFIE">Réel Simplifié</SelectItem>
+                      <SelectItem value="REGIME_REEL">Régime du Réel</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase">Code NAP Direct (Optionnel)</label>
+                  <div className="relative">
+                    <Input 
+                      value={formData.activiteNAP || ""} 
+                      onChange={(e) => handleUpdate("activiteNAP", e.target.value)} 
+                      placeholder="Ex: 6201, 4711..." 
+                      className="pr-10"
+                    />
+                    <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  </div>
+                </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase">Code NAP (Nomenclature)</label>
-                <Input 
-                  value={formData.activiteNAP || ""} 
-                  onChange={(e) => handleUpdate("activiteNAP", e.target.value)} 
-                  placeholder="Ex: 6201, 4711..." 
-                />
-                {selectedActivity ? (
-                  <div className="mt-2 p-2 bg-emerald-50 rounded border border-emerald-100 flex items-start gap-2">
-                    <Info className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <div className="text-[11px] text-emerald-700">
-                      <p className="font-bold">{selectedActivity.label}</p>
-                      <p>Secteur: {selectedActivity.sector} | Taux TAP: <span className="font-bold">{(selectedActivity.tapRate * 100).toFixed(2)}%</span></p>
+
+              <div className="p-4 bg-background border rounded-lg space-y-4">
+                <h4 className="text-sm font-bold flex items-center gap-2"><Search className="h-4 w-4 text-primary" /> Aide à la recherche d'activité</h4>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase text-muted-foreground">1. Choisir le Secteur</label>
+                    <Select value={selectedSector || ""} onValueChange={(v) => setSelectedSector(v)}>
+                      <SelectTrigger><SelectValue placeholder="Sélectionner un secteur" /></SelectTrigger>
+                      <SelectContent>
+                        {sectors.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase text-muted-foreground">2. Choisir l'Activité</label>
+                    <Select 
+                      disabled={!selectedSector} 
+                      onValueChange={(v) => handleUpdate("activiteNAP", v)}
+                      value={formData.activiteNAP}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Sélectionner votre métier" /></SelectTrigger>
+                      <SelectContent>
+                        {filteredActivities.map(a => (
+                          <SelectItem key={a.code} value={a.code}>{a.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              {selectedActivityInfo && (
+                <div className="p-4 bg-emerald-50 rounded-lg border border-emerald-100 flex items-start gap-3">
+                  <div className="h-10 w-10 bg-emerald-100 rounded-full flex items-center justify-center shrink-0">
+                    <Info className="h-5 w-5 text-emerald-600" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <p className="font-bold text-emerald-800">{selectedActivityInfo.label}</p>
+                      <Badge className="bg-emerald-600">NAP {selectedActivityInfo.code}</Badge>
+                    </div>
+                    <div className="mt-1 flex gap-4 text-xs text-emerald-700">
+                      <p>Secteur : <span className="font-semibold">{selectedActivityInfo.sector}</span></p>
+                      <p>Taux TAP : <span className="font-bold">{(selectedActivityInfo.tapRate * 100).toFixed(2)}%</span></p>
                     </div>
                   </div>
-                ) : formData.activiteNAP && (
-                  <p className="text-[10px] text-destructive mt-1">Code NAP inconnu. Taux sectoriel par défaut appliqué.</p>
-                )}
-              </div>
-              <div className="flex items-center space-x-2 pt-4">
-                <Checkbox 
-                  id="tva" 
-                  checked={formData.assujettissementTva} 
-                  onCheckedChange={(c) => handleUpdate("assujettissementTva", !!c)} 
-                />
-                <label htmlFor="tva" className="text-sm font-medium leading-none cursor-pointer">Assujetti à la TVA</label>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase">Taux TVA par défaut</label>
-                <Select value={formData.tauxTvaApplicable} onValueChange={(v) => handleUpdate("tauxTvaApplicable", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="TVA_19">Taux Normal (19%)</SelectItem>
-                    <SelectItem value="TVA_9">Taux Réduit (9%)</SelectItem>
-                    <SelectItem value="TVA_EXONERE">Exonéré (0%)</SelectItem>
-                  </SelectContent>
-                </Select>
+                </div>
+              )}
+
+              <div className="grid md:grid-cols-2 gap-6 pt-4 border-t">
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="tva" 
+                    checked={formData.assujettissementTva} 
+                    onCheckedChange={(c) => handleUpdate("assujettissementTva", !!c)} 
+                  />
+                  <label htmlFor="tva" className="text-sm font-medium leading-none cursor-pointer">Assujetti à la TVA</label>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase">Taux TVA par défaut</label>
+                  <Select value={formData.tauxTvaApplicable} onValueChange={(v) => handleUpdate("tauxTvaApplicable", v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="TVA_19">Taux Normal (19%)</SelectItem>
+                      <SelectItem value="TVA_9">Taux Réduit (9%)</SelectItem>
+                      <SelectItem value="TVA_EXONERE">Exonéré (0%)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -207,6 +272,10 @@ export default function TenantSettingsPage() {
                   <Input value={formData.adresse?.wilaya || ""} onChange={(e) => handleUpdate("adresse.wilaya", e.target.value)} placeholder="Ex: 16 - Alger" />
                 </div>
               </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase">Adresse du siège</label>
+                <Input value={formData.adresse?.rue || ""} onChange={(e) => handleUpdate("adresse.rue", e.target.value)} />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -217,11 +286,11 @@ export default function TenantSettingsPage() {
             <CardContent className="grid md:grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-muted-foreground">Plan actuel :</span>
-                <Badge className="ml-2">{formData.plan || "GRATUIT"}</Badge>
+                <Badge className="ml-2 bg-primary/10 text-primary border-primary/20" variant="outline">{formData.plan || "GRATUIT"}</Badge>
               </div>
               <div>
                 <span className="text-muted-foreground">Expiration :</span>
-                <span className="ml-2 font-mono">{formData.subscription?.dateExpiration?.split('T')[0] || "N/A"}</span>
+                <span className="ml-2 font-mono font-bold text-primary">{formData.subscription?.dateExpiration?.split('T')[0] || "N/A"}</span>
               </div>
             </CardContent>
           </Card>
@@ -233,7 +302,7 @@ export default function TenantSettingsPage() {
             <CardContent>
               <div className="flex items-center space-x-2">
                 <Checkbox id="efatura" checked={formData.efatura?.active} onCheckedChange={(c) => handleUpdate("efatura.active", !!c)} />
-                <label htmlFor="efatura" className="text-sm font-medium">Activer la connexion API e-Fatura DGI</label>
+                <label htmlFor="efatura" className="text-sm font-medium">Activer la connexion API e-Fatura DGI (Expérimental)</label>
               </div>
             </CardContent>
           </Card>
