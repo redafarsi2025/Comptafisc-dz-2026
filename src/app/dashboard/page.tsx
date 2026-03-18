@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -24,7 +25,7 @@ import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebas
 import { collection, query, where, limit } from "firebase/firestore"
 import { 
   TrendingUp, Wallet, ArrowUpRight, BadgeCheck, AlertCircle, 
-  CheckCircle2, Calculator, Activity, Sparkles
+  CheckCircle2, Activity, Sparkles
 } from "lucide-react"
 
 export default function DashboardOverview() {
@@ -53,7 +54,7 @@ export default function DashboardOverview() {
     if (!invoices) return { ca: 0, tva: 0, count: 0 };
     return invoices.reduce((acc, inv) => ({
       ca: acc.ca + (inv.totalAmountExcludingTax || 0),
-      tva: acc.totalTaxAmount || 0, // Simplified: should aggregate but here just to show
+      tva: acc.tva + (inv.totalTaxAmount || 0),
       count: acc.count + 1
     }), { ca: 0, tva: 0, count: 0 });
   }, [invoices]);
@@ -74,7 +75,9 @@ export default function DashboardOverview() {
         <div className="text-muted-foreground flex items-center gap-2">
           <span>Entreprise :</span>
           <span className="font-semibold text-foreground">{currentTenant?.raisonSociale || "Chargement..."}</span>
-          <Badge variant="outline" className="border-primary/20 bg-primary/5">{currentTenant?.regimeFiscal}</Badge>
+          <Badge variant="outline" className="border-primary/20 bg-primary/5">
+            {currentTenant?.regimeFiscal || "Réel"}
+          </Badge>
         </div>
       </div>
 
@@ -100,7 +103,9 @@ export default function DashboardOverview() {
             <Wallet className="h-4 w-4 text-accent" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{currentTenant?.regimeFiscal === 'IFU' ? '0' : stats.tva.toLocaleString()} DZD</div>
+            <div className="text-2xl font-bold">
+              {currentTenant?.regimeFiscal === 'IFU' ? '0' : stats.tva.toLocaleString()} DZD
+            </div>
             <p className="text-xs text-muted-foreground">
               {currentTenant?.regimeFiscal === 'IFU' ? 'Inclus dans l\'IFU' : 'Assujetti - Échéance G50'}
             </p>
@@ -177,7 +182,7 @@ export default function DashboardOverview() {
                 <p className="text-xs text-muted-foreground">La suppression ne concerne que la TAP. L'IBS reste exigible.</p>
               </div>
             </div>
-          </div>
+          </CardContent>
         </Card>
       </div>
     </div>
