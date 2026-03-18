@@ -1,17 +1,18 @@
 
+import { findActivityByNap } from './nap-data';
+
 /**
  * Algerian Tax & Payroll Calculation Engine (Client-side)
- * Logique basée sur la Loi de Finances Algérienne.
+ * Logique basée sur la Loi de Finances Algérienne et Nomenclature NAP.
  */
 
 export const TAX_RATES = {
   TVA_NORMAL: 0.19,
   TVA_REDUIT: 0.09,
-  TAP_DEFAULT: 0.015, // Taux standard 1.5% (LF 2024)
-  TAP_PRODUCTION: 0.01, // Taux réduit 1% pour la production
+  TAP_DEFAULT: 0.015,
   STAMP_DUTY_MAX: 2500,
   STAMP_DUTY_MIN: 5,
-  STAMP_DUTY_RATE: 0.01, // 1% pour les paiements en espèces
+  STAMP_DUTY_RATE: 0.01,
 };
 
 export const PAYROLL_CONSTANTS = {
@@ -21,10 +22,19 @@ export const PAYROLL_CONSTANTS = {
 };
 
 /**
- * Calcule le taux de TAP en fonction du secteur d'activité ou code NAP.
+ * Calcule le taux de TAP précis en fonction du code NAP.
+ * Si le code NAP n'est pas trouvé, utilise le taux par défaut du secteur.
  */
-export function getTAPRate(secteur: string): number {
-  if (secteur === "PRODUCTION") return TAX_RATES.TAP_PRODUCTION;
+export function getTAPRate(secteur: string, napCode?: string): number {
+  if (napCode) {
+    const activity = findActivityByNap(napCode);
+    if (activity) return activity.tapRate;
+  }
+  
+  // Fallback sectoriel
+  if (secteur === "PRODUCTION") return 0.01;
+  if (secteur === "BTP") return 0.03;
+  if (secteur === "AGRICULTURE") return 0.00;
   return TAX_RATES.TAP_DEFAULT;
 }
 

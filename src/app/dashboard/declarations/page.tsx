@@ -6,16 +6,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { FileText, Download, CheckCircle, Clock, AlertTriangle, Building2, Calculator } from "lucide-react"
+import { FileText, Download, CheckCircle, Clock, Building2, Calculator, Info } from "lucide-react"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, query, where, limit } from "firebase/firestore"
 import { getTAPRate } from "@/lib/calculations"
+import { findActivityByNap } from "@/lib/nap-data"
 
 export default function DeclarationsPage() {
   const db = useFirestore()
   const { user } = useUser()
   
-  // Fetch active tenant
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null), limit(1));
@@ -24,9 +24,9 @@ export default function DeclarationsPage() {
   const currentTenant = tenants?.[0];
 
   const isIFU = currentTenant?.regimeFiscal === "IFU";
-  const tapRate = getTAPRate(currentTenant?.secteurActivite || "SERVICES");
+  const tapRate = getTAPRate(currentTenant?.secteurActivite || "SERVICES", currentTenant?.activiteNAP);
+  const activityInfo = findActivityByNap(currentTenant?.activiteNAP || "");
 
-  // Fetch real invoices for calculation with security filter
   const invoicesQuery = useMemoFirebase(() => {
     if (!db || !currentTenant || !user) return null;
     return query(
@@ -50,16 +50,16 @@ export default function DeclarationsPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-primary">Déclarations Fiscales</h1>
-          <div className="text-muted-foreground flex items-center gap-2 mt-1">
+          <div className="text-muted-foreground flex flex-wrap items-center gap-2 mt-1">
             <span>Dossier :</span>
             <span className="font-semibold text-foreground">{currentTenant?.raisonSociale || "..."}</span> 
             <Badge variant="secondary">{currentTenant?.regimeFiscal || "Réel"}</Badge>
-            {currentTenant?.assujettissementTva && <Badge className="bg-emerald-100 text-emerald-700">Assujetti TVA</Badge>}
+            {activityInfo && <Badge variant="outline" className="text-[10px]">{activityInfo.label}</Badge>}
           </div>
         </div>
         <Button className="bg-primary hover:bg-primary/90">
           <Calculator className="mr-2 h-4 w-4" /> 
-          {isIFU ? "Générer G12 Annuel" : "Simuler G50 du mois"}
+          {isIFU ? "Générer G12 Annuel" : "Simuler G50 Mensuel"}
         </Button>
       </div>
 
@@ -76,12 +76,19 @@ export default function DeclarationsPage() {
         </Card>
         <Card className="border-l-4 border-l-accent shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">TAP à Payer ({(tapRate * 100).toFixed(1)}%)</CardTitle>
+            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">
+              TAP à Payer ({(tapRate * 100).toFixed(2)}%)
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-accent">
               {stats.tap.toLocaleString()} <span className="text-sm font-normal">DZD</span>
             </div>
+            {activityInfo && (
+              <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                <Info className="h-3 w-3" /> Basé sur NAP {activityInfo.code}
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-amber-500 shadow-sm">
@@ -106,7 +113,7 @@ export default function DeclarationsPage() {
             <CardHeader>
               <CardTitle>Documents à soumettre</CardTitle>
               <CardDescription>
-                Calculs basés sur le régime {currentTenant?.regimeFiscal} et le secteur {currentTenant?.secteurActivite}.
+                Calculs basés sur le régime {currentTenant?.regimeFiscal} et l'activité NAP {currentTenant?.activiteNAP}.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -123,7 +130,7 @@ export default function DeclarationsPage() {
                   </div>
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm">Calculer acomptes</Button>
-                    <Button size="sm">Télécharger G12</Button>
+                    <Button size="sm">Générer G12</Button>
                   </div>
                 </div>
               ) : (
@@ -134,30 +141,17 @@ export default function DeclarationsPage() {
                     </div>
                     <div>
                       <h4 className="font-bold">Déclaration G n° 50 (Mensuelle)</h4>
-                      <p className="text-sm text-muted-foreground">Période : {new Date().toLocaleString('fr-FR', { month: 'long', year: 'numeric' })} • TAP + TVA estimées.</p>
+                      <p className="text-sm text-muted-foreground">Période : {new Date().toLocaleString('fr-FR', { month: 'long', year: 'numeric' })}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
                       <Clock className="mr-1 h-3 w-3" /> Échéance : 20 du mois prochain
                     </Badge>
-                    <Button size="sm" variant="secondary">Détail G50</Button>
+                    <Button size="sm">Détail G50</Button>
                   </div>
                 </div>
               )}
-              
-              <div className="p-6 border rounded-xl opacity-60 flex flex-col md:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 bg-emerald-100 rounded-full flex items-center justify-center">
-                    <CheckCircle className="h-6 w-6 text-emerald-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold">Déclaration Sociale (CNAS)</h4>
-                    <p className="text-sm text-muted-foreground">Période : {currentTenant?.periodiciteDeclaration === 'TRIMESTRIEL' ? 'Trimestre en cours' : 'Mois en cours'}</p>
-                  </div>
-                </div>
-                <Badge className="bg-emerald-500">Conforme</Badge>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -165,8 +159,7 @@ export default function DeclarationsPage() {
           <Card>
             <CardContent className="py-20 flex flex-col items-center justify-center text-muted-foreground">
               <Download className="h-10 w-10 mb-4 opacity-20" />
-              <p className="text-lg font-medium">Aucune archive scellée pour le moment.</p>
-              <p className="text-sm">Vos déclarations validées apparaîtront ici avec signature SHA-256.</p>
+              <p className="text-lg font-medium">Aucune archive pour le moment.</p>
             </CardContent>
           </Card>
         </TabsContent>
