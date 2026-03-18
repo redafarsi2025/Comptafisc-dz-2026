@@ -24,7 +24,7 @@ import {
   ClipboardList,
   CalendarCheck,
   HardHat,
-  AddressBook
+  Contact
 } from "lucide-react"
 
 import {
@@ -268,7 +268,7 @@ export function DashboardSidebar() {
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname === "/dashboard/contacts"} tooltip="Tiers (Clients/Forn.)">
-                <Link href="/dashboard/contacts"><AddressBook /><span>Tiers (Clients/Fourn.)</span></Link>
+                <Link href="/dashboard/contacts"><Contact /><span>Tiers (Clients/Fourn.)</span></Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
