@@ -18,7 +18,8 @@ import {
   User as UserIcon,
   LogOut,
   Library,
-  BookOpenCheck
+  BookOpenCheck,
+  FileBarChart
 } from "lucide-react"
 
 import {
@@ -60,6 +61,7 @@ const navigation = [
 const legalBooks = [
   { name: "Livre-Journal", href: "/dashboard/accounting/journal", icon: BookOpenCheck },
   { name: "Grand Livre", href: "/dashboard/accounting/ledger", icon: Library },
+  { name: "États Financiers", href: "/dashboard/accounting/financial-statements", icon: FileBarChart },
 ]
 
 export function DashboardSidebar() {
