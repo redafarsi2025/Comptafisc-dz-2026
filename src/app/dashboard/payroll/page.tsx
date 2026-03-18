@@ -10,7 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFoo
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Users, Calculator, Wallet, Printer, FileDown, Search, Loader2, Info, ReceiptText } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Plus, Users, Calculator, Wallet, Printer, FileDown, Search, Loader2, Info, ReceiptText, MapPin, ShieldCheck } from "lucide-react"
 import { PAYROLL_CONSTANTS, calculateIRG } from "@/lib/calculations"
 import { toast } from "@/hooks/use-toast"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -28,7 +29,9 @@ export default function PayrollPage() {
     primesImposables: 0,
     indemnitePanier: 0,
     indemniteTransport: 0,
-    cnasNumber: ""
+    cnasNumber: "",
+    isGrandSud: false,
+    isHandicapped: false
   })
 
   React.useEffect(() => {
@@ -37,7 +40,7 @@ export default function PayrollPage() {
 
   const formatAmount = (val: number) => mounted ? val.toLocaleString() : "..."
 
-  // Fetch active tenant with security filter
+  // Fetch active tenant
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null), limit(1));
@@ -45,7 +48,7 @@ export default function PayrollPage() {
   const { data: tenants } = useCollection(tenantsQuery);
   const currentTenant = tenants?.[0];
 
-  // Fetch employees with security filter
+  // Fetch employees
   const employeesQuery = useMemoFirebase(() => {
     if (!db || !currentTenant || !user) return null;
     return query(
@@ -55,16 +58,21 @@ export default function PayrollPage() {
   }, [db, currentTenant, user]);
   const { data: employees, isLoading } = useCollection(employeesQuery);
 
-  const calculatePayroll = (base: number, primes: number, panier: number, transport: number) => {
+  const calculatePayroll = (emp: any) => {
+    const base = Number(emp.baseSalary) || 0;
+    const primes = Number(emp.primesImposables) || 0;
+    const panier = Number(emp.indemnitePanier) || 0;
+    const transport = Number(emp.indemniteTransport) || 0;
+
     // Salaire de Poste (Assiette CNAS)
     const salairePoste = base + primes;
     const cnasEmployee = salairePoste * PAYROLL_CONSTANTS.CNAS_EMPLOYEE;
     
     // Net Imposable
     const imposable = salairePoste - cnasEmployee;
-    const irg = calculateIRG(imposable);
+    const irg = calculateIRG(imposable, emp.isGrandSud, emp.isHandicapped);
     
-    // Salaire Net (Imposable - IRG + Indemnités non imposables)
+    // Salaire Net
     const net = imposable - irg + panier + transport;
     
     // Cotisations Patronales
@@ -100,7 +108,11 @@ export default function PayrollPage() {
       addDocumentNonBlocking(collection(db, "tenants", currentTenant.id, "employees"), employeeData);
       toast({ title: "Salarié ajouté", description: `${newEmployee.name} a été inscrit au registre.` });
       setIsDialogOpen(false);
-      setNewEmployee({ name: "", position: "", baseSalary: 20000, primesImposables: 0, indemnitePanier: 0, indemniteTransport: 0, cnasNumber: "" });
+      setNewEmployee({ 
+        name: "", position: "", baseSalary: 20000, primesImposables: 0, 
+        indemnitePanier: 0, indemniteTransport: 0, cnasNumber: "",
+        isGrandSud: false, isHandicapped: false
+      });
     } catch (e) {
       console.error(e);
     }
@@ -114,7 +126,7 @@ export default function PayrollPage() {
   const totals = React.useMemo(() => {
     if (!filteredEmployees) return { gross: 0, cnas: 0, net: 0, irg: 0 };
     return filteredEmployees.reduce((acc, e) => {
-      const calc = calculatePayroll(e.baseSalary, e.primesImposables || 0, e.indemnitePanier || 0, e.indemniteTransport || 0);
+      const calc = calculatePayroll(e);
       return {
         gross: acc.gross + calc.salairePoste,
         cnas: acc.cnas + (calc.cnasEmployee + calc.cnasEmployer),
@@ -131,7 +143,7 @@ export default function PayrollPage() {
           <h1 className="text-3xl font-bold text-primary flex items-center gap-2">
             <Users className="h-8 w-8 text-accent" /> Gestion Sociale & Paie
           </h1>
-          <p className="text-muted-foreground text-sm">Conforme Loi 90-11, SNMG et Barème IRG 2024.</p>
+          <p className="text-muted-foreground text-sm">Conforme Loi de Finances 2026, Barème IRG et SNMG.</p>
         </div>
         <div className="flex gap-2">
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -143,7 +155,7 @@ export default function PayrollPage() {
             <DialogContent className="max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Fiche Salarié & Contrat</DialogTitle>
-                <DialogDescription>Paramétrez les éléments fixes du salaire (Loi 90-11).</DialogDescription>
+                <DialogDescription>Paramétrez les éléments du salaire et les avantages fiscaux.</DialogDescription>
               </DialogHeader>
               <div className="grid gap-6 py-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -154,6 +166,29 @@ export default function PayrollPage() {
                   <div className="grid gap-2">
                     <Label>N° CNAS</Label>
                     <Input value={newEmployee.cnasNumber} onChange={e => setNewEmployee({...newEmployee, cnasNumber: e.target.value})} placeholder="XX XXXX XXXX XX" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 bg-muted/30 p-4 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="grandSud" 
+                      checked={newEmployee.isGrandSud} 
+                      onCheckedChange={(c) => setNewEmployee({...newEmployee, isGrandSud: !!c})} 
+                    />
+                    <label htmlFor="grandSud" className="text-xs font-medium flex items-center gap-1 cursor-pointer">
+                      <MapPin className="h-3 w-3 text-primary" /> Zone Grand Sud (-50% IRG)
+                    </label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="handicap" 
+                      checked={newEmployee.isHandicapped} 
+                      onCheckedChange={(c) => setNewEmployee({...newEmployee, isHandicapped: !!c})} 
+                    />
+                    <label htmlFor="handicap" className="text-xs font-medium flex items-center gap-1 cursor-pointer">
+                      <ShieldCheck className="h-3 w-3 text-accent" /> Profil Handicapé (-50% IRG)
+                    </label>
                   </div>
                 </div>
                 
@@ -207,7 +242,7 @@ export default function PayrollPage() {
         </Card>
         <Card className="border-l-4 border-l-amber-500 shadow-sm">
           <CardContent className="pt-6">
-            <p className="text-[10px] uppercase font-bold text-muted-foreground">IRG Salarié (G50)</p>
+            <p className="text-[10px] uppercase font-bold text-muted-foreground">IRG à verser (G50)</p>
             <h2 className="text-2xl font-bold text-amber-600">{formatAmount(totals.irg)} DA</h2>
           </CardContent>
         </Card>
@@ -246,10 +281,10 @@ export default function PayrollPage() {
                 <TableHeader className="bg-muted/50">
                   <TableRow>
                     <TableHead>Salarié</TableHead>
-                    <TableHead className="text-right">S. Base</TableHead>
-                    <TableHead className="text-right">Primes</TableHead>
+                    <TableHead className="text-right">S. Poste</TableHead>
+                    <TableHead className="text-right">Zone/Adv.</TableHead>
                     <TableHead className="text-right">CNAS (9%)</TableHead>
-                    <TableHead className="text-right">IRG</TableHead>
+                    <TableHead className="text-right">IRG 2026</TableHead>
                     <TableHead className="text-right font-bold text-primary">Net à Payer</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -260,7 +295,7 @@ export default function PayrollPage() {
                     <TableRow><TableCell colSpan={6} className="text-center py-10 text-muted-foreground">Aucun salarié enregistré.</TableCell></TableRow>
                   ) : (
                     filteredEmployees.map((e) => {
-                      const calc = calculatePayroll(e.baseSalary, e.primesImposables || 0, e.indemnitePanier || 0, e.indemniteTransport || 0);
+                      const calc = calculatePayroll(e);
                       return (
                         <TableRow key={e.id} className="hover:bg-muted/10">
                           <TableCell>
@@ -269,8 +304,14 @@ export default function PayrollPage() {
                               <span className="text-[10px] text-muted-foreground uppercase">{e.position || 'N/A'}</span>
                             </div>
                           </TableCell>
-                          <TableCell className="text-right font-mono text-xs">{formatAmount(e.baseSalary)}</TableCell>
-                          <TableCell className="text-right font-mono text-xs">+{formatAmount(e.primesImposables || 0)}</TableCell>
+                          <TableCell className="text-right font-mono text-xs">{formatAmount(calc.salairePoste)}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-1">
+                              {e.isGrandSud && <Badge variant="outline" className="text-[8px] bg-blue-50 text-blue-700">SUD</Badge>}
+                              {e.isHandicapped && <Badge variant="outline" className="text-[8px] bg-amber-50 text-amber-700">HANDI</Badge>}
+                              {!e.isGrandSud && !e.isHandicapped && <span className="text-[10px] text-muted-foreground">-</span>}
+                            </div>
+                          </TableCell>
                           <TableCell className="text-right font-mono text-xs text-destructive">-{formatAmount(calc.cnasEmployee)}</TableCell>
                           <TableCell className="text-right font-mono text-xs text-destructive">-{formatAmount(calc.irg)}</TableCell>
                           <TableCell className="text-right font-mono text-sm font-bold text-primary">{formatAmount(calc.net)}</TableCell>
@@ -296,7 +337,7 @@ export default function PayrollPage() {
         <TabsContent value="bulletins">
           <div className="grid md:grid-cols-2 gap-6">
             {filteredEmployees.map(e => {
-              const calc = calculatePayroll(e.baseSalary, e.primesImposables || 0, e.indemnitePanier || 0, e.indemniteTransport || 0);
+              const calc = calculatePayroll(e);
               return (
                 <Card key={e.id} className="border-dashed border-2">
                   <CardHeader className="pb-2 border-b">
@@ -304,11 +345,11 @@ export default function PayrollPage() {
                       <div className="flex items-center gap-2">
                         <ReceiptText className="h-5 w-5 text-primary" />
                         <div>
-                          <CardTitle className="text-sm">Bulletin de Paie Simplifié</CardTitle>
-                          <CardDescription className="text-[10px] uppercase font-bold">Période: {mounted ? new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }) : "..."}</CardDescription>
+                          <CardTitle className="text-sm">Bulletin de Paie Simplifié (2026)</CardTitle>
+                          <CardDescription className="text-[10px] uppercase font-bold">Période: {mounted ? new Date().toLocaleString('fr-FR', { month: 'long', year: 'numeric' }) : "..."}</CardDescription>
                         </div>
                       </div>
-                      <Badge variant="outline" className="text-[10px]">Confidenciel</Badge>
+                      <Badge variant="outline" className="text-[10px]">Confidentiel</Badge>
                     </div>
                   </CardHeader>
                   <CardContent className="pt-4 space-y-2">
@@ -318,10 +359,12 @@ export default function PayrollPage() {
                       <div className="flex justify-between text-xs border-b pb-1"><span>Primes imposables</span> <span>{formatAmount(e.primesImposables || 0)}</span></div>
                       <div className="flex justify-between text-xs text-primary font-bold"><span>S. BRUT (Assiette CNAS)</span> <span>{formatAmount(calc.salairePoste)}</span></div>
                       <div className="flex justify-between text-xs text-destructive"><span>CNAS Salarié (9%)</span> <span>-{formatAmount(calc.cnasEmployee)}</span></div>
-                      <div className="flex justify-between text-xs border-b pb-1"><span>Net Imposable</span> <span>{formatAmount(calc.imposable)}</span></div>
-                      <div className="flex justify-between text-xs text-destructive"><span>IRG</span> <span>-{formatAmount(calc.irg)}</span></div>
-                      <div className="flex justify-between text-xs"><span>Indemnité Panier</span> <span>+{formatAmount(e.indemnitePanier || 0)}</span></div>
-                      <div className="flex justify-between text-xs"><span>Indemnité Transport</span> <span>+{formatAmount(e.indemniteTransport || 0)}</span></div>
+                      <div className="flex justify-between text-xs border-b pb-1"><span>Net Imposable (RGI)</span> <span>{formatAmount(calc.imposable)}</span></div>
+                      <div className="flex justify-between text-xs text-destructive">
+                        <span>IRG (LF 2026) {e.isGrandSud && "(Zone Sud -50%)"}</span> 
+                        <span>-{formatAmount(calc.irg)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs"><span>Indemnités Frais (Panier/Transp.)</span> <span>+{formatAmount((e.indemnitePanier || 0) + (e.indemniteTransport || 0))}</span></div>
                     </div>
                     <div className="mt-4 p-3 bg-primary/10 rounded-lg flex justify-between items-center">
                       <span className="font-bold text-primary">NET À PAYER</span>
@@ -341,11 +384,12 @@ export default function PayrollPage() {
       <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
         <Info className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
         <div className="text-xs text-amber-900 leading-relaxed">
-          <p className="font-bold mb-1">Rappel de conformité Loi de Finances 2022/2024 :</p>
+          <p className="font-bold mb-1">Rappel de conformité Loi de Finances 2026 :</p>
           <ul className="list-disc pl-4 space-y-1">
-            <li>L'exonération totale de l'IRG s'applique aux salaires inférieurs ou égaux à 30 000 DA.</li>
-            <li>Le lissage de l'IRG pour la tranche 30 000 - 35 000 DA est automatiquement géré par le moteur.</li>
-            <li>Les indemnités de Panier et de Transport sont exclues de l'assiette CNAS et IRG selon les plafonds réglementaires.</li>
+            <li>Exonération totale de l'IRG pour les salaires imposables ≤ 30 000 DA.</li>
+            <li>Barème 2026 appliqué avec abattement plafonné à 1 500 DA par mois.</li>
+            <li>Réduction de 50% de l'IRG pour les zones Sud (IZCV) et les travailleurs handicapés.</li>
+            <li>Assiette CNAS : Exclusivement sur le Salaire de Poste (Brut - Indemnités de frais).</li>
           </ul>
         </div>
       </div>

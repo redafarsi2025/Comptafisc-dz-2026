@@ -107,39 +107,54 @@ export function calculateTVA(ht: number, enumRate: string = "TVA_19", isIFU: boo
 }
 
 /**
- * Calcule l'IRG Salarié selon le barème progressif 2022 (Loi de Finances 2022).
- * Gère l'abattement de 40% et le lissage pour la tranche 30k-35k.
+ * Calcule l'IRG Salarié selon le barème progressif LF 2026.
  */
-export function calculateIRG(netImposable: number): number {
-  // 1. Arrondi au dizaine inférieur selon la règle fiscale
+export function calculateIRG(
+  netImposable: number, 
+  isGrandSud: boolean = false, 
+  isHandicapped: boolean = false
+): number {
+  // 1. Arrondi au dizaine inférieur
   const base = Math.floor(netImposable / 10) * 10;
 
   if (base <= 30000) return 0;
 
-  // 2. Barème annuel converti en mensuel
+  // 2. Barème progressif mensuel 2026
+  // 0 - 30,000 : 0%
+  // 30,001 - 120,000 : 23%
+  // 120,001 - 360,000 : 27%
+  // 360,001 - 1,440,000 : 30%
+  // + 1,440,000 : 35%
+  
   let irgStandard = 0;
-  if (base > 20000 && base <= 40000) {
-    irgStandard = (base - 20000) * 0.23;
-  } else if (base > 40000 && base <= 80000) {
-    irgStandard = (base - 40000) * 0.27 + 4600;
-  } else if (base > 80000 && base <= 160000) {
-    irgStandard = (base - 80000) * 0.30 + 15400;
-  } else if (base > 160000 && base <= 320000) {
-    irgStandard = (base - 160000) * 0.33 + 39400;
-  } else if (base > 320000) {
-    irgStandard = (base - 320000) * 0.35 + 92200;
+  const rgi = base - 30000; // La première tranche de 30k est à 0%
+
+  if (base <= 120000) {
+    irgStandard = rgi * 0.23;
+  } else if (base <= 360000) {
+    irgStandard = (120000 - 30000) * 0.23 + (base - 120000) * 0.27;
+  } else if (base <= 1440000) {
+    irgStandard = (120000 - 30000) * 0.23 + (360000 - 120000) * 0.27 + (base - 360000) * 0.30;
+  } else {
+    irgStandard = (120000 - 30000) * 0.23 + (360000 - 120000) * 0.27 + (1440000 - 360000) * 0.30 + (base - 1440000) * 0.35;
   }
 
-  // 3. Premier Abattement de 40% (Min 1000, Max 1500)
+  // 3. Abattement de 40% (Min 1000, Max 1500)
   let abattement = irgStandard * 0.4;
   if (abattement < 1000) abattement = 1000;
   if (abattement > 1500) abattement = 1500;
 
   let irgFinal = Math.max(0, irgStandard - abattement);
 
-  // 4. Deuxième Abattement (Lissage) pour les revenus entre 30 000 et 35 000 DA
-  if (base > 30000 && base <= 35000) {
-    irgFinal = irgFinal * (8/3) * (1 - 30000/base);
+  // 4. Réductions spécifiques
+  // Grand Sud (souvent 50% de réduction sur l'IRG dû)
+  if (isGrandSud) {
+    irgFinal = irgFinal * 0.5;
+  }
+
+  // Handicap (Abattement supplémentaire souvent géré par réduction de 50% également)
+  if (isHandicapped) {
+    irgFinal = irgFinal * 0.5;
   }
 
   return Math.round(irgFinal);
