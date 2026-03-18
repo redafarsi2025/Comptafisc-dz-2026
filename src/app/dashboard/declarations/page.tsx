@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -47,11 +46,12 @@ export default function DeclarationsPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-primary">Déclarations Fiscales</h1>
-          <p className="text-muted-foreground flex items-center gap-2">
-            Dossier : <span className="font-semibold text-foreground">{currentTenant?.raisonSociale || "..."}</span> 
+          <div className="text-muted-foreground flex items-center gap-2 mt-1">
+            <span>Dossier :</span>
+            <span className="font-semibold text-foreground">{currentTenant?.raisonSociale || "..."}</span> 
             <Badge variant="secondary">{currentTenant?.regimeFiscal || "Réel"}</Badge>
             {currentTenant?.assujettissementTva && <Badge className="bg-emerald-100 text-emerald-700">Assujetti TVA</Badge>}
-          </p>
+          </div>
         </div>
         <Button className="bg-primary hover:bg-primary/90">
           <Calculator className="mr-2 h-4 w-4" /> 

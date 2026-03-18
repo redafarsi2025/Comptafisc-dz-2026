@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -69,10 +68,11 @@ export default function DashboardOverview() {
     <div className="space-y-6">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold tracking-tight text-primary">Vue d'ensemble</h1>
-        <p className="text-muted-foreground">
-          Entreprise : <span className="font-semibold text-foreground">{currentTenant?.raisonSociale || "Chargement..."}</span>
-          <Badge variant="outline" className="ml-2 border-primary/20 bg-primary/5">{currentTenant?.regimeFiscal}</Badge>
-        </p>
+        <div className="text-muted-foreground flex items-center gap-2">
+          <span>Entreprise :</span>
+          <span className="font-semibold text-foreground">{currentTenant?.raisonSociale || "Chargement..."}</span>
+          <Badge variant="outline" className="border-primary/20 bg-primary/5">{currentTenant?.regimeFiscal}</Badge>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
