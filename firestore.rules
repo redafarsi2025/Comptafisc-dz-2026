@@ -15,45 +15,36 @@ service cloud.firestore {
       return isSignedIn() && membersMap != null && request.auth.uid in membersMap;
     }
 
-    function isExistingMember(membersMap) {
-      return resource != null && isMember(membersMap);
+    function getTenantMembers(tenantId) {
+      return get(/databases/$(database)/documents/tenants/$(tenantId)).data.members;
     }
 
-    function isImmutable(fieldName) {
-      return request.resource.data[fieldName] == resource.data[fieldName];
+    function isTenantMember(tenantId) {
+      return isSignedIn() && isMember(getTenantMembers(tenantId));
     }
 
     match /tenants/{tenantId} {
-      allow get, list: if isMember(resource.data.members);
+      allow get: if isMember(resource.data.members);
+      allow list: if isSignedIn() && resource.data.members[request.auth.uid] != null;
       allow create: if isSignedIn() && request.resource.data.members[request.auth.uid] == 'owner';
-      allow update: if isExistingMember(resource.data.members) && isMember(request.resource.data.members);
-      allow delete: if isExistingMember(resource.data.members) && resource.data.members[request.auth.uid] == 'owner';
+      allow update: if isMember(resource.data.members) && isMember(request.resource.data.members);
+      allow delete: if isMember(resource.data.members) && resource.data.members[request.auth.uid] == 'owner';
     }
 
     match /tenants/{tenantId}/accounts/{accountId} {
-      allow get, list: if isMember(get(/databases/$(database)/documents/tenants/$(tenantId)).data.members);
-      allow create, update, delete: if isMember(get(/databases/$(database)/documents/tenants/$(tenantId)).data.members);
+      allow read, write: if isTenantMember(tenantId);
     }
 
     match /tenants/{tenantId}/journal_entries/{journalEntryId} {
-      allow get, list: if isMember(resource.data.tenantMembers);
-      allow create: if isMember(request.resource.data.tenantMembers) && request.resource.data.tenantId == tenantId;
-      allow update: if isExistingMember(resource.data.tenantMembers) && isImmutable('tenantId');
-      allow delete: if isExistingMember(resource.data.tenantMembers);
+      allow read, write: if isTenantMember(tenantId);
     }
 
     match /tenants/{tenantId}/clients/{clientId} {
-      allow get, list: if isMember(resource.data.tenantMembers);
-      allow create: if isMember(request.resource.data.tenantMembers) && request.resource.data.tenantId == tenantId;
-      allow update: if isExistingMember(resource.data.tenantMembers) && isImmutable('tenantId');
-      allow delete: if isExistingMember(resource.data.tenantMembers);
+      allow read, write: if isTenantMember(tenantId);
     }
 
     match /tenants/{tenantId}/invoices/{invoiceId} {
-      allow get, list: if isMember(resource.data.tenantMembers);
-      allow create: if isMember(request.resource.data.tenantMembers) && request.resource.data.tenantId == tenantId;
-      allow update: if isExistingMember(resource.data.tenantMembers) && isImmutable('tenantId');
-      allow delete: if isExistingMember(resource.data.tenantMembers);
+      allow read, write: if isTenantMember(tenantId);
     }
 
     match /tax_regulations/{taxRegulationId} {

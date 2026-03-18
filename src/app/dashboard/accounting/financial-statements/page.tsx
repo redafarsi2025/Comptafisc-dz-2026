@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -22,13 +23,12 @@ export default function FinancialStatements() {
   const currentTenant = tenants?.[0];
 
   const entriesQuery = useMemoFirebase(() => {
-    if (!db || !currentTenant || !user) return null;
+    if (!db || !currentTenant) return null;
     return query(
       collection(db, "tenants", currentTenant.id, "journal_entries"),
-      where(`tenantMembers.${user.uid}`, "!=", null),
       orderBy("entryDate", "asc")
     );
-  }, [db, currentTenant, user]);
+  }, [db, currentTenant]);
   const { data: entries, isLoading } = useCollection(entriesQuery);
 
   // Agrégation des données financières par classe SCF
