@@ -21,7 +21,8 @@ import {
   BookOpenCheck,
   FileBarChart,
   FileStack,
-  ClipboardList
+  ClipboardList,
+  CalendarCheck
 } from "lucide-react"
 
 import {
@@ -59,6 +60,11 @@ const navigation = [
   { name: "Liasse Fiscale G4", href: "/dashboard/declarations/g4", icon: FileStack },
   { name: "Assistant IA", href: "/dashboard/assistant", icon: MessageSquareMore },
   { name: "Capture OCR", href: "/dashboard/ocr", icon: Camera },
+]
+
+const taxForms = [
+  { name: "G50 Mensuelle", href: "/dashboard/declarations/g50", icon: CalendarCheck },
+  { name: "G12 (IFU)", href: "/dashboard/declarations/g12", icon: FileText },
 ]
 
 const legalBooks = [
@@ -205,6 +211,19 @@ export function DashboardSidebar() {
           <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Menu</SidebarGroupLabel>
           <SidebarMenu>
             {navigation.map((item) => (
+              <SidebarMenuItem key={item.name}>
+                <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name} className="hover:bg-sidebar-accent">
+                  <Link href={item.href}><item.icon /><span>{item.name}</span></Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Formulaires DGI</SidebarGroupLabel>
+          <SidebarMenu>
+            {taxForms.map((item) => (
               <SidebarMenuItem key={item.name}>
                 <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name} className="hover:bg-sidebar-accent">
                   <Link href={item.href}><item.icon /><span>{item.name}</span></Link>
