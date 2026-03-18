@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { SCF_ACCOUNTS, JournalEntryLine, JournalType } from "@/lib/scf-accounts"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select"
 import { Plus, Trash2, CheckCircle, Calculator, Loader2, BookOpen, Search } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useFirestore, useUser, addDocumentNonBlocking } from "@/firebase"
@@ -82,8 +82,8 @@ export default function AccountingJournal() {
       lines: lines.map(l => ({ 
         accountCode: l.accountCode, 
         accountName: l.accountName, 
-        debit: l.debit, 
-        credit: l.credit 
+        debit: Number(l.debit) || 0, 
+        credit: Number(l.credit) || 0 
       }))
     }
 
@@ -107,25 +107,45 @@ export default function AccountingJournal() {
   }
 
   const filteredAccounts = React.useMemo(() => {
-    if (!searchAccount) return SCF_ACCOUNTS;
+    const search = searchAccount.toLowerCase();
     return SCF_ACCOUNTS.filter(a => 
-      a.code.includes(searchAccount) || 
-      a.name.toLowerCase().includes(searchAccount.toLowerCase())
+      a.code.includes(search) || 
+      a.name.toLowerCase().includes(search)
     );
   }, [searchAccount]);
+
+  // Groupement des comptes par classe pour une meilleure UX
+  const groupedAccounts = React.useMemo(() => {
+    const groups: Record<number, typeof SCF_ACCOUNTS> = {};
+    filteredAccounts.forEach(acc => {
+      if (!groups[acc.class]) groups[acc.class] = [];
+      groups[acc.class].push(acc);
+    });
+    return groups;
+  }, [filteredAccounts]);
+
+  const classesLabels: Record<number, string> = {
+    1: "Classe 1 - Capitaux",
+    2: "Classe 2 - Immobilisations",
+    3: "Classe 3 - Stocks",
+    4: "Classe 4 - Tiers",
+    5: "Classe 5 - Financiers",
+    6: "Classe 6 - Charges",
+    7: "Classe 7 - Produits",
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-primary flex items-center gap-2">
-            <BookOpen className="h-8 w-8 text-accent" /> Saisie Comptable (SCF)
+            <BookOpen className="h-8 w-8 text-accent" /> Saisie Comptable (PCE)
           </h1>
-          <p className="text-muted-foreground text-sm">Saisie d'écritures pour les journaux auxiliaires du dossier.</p>
+          <p className="text-muted-foreground text-sm">Établissez votre Plan de Comptes de l'Entité en subdivisant les racines du SCF.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={addLine}>
-            <Plus className="mr-2 h-4 w-4" /> Ligne
+            <Plus className="mr-2 h-4 w-4" /> Ajouter ligne
           </Button>
           <Button 
             disabled={!isBalanced || isSubmitting || !currentTenant} 
@@ -180,17 +200,16 @@ export default function AccountingJournal() {
           <div className="mb-4 flex items-center gap-2 max-w-sm">
             <Search className="h-4 w-4 text-muted-foreground" />
             <Input 
-              placeholder="Rechercher un compte (nom ou code)..." 
+              placeholder="Rechercher (ex: 3001, Alimentation...)" 
               value={searchAccount}
               onChange={(e) => setSearchAccount(e.target.value)}
-              className="h-8 text-xs"
+              className="h-8 text-xs bg-muted/20"
             />
           </div>
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50">
-                <TableHead className="w-[220px]">Compte SCF</TableHead>
-                <TableHead>Intitulé (Automatique)</TableHead>
+                <TableHead className="w-[300px]">Compte (Racine ou Subdivision)</TableHead>
                 <TableHead className="w-[150px] text-right">Débit</TableHead>
                 <TableHead className="w-[150px] text-right">Crédit</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
@@ -205,30 +224,33 @@ export default function AccountingJournal() {
                       onValueChange={(val) => updateLine(index, "accountCode", val)}
                     >
                       <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Code SCF" />
+                        <SelectValue placeholder="Code PCE" />
                       </SelectTrigger>
                       <SelectContent className="max-h-[300px]">
-                        {filteredAccounts.map(acc => (
-                          <SelectItem key={acc.code} value={acc.code}>
-                            <span className="font-mono font-bold">{acc.code}</span> - {acc.name}
-                          </SelectItem>
+                        {Object.entries(groupedAccounts).map(([cls, accounts]) => (
+                          <SelectGroup key={cls}>
+                            <SelectLabel className="bg-muted/50 py-1 text-[10px] font-bold">{classesLabels[Number(cls)]}</SelectLabel>
+                            {accounts.map(acc => (
+                              <SelectItem key={acc.code} value={acc.code}>
+                                <div className="flex flex-col">
+                                  <span className={`font-mono ${acc.isRoot ? 'font-black text-primary' : 'font-medium'}`}>
+                                    {acc.code}
+                                  </span>
+                                  <span className="text-[10px] opacity-70 truncate max-w-[200px]">{acc.name}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
                         ))}
                       </SelectContent>
                     </Select>
                   </TableCell>
                   <TableCell>
                     <Input
-                      value={line.accountName}
-                      readOnly
-                      className="bg-muted/10 border-none shadow-none text-xs text-muted-foreground h-9"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
                       type="number"
                       className="text-right font-mono h-9"
                       value={line.debit || ""}
-                      onChange={(e) => updateLine(index, "debit", parseFloat(e.target.value) || 0)}
+                      onChange={(e) => updateLine(index, "debit", e.target.value)}
                     />
                   </TableCell>
                   <TableCell>
@@ -236,7 +258,7 @@ export default function AccountingJournal() {
                       type="number"
                       className="text-right font-mono h-9"
                       value={line.credit || ""}
-                      onChange={(e) => updateLine(index, "credit", parseFloat(e.target.value) || 0)}
+                      onChange={(e) => updateLine(index, "credit", e.target.value)}
                     />
                   </TableCell>
                   <TableCell>
@@ -260,7 +282,7 @@ export default function AccountingJournal() {
               <Calculator className="h-4 w-4 text-muted-foreground" />
               <span className="font-semibold text-xs">Statut d'équilibre :</span>
               {isBalanced ? (
-                <Badge className="bg-emerald-500 h-5 text-[10px]">Document Équilibré</Badge>
+                <Badge className="bg-emerald-500 h-5 text-[10px]">Équilibré</Badge>
               ) : (
                 <Badge variant="destructive" className="h-5 text-[10px]">Écart: {Math.abs(totals.debit - totals.credit).toLocaleString()} DA</Badge>
               )}
@@ -282,10 +304,11 @@ export default function AccountingJournal() {
       <div className="p-4 bg-primary/5 border rounded-lg flex items-start gap-3">
         <div className="mt-1 h-2 w-2 rounded-full bg-primary animate-pulse shrink-0" />
         <div className="text-xs text-muted-foreground">
-          <p className="font-bold text-primary mb-1">Rappel Réglementaire SCF</p>
+          <p className="font-bold text-primary mb-1">Guide de Personnalisation (PCE)</p>
           <p className="italic">
-            Les écritures doivent être appuyées par des pièces justificatives datées et numérotées. 
-            La nomenclature utilisée ici est conforme au Plan Comptable National Algérien.
+            Vous utilisez la nomenclature officielle pour les racines (2 chiffres). 
+            Vous êtes libre de subdiviser ces comptes (4 chiffres ou plus) pour détailler vos opérations 
+            par type de produit (ex: 3001, 3002) ou par client spécifique.
           </p>
         </div>
       </div>
