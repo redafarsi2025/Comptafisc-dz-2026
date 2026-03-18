@@ -29,6 +29,7 @@ export const TAX_RATES = {
 export const PAYROLL_CONSTANTS = {
   CNAS_EMPLOYEE: 0.09,
   CNAS_EMPLOYER: 0.26,
+  SNMG: 20000, // Salaire National Minimum Garanti
   IRG_THRESHOLD: 30000,
 };
 
@@ -105,8 +106,41 @@ export function calculateTVA(ht: number, enumRate: string = "TVA_19", isIFU: boo
   return ht * rate;
 }
 
-export function calculateIRG(salary: number): number {
-  if (salary <= 30000) return 0;
-  if (salary <= 35000) return (salary - 30000) * 0.2;
-  return (salary - 35000) * 0.3 + 1000;
+/**
+ * Calcule l'IRG Salarié selon le barème progressif 2022 (Loi de Finances 2022).
+ * Gère l'abattement de 40% et le lissage pour la tranche 30k-35k.
+ */
+export function calculateIRG(netImposable: number): number {
+  // 1. Arrondi au dizaine inférieur selon la règle fiscale
+  const base = Math.floor(netImposable / 10) * 10;
+
+  if (base <= 30000) return 0;
+
+  // 2. Barème annuel converti en mensuel
+  let irgStandard = 0;
+  if (base > 20000 && base <= 40000) {
+    irgStandard = (base - 20000) * 0.23;
+  } else if (base > 40000 && base <= 80000) {
+    irgStandard = (base - 40000) * 0.27 + 4600;
+  } else if (base > 80000 && base <= 160000) {
+    irgStandard = (base - 80000) * 0.30 + 15400;
+  } else if (base > 160000 && base <= 320000) {
+    irgStandard = (base - 160000) * 0.33 + 39400;
+  } else if (base > 320000) {
+    irgStandard = (base - 320000) * 0.35 + 92200;
+  }
+
+  // 3. Premier Abattement de 40% (Min 1000, Max 1500)
+  let abattement = irgStandard * 0.4;
+  if (abattement < 1000) abattement = 1000;
+  if (abattement > 1500) abattement = 1500;
+
+  let irgFinal = Math.max(0, irgStandard - abattement);
+
+  // 4. Deuxième Abattement (Lissage) pour les revenus entre 30 000 et 35 000 DA
+  if (base > 30000 && base <= 35000) {
+    irgFinal = irgFinal * (8/3) * (1 - 30000/base);
+  }
+
+  return Math.round(irgFinal);
 }
