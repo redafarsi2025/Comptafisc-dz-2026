@@ -39,8 +39,8 @@ import {
   DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { useUser, useFirestore, useCollection, useMemoFirebase, initiateAnonymousSignIn } from "@/firebase"
-import { collection, query, where, doc, setDoc, serverTimestamp } from "firebase/firestore"
+import { useUser, useFirestore, useAuth, useCollection, useMemoFirebase, initiateAnonymousSignIn } from "@/firebase"
+import { collection, query, where, doc, setDoc } from "firebase/firestore"
 import { toast } from "@/hooks/use-toast"
 
 const navigation = [
@@ -58,15 +58,15 @@ export function DashboardSidebar() {
   const pathname = usePathname()
   const { user, isUserLoading } = useUser()
   const db = useFirestore()
+  const auth = useAuth()
   const [currentTenantId, setCurrentTenantId] = React.useState<string | null>(null)
 
   // Auto sign-in for prototype purposes if no user
   React.useEffect(() => {
-    const auth = require('firebase/auth').getAuth();
-    if (!isUserLoading && !user) {
+    if (!isUserLoading && !user && auth) {
       initiateAnonymousSignIn(auth);
     }
-  }, [user, isUserLoading]);
+  }, [user, isUserLoading, auth]);
 
   // Query tenants where user is a member
   const tenantsQuery = useMemoFirebase(() => {

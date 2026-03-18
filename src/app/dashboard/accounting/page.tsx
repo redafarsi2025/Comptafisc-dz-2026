@@ -10,13 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2, CheckCircle, Calculator, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useFirestore, useUser, addDocumentNonBlocking } from "@/firebase"
-import { collection, doc, query, where, limit } from "firebase/firestore"
+import { collection, query, where, limit } from "firebase/firestore"
 import { useCollection, useMemoFirebase } from "@/firebase"
 import { toast } from "@/hooks/use-toast"
 
 export default function AccountingJournal() {
   const db = useFirestore()
-  const { user } = useUser()
+  const { user, isUserLoading } = useUser()
   const [description, setDescription] = React.useState("")
   const [entryDate, setEntryDate] = React.useState(new Date().toISOString().split('T')[0])
   const [reference, setReference] = React.useState("")
