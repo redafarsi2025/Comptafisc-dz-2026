@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -98,7 +99,7 @@ export default function FiscalEngineAdmin() {
       await setDocumentNonBlocking(doc(db, "fiscal_laws", lawId), {
         id: lawId,
         name: "Loi de Finances 2026",
-        description: "Mise à jour seuils IFU (8M/5M), Prorogation G12 bis et SNMG 24k.",
+        description: "Mise à jour complète IFU (8M/5M), Exonérations Startup, Pénalités de retard et SNMG 24k.",
         effectiveStartDate: "2026-01-01",
         publicationDate: "2025-12-30"
       }, { merge: true });
@@ -110,6 +111,13 @@ export default function FiscalEngineAdmin() {
         { code: "IFU_MIN_AUTO", name: "Minimum IFU Auto", unit: "DA", dataType: "number" },
         { code: "IFU_RATE_PROD", name: "Taux IFU Production/Vente", unit: "%", dataType: "number" },
         { code: "IFU_RATE_SERV", name: "Taux IFU Services", unit: "%", dataType: "number" },
+        { code: "IFU_RATE_AUTO", name: "Taux IFU Auto-entrepreneur", unit: "%", dataType: "number" },
+        { code: "IFU_RATE_RECYCLING", name: "Taux IFU Recyclage", unit: "%", dataType: "number" },
+        { code: "IFU_RATE_DIGITAL", name: "Taux IFU Plateformes Numériques", unit: "%", dataType: "number" },
+        { code: "IFU_EXEMPTION_STARTUP_YEARS", name: "Durée Exonération Startup", unit: "Années", dataType: "number" },
+        { code: "IFU_PENALTY_1M", name: "Majoration retard 1 mois", unit: "%", dataType: "number" },
+        { code: "IFU_PENALTY_2M", name: "Majoration retard 2 mois", unit: "%", dataType: "number" },
+        { code: "IFU_PENALTY_GT2M", name: "Majoration retard > 2 mois", unit: "%", dataType: "number" },
         { code: "SNMG", name: "SNMG", unit: "DA", dataType: "number" },
       ];
 
@@ -124,6 +132,13 @@ export default function FiscalEngineAdmin() {
         { type: "IFU_MIN_AUTO", val: "10000" },
         { type: "IFU_RATE_PROD", val: "0.05" },
         { type: "IFU_RATE_SERV", val: "0.12" },
+        { type: "IFU_RATE_AUTO", val: "0.005" },
+        { type: "IFU_RATE_RECYCLING", val: "0.05" },
+        { type: "IFU_RATE_DIGITAL", val: "0.05" },
+        { type: "IFU_EXEMPTION_STARTUP_YEARS", val: "4" },
+        { type: "IFU_PENALTY_1M", val: "0.10" },
+        { type: "IFU_PENALTY_2M", val: "0.20" },
+        { type: "IFU_PENALTY_GT2M", val: "0.25" },
         { type: "SNMG", val: "24000" },
       ];
 
@@ -131,10 +146,10 @@ export default function FiscalEngineAdmin() {
         const vid = `VAL_2026_${v.type}`;
         await setDocumentNonBlocking(doc(db, "fiscal_variable_values", vid), {
           id: vid, fiscalLawId: lawId, fiscalVariableTypeId: v.type,
-          value: v.val, effectiveStartDate: "2026-01-01", notes: "Initialisation LF 2026"
+          value: v.val, effectiveStartDate: "2026-01-01", notes: "Initialisation complète LF 2026"
         }, { merge: true });
       }
-      toast({ title: "Moteur Fiscal 2026 Opérationnel" });
+      toast({ title: "Moteur Fiscal 2026 mis à jour avec les nouveaux paramètres" });
     } finally {
       setIsInitializing(false);
     }
@@ -149,9 +164,9 @@ export default function FiscalEngineAdmin() {
           </h1>
           <p className="text-muted-foreground text-sm font-medium">Configuration centralisée conforme Loi de Finances 2026.</p>
         </div>
-        <Button variant="outline" size="sm" onClick={handleInitialize2026} disabled={isInitializing}>
+        <Button variant="outline" size="sm" onClick={handleInitialize2026} disabled={isInitializing} className="border-primary text-primary hover:bg-primary/5">
           {isInitializing ? <RefreshCcw className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-          Initialiser Moteur 2026
+          Ré-initialiser Moteur 2026 (Complet)
         </Button>
       </div>
 
@@ -226,7 +241,64 @@ export default function FiscalEngineAdmin() {
                 </CardContent>
               </Card>
             </TabsContent>
-            {/* Autres Tabs non modifiées pour brièveté */}
+
+            <TabsContent value="types">
+              <Card className="shadow-sm border">
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader className="bg-muted/30">
+                      <TableRow>
+                        <TableHead>Nom</TableHead>
+                        <TableHead>Code</TableHead>
+                        <TableHead>Unité</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {types?.map((t) => (
+                        <TableRow key={t.id}>
+                          <TableCell className="text-xs font-medium">{t.name}</TableCell>
+                          <TableCell className="font-mono text-[10px]">{t.code}</TableCell>
+                          <TableCell><Badge variant="secondary" className="text-[10px]">{t.unit}</Badge></TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="icon" className="text-destructive h-7 w-7" onClick={() => handleDelete("fiscal_variable_types", t.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="laws">
+              <Card className="shadow-sm border">
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader className="bg-muted/30">
+                      <TableRow>
+                        <TableHead>Nom de la Loi</TableHead>
+                        <TableHead>Publication</TableHead>
+                        <TableHead>Effet</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {laws?.map((l) => (
+                        <TableRow key={l.id}>
+                          <TableCell className="font-bold text-xs">{l.name}</TableCell>
+                          <TableCell className="text-[10px]">{l.publicationDate}</TableCell>
+                          <TableCell className="text-[10px]">{l.effectiveStartDate}</TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="icon" className="text-destructive h-7 w-7" onClick={() => handleDelete("fiscal_laws", l.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
           </Tabs>
         </div>
       </div>
