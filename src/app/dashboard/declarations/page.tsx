@@ -5,16 +5,18 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { FileText, Download, CheckCircle, Clock, Building2, Calculator, Info, ShieldAlert, Sparkles } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { FileText, Download, CheckCircle, Clock, Building2, Calculator, Info, ShieldAlert, Sparkles, Landmark } from "lucide-react"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, query, where, limit } from "firebase/firestore"
-import { getTAPRate, getIFURate } from "@/lib/calculations"
+import { getTAPRate, getIFURate, getIBSRate, calculateIBS } from "@/lib/calculations"
 import { findActivityByNap } from "@/lib/nap-data"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function DeclarationsPage() {
   const db = useFirestore()
   const { user } = useUser()
+  const [estimatedProfit, setEstimatedProfit] = React.useState<number>(0)
   
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -26,6 +28,7 @@ export default function DeclarationsPage() {
   const isIFU = currentTenant?.regimeFiscal === "IFU";
   const tapRate = getTAPRate(currentTenant?.secteurActivite || "SERVICES", currentTenant?.activiteNAP);
   const ifuRate = isIFU ? getIFURate(currentTenant?.secteurActivite || "SERVICES", currentTenant?.formeJuridique || "") : 0;
+  const ibsRate = !isIFU ? getIBSRate(currentTenant?.secteurActivite || "SERVICES", currentTenant?.activiteNAP) : 0;
   const activityInfo = findActivityByNap(currentTenant?.activiteNAP || "");
 
   const invoicesQuery = useMemoFirebase(() => {
@@ -46,6 +49,10 @@ export default function DeclarationsPage() {
       ifu: acc.ifu + ((inv.totalAmountExcludingTax || 0) * ifuRate)
     }), { tva: 0, tap: 0, ca: 0, ifu: 0 });
   }, [invoices, tapRate, ifuRate]);
+
+  const projectedIBS = React.useMemo(() => {
+    return calculateIBS(estimatedProfit, ibsRate);
+  }, [estimatedProfit, ibsRate]);
 
   return (
     <div className="space-y-6">
@@ -73,9 +80,9 @@ export default function DeclarationsPage() {
         </AlertDescription>
       </Alert>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {isIFU ? (
-          <Card className="md:col-span-2 border-l-4 border-l-primary shadow-sm bg-primary/5">
+          <Card className="md:col-span-3 border-l-4 border-l-primary shadow-sm bg-primary/5">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-bold uppercase text-muted-foreground">
                 Impôt Forfaitaire Unique ({(ifuRate * 100).toFixed(1)}%)
@@ -115,19 +122,59 @@ export default function DeclarationsPage() {
                 <p className="text-[10px] text-muted-foreground mt-1">Taux 0% appliqué systématiquement.</p>
               </CardContent>
             </Card>
+            <Card className="border-l-4 border-l-amber-600 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs font-bold uppercase text-muted-foreground">IBS Provision ({(ibsRate * 100).toFixed(0)}%)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-amber-600">
+                  {projectedIBS.toLocaleString()} <span className="text-sm font-normal">DZD</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">Min. légal de 10 000 DA inclus.</p>
+              </CardContent>
+            </Card>
           </>
         )}
-        <Card className="border-l-4 border-l-amber-500 shadow-sm">
+        <Card className="border-l-4 border-l-blue-500 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Chiffre d'Affaires HT</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-amber-600">
+            <div className="text-2xl font-bold text-blue-600">
               {stats.ca.toLocaleString()} <span className="text-sm font-normal">DZD</span>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {!isIFU && (
+        <Card className="border-amber-200 bg-amber-50">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2 text-amber-800">
+              <Landmark className="h-5 w-5" /> Simulateur IBS (Exercice 2024/2025)
+            </CardTitle>
+            <CardDescription className="text-amber-700">
+              Saisissez votre bénéfice net estimé pour calculer l'IBS selon votre taux de {(ibsRate * 100).toFixed(0)}%.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex items-end gap-4">
+            <div className="flex-1 space-y-2">
+              <label className="text-sm font-medium text-amber-900">Bénéfice Net Imposable (DA)</label>
+              <Input 
+                type="number" 
+                placeholder="Ex: 500000" 
+                className="bg-white border-amber-300"
+                value={estimatedProfit || ""}
+                onChange={(e) => setEstimatedProfit(parseFloat(e.target.value) || 0)}
+              />
+            </div>
+            <div className="flex-1 p-3 bg-white border border-amber-300 rounded-md">
+              <p className="text-xs uppercase text-muted-foreground font-bold">IBS à payer</p>
+              <p className="text-2xl font-bold text-amber-600">{projectedIBS.toLocaleString()} DZD</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="current" className="w-full">
         <TabsList className="grid w-full grid-cols-2">

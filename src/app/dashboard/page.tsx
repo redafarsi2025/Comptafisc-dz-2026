@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -25,8 +24,9 @@ import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebas
 import { collection, query, where, limit } from "firebase/firestore"
 import { 
   TrendingUp, Wallet, ArrowUpRight, BadgeCheck, AlertCircle, 
-  CheckCircle2, Activity, Sparkles
+  CheckCircle2, Activity, Sparkles, Landmark
 } from "lucide-react"
+import { getIBSRate } from "@/lib/calculations"
 
 export default function DashboardOverview() {
   const db = useFirestore()
@@ -58,6 +58,11 @@ export default function DashboardOverview() {
       count: acc.count + 1
     }), { ca: 0, tva: 0, count: 0 });
   }, [invoices]);
+
+  const ibsRate = React.useMemo(() => {
+    if (!currentTenant) return 0.26;
+    return getIBSRate(currentTenant.secteurActivite, currentTenant.activiteNAP);
+  }, [currentTenant]);
 
   const monthlyData = [
     { month: "Jan", revenue: stats.ca * 0.1, expenses: stats.ca * 0.05 },
@@ -97,20 +102,20 @@ export default function DashboardOverview() {
             </p>
           </CardContent>
         </Card>
+
         <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">TVA à décaisser</CardTitle>
-            <Wallet className="h-4 w-4 text-accent" />
+            <CardTitle className="text-sm font-medium">Provision IBS / IFU</CardTitle>
+            <Landmark className="h-4 w-4 text-amber-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {currentTenant?.regimeFiscal === 'IFU' ? '0' : stats.tva.toLocaleString()} DZD
+              {currentTenant?.regimeFiscal === 'IFU' ? 'IFU 5-12%' : `${(ibsRate * 100).toFixed(0)}% IBS`}
             </div>
-            <p className="text-xs text-muted-foreground">
-              {currentTenant?.regimeFiscal === 'IFU' ? 'Inclus dans l\'IFU' : 'Assujetti - Échéance G50'}
-            </p>
+            <p className="text-xs text-muted-foreground">Estimation basée sur le secteur {currentTenant?.secteurActivite}</p>
           </CardContent>
         </Card>
+
         <Card className="hover:shadow-md transition-shadow bg-emerald-50/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">TAP (LF 2024)</CardTitle>
@@ -121,6 +126,7 @@ export default function DashboardOverview() {
             <p className="text-xs text-muted-foreground">Suppression totale confirmée</p>
           </CardContent>
         </Card>
+
         <Card className="bg-primary text-primary-foreground">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Santé Fiscale</CardTitle>
@@ -179,7 +185,7 @@ export default function DashboardOverview() {
               <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-semibold text-amber-600">IBS & TVA Maintenus</p>
-                <p className="text-xs text-muted-foreground">La suppression ne concerne que la TAP. L'IBS reste exigible.</p>
+                <p className="text-xs text-muted-foreground">La suppression ne concerne que la TAP. L'IBS reste exigible au taux de {(ibsRate * 100).toFixed(0)}%.</p>
               </div>
             </div>
           </CardContent>

@@ -17,6 +17,11 @@ export const TAX_RATES = {
   IFU_PRODUCTION_VENTE: 0.05,
   IFU_SERVICES: 0.12,
   IFU_AUTO_ENTREPRENEUR: 0.005,
+  // Taux IBS (Impôt sur les Bénéfices des Sociétés) - CIDTA Art. 150
+  IBS_PRODUCTION: 0.19,
+  IBS_BTPH_TOURISM: 0.23,
+  IBS_SERVICES_COMMERCE: 0.26,
+  IBS_MINIMUM: 10000,
 };
 
 export const PAYROLL_CONSTANTS = {
@@ -41,6 +46,29 @@ export function getIFURate(secteur: string, formeJuridique: string): number {
   if (formeJuridique === "Auto-entrepreneur") return TAX_RATES.IFU_AUTO_ENTREPRENEUR;
   if (secteur === "PRODUCTION" || secteur === "COMMERCE") return TAX_RATES.IFU_PRODUCTION_VENTE;
   return TAX_RATES.IFU_SERVICES;
+}
+
+/**
+ * Détermine le taux d'IBS applicable selon le secteur et le code NAP.
+ */
+export function getIBSRate(secteur: string, napCode?: string): number {
+  if (secteur === "PRODUCTION") return TAX_RATES.IBS_PRODUCTION;
+  if (secteur === "BTP") return TAX_RATES.IBS_BTPH_TOURISM;
+  
+  // Vérification spécifique pour le tourisme (Hôtellerie codes 55xx)
+  if (napCode && napCode.startsWith('55')) return TAX_RATES.IBS_BTPH_TOURISM;
+  
+  // Défaut pour Services et Commerce
+  return TAX_RATES.IBS_SERVICES_COMMERCE;
+}
+
+/**
+ * Calcule l'IBS en respectant le minimum fiscal de 10 000 DA.
+ */
+export function calculateIBS(benefit: number, rate: number): number {
+  if (benefit <= 0) return TAX_RATES.IBS_MINIMUM;
+  const calculated = benefit * rate;
+  return Math.max(calculated, TAX_RATES.IBS_MINIMUM);
 }
 
 export function calculateStampDuty(amount: number, isCash: boolean): number {
