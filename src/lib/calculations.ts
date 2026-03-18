@@ -69,7 +69,6 @@ export const PAYROLL_CONSTANTS = {
 
 /**
  * Calcule le taux d'IFU applicable selon le secteur et la forme juridique.
- * Gère les cas particuliers : Auto-entrepreneur, Production, Services.
  */
 export function getIFURate(secteur: string, formeJuridique: string, isDigitalPlatform: boolean = false): number {
   if (isDigitalPlatform) return TAX_RATES.IFU_RETENUE_SOURCE_DIGITAL;
@@ -79,7 +78,23 @@ export function getIFURate(secteur: string, formeJuridique: string, isDigitalPla
 }
 
 /**
- * Calcule l'IFU en respectant les minimums légaux (30k/10k) et les proratas.
+ * Calcule le taux d'IBS applicable.
+ */
+export function getIBSRate(secteur: string, activiteNAP?: string): number {
+  if (secteur === "PRODUCTION") return TAX_RATES.IBS_PRODUCTION;
+  if (secteur === "BTP") return TAX_RATES.IBS_BTPH_TOURISM;
+  return TAX_RATES.IBS_SERVICES_COMMERCE;
+}
+
+/**
+ * Retourne le taux de TAP (0% depuis LF 2024).
+ */
+export function getTAPRate(): number {
+  return TAX_RATES.TAP_DEFAULT;
+}
+
+/**
+ * Calcule l'IFU en respectant les minimums légaux.
  */
 export function calculateIFU(ca: number, rate: number, isAuto: boolean, isExempt: boolean = false): number {
   if (isExempt) return 0;
@@ -89,7 +104,7 @@ export function calculateIFU(ca: number, rate: number, isAuto: boolean, isExempt
 }
 
 /**
- * Calcule les majorations de retard pour les déclarations IFU (Art. 282nonies).
+ * Calcule les majorations de retard pour les déclarations IFU.
  */
 export function calculateLatePenalty(taxAmount: number, monthsDelay: number): number {
   if (monthsDelay <= 0) return 0;
