@@ -19,7 +19,8 @@ import {
   LogOut,
   Library,
   BookOpenCheck,
-  FileBarChart
+  FileBarChart,
+  FileStack
 } from "lucide-react"
 
 import {
@@ -54,6 +55,7 @@ const navigation = [
   { name: "Facturation", href: "/dashboard/invoicing", icon: Receipt },
   { name: "Paie & Social", href: "/dashboard/payroll", icon: Users },
   { name: "Déclarations Fisc", href: "/dashboard/declarations", icon: FileText },
+  { name: "Liasse Fiscale G4", href: "/dashboard/declarations/g4", icon: FileStack },
   { name: "Assistant IA", href: "/dashboard/assistant", icon: MessageSquareMore },
   { name: "Capture OCR", href: "/dashboard/ocr", icon: Camera },
 ]
