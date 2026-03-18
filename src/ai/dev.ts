@@ -1,1 +1,6 @@
-// Flows will be imported for their side effects in this file.
+import { config } from 'dotenv';
+config();
+
+import '@/ai/flows/invoice-ocr-extraction.ts';
+import '@/ai/flows/fiscal-compliance-alerts.ts';
+import '@/ai/flows/ai-fiscal-assistant.ts';
