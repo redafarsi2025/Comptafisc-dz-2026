@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import {
   LayoutDashboard,
   Receipt,
@@ -15,7 +15,9 @@ import {
   ChevronDown,
   Building2,
   PieChart,
-  Plus
+  Plus,
+  User as UserIcon,
+  LogOut
 } from "lucide-react"
 
 import {
@@ -41,6 +43,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useUser, useFirestore, useAuth, useCollection, useMemoFirebase, initiateAnonymousSignIn } from "@/firebase"
 import { collection, query, where, doc, setDoc } from "firebase/firestore"
+import { signOut } from "firebase/auth"
 import { toast } from "@/hooks/use-toast"
 
 const navigation = [
@@ -51,11 +54,11 @@ const navigation = [
   { name: "Déclarations (G50)", href: "/dashboard/declarations", icon: FileText },
   { name: "Assistant Fiscal", href: "/dashboard/assistant", icon: MessageSquareMore },
   { name: "OCR Ingestion", href: "/dashboard/ocr", icon: Camera },
-  { name: "Analyses", href: "/dashboard/analytics", icon: PieChart },
 ]
 
 export function DashboardSidebar() {
   const pathname = usePathname()
+  const router = useRouter()
   const { user, isUserLoading } = useUser()
   const db = useFirestore()
   const auth = useAuth()
@@ -86,10 +89,11 @@ export function DashboardSidebar() {
     if (!db || !user) return;
     const newTenantRef = doc(collection(db, "tenants"));
     const tenantData = {
-      name: "Mon Nouveau Dossier",
+      name: "Dossier " + (user.displayName || "Nouveau"),
       members: { [user.uid]: 'owner' },
-      nif: "0000000000",
-      address: "Adresse à compléter",
+      nif: "000000000000000",
+      rc: "",
+      address: "Alger, Algérie",
       email: user.email || "contact@exemple.dz",
       creationDate: new Date().toISOString(),
       currency: "DZD",
@@ -105,6 +109,15 @@ export function DashboardSidebar() {
       console.error(e);
     }
   };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth)
+      router.push("/login")
+    } catch (e) {
+      console.error(e)
+    }
+  }
 
   return (
     <Sidebar variant="sidebar" collapsible="icon">
@@ -168,23 +181,52 @@ export function DashboardSidebar() {
             ))}
           </SidebarMenu>
         </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Paramètres</SidebarGroupLabel>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={pathname === "/dashboard/settings"} tooltip="Paramètres Dossier">
+                <Link href="/dashboard/settings">
+                  <Settings />
+                  <span>Paramètres Dossier</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border p-4">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" className="hover:bg-sidebar-accent">
-              <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage src={`https://picsum.photos/seed/${user?.uid || 'user'}/40/40`} />
-                <AvatarFallback className="rounded-lg">DZ</AvatarFallback>
-              </Avatar>
-              <div className="flex flex-col gap-0.5 text-left text-sm leading-tight">
-                <span className="font-semibold text-sidebar-foreground truncate w-32">
-                  {user?.isAnonymous ? "Utilisateur Invité" : (user?.displayName || "Utilisateur")}
-                </span>
-                <span className="text-xs text-sidebar-foreground/70">Expert-Comptable</span>
-              </div>
-              <Settings className="ml-auto size-4" />
-            </SidebarMenuButton>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton size="lg" className="hover:bg-sidebar-accent">
+                  <Avatar className="h-8 w-8 rounded-lg">
+                    <AvatarImage src={`https://picsum.photos/seed/${user?.uid || 'user'}/40/40`} />
+                    <AvatarFallback className="rounded-lg">DZ</AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col gap-0.5 text-left text-sm leading-tight">
+                    <span className="font-semibold text-sidebar-foreground truncate w-32">
+                      {user?.isAnonymous ? "Utilisateur Invité" : (user?.displayName || "Mon Compte")}
+                    </span>
+                    <span className="text-xs text-sidebar-foreground/70">Expert-Comptable</span>
+                  </div>
+                  <ChevronDown className="ml-auto size-4" />
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="top" align="end" className="w-56">
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard/profile" className="flex items-center gap-2 cursor-pointer">
+                    <UserIcon className="h-4 w-4" /> Mon Profil
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 cursor-pointer text-destructive">
+                  <LogOut className="h-4 w-4" /> Déconnexion
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
