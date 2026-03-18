@@ -5,11 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { FileText, Download, CheckCircle, Clock, Building2, Calculator, Info, ShieldAlert } from "lucide-react"
+import { FileText, Download, CheckCircle, Clock, Building2, Calculator, Info, ShieldAlert, Sparkles } from "lucide-react"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, query, where, limit } from "firebase/firestore"
 import { getTAPRate, getIFURate } from "@/lib/calculations"
 import { findActivityByNap } from "@/lib/nap-data"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function DeclarationsPage() {
   const db = useFirestore()
@@ -64,6 +65,14 @@ export default function DeclarationsPage() {
         </Button>
       </div>
 
+      <Alert className="bg-emerald-50 border-emerald-200">
+        <Sparkles className="h-4 w-4 text-emerald-600" />
+        <AlertTitle className="text-emerald-800 font-bold">Loi de Finances 2024</AlertTitle>
+        <AlertDescription className="text-emerald-700 text-sm">
+          La <strong>TAP (Taxe sur l'Activité Professionnelle)</strong> a été officiellement supprimée pour l'ensemble des contribuables. Votre taux actuel est de <strong>0 %</strong>.
+        </AlertDescription>
+      </Alert>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {isIFU ? (
           <Card className="md:col-span-2 border-l-4 border-l-primary shadow-sm bg-primary/5">
@@ -93,21 +102,17 @@ export default function DeclarationsPage() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-l-4 border-l-accent shadow-sm">
+            <Card className="border-l-4 border-l-emerald-500 shadow-sm opacity-60">
               <CardHeader className="pb-2">
                 <CardTitle className="text-xs font-bold uppercase text-muted-foreground">
-                  TAP à Payer ({(tapRate * 100).toFixed(2)}%)
+                  TAP (Supprimée LF 2024)
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-accent">
-                  {stats.tap.toLocaleString()} <span className="text-sm font-normal">DZD</span>
+                <div className="text-2xl font-bold text-emerald-600">
+                  0 <span className="text-sm font-normal">DZD</span>
                 </div>
-                {activityInfo && (
-                  <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
-                    <Info className="h-3 w-3" /> Basé sur NAP {activityInfo.code}
-                  </p>
-                )}
+                <p className="text-[10px] text-muted-foreground mt-1">Taux 0% appliqué systématiquement.</p>
               </CardContent>
             </Card>
           </>
@@ -124,24 +129,6 @@ export default function DeclarationsPage() {
         </Card>
       </div>
 
-      {isIFU && (
-        <Card className="border-amber-200 bg-amber-50">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-3">
-              <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0" />
-              <div className="text-sm text-amber-800">
-                <p className="font-bold">Rappel Réglementaire IFU</p>
-                <ul className="list-disc list-inside mt-1 space-y-1 opacity-90">
-                  <li>Non-assujettissement à la TVA : Vos factures doivent être HT.</li>
-                  <li>Non-récupération : La TVA sur vos achats n'est pas déductible.</li>
-                  <li>Taxe Unique : L'IFU regroupe IRG/IBS, TAP et TVA.</li>
-                </ul>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       <Tabs defaultValue="current" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="current">Échéances en cours</TabsTrigger>
@@ -152,7 +139,7 @@ export default function DeclarationsPage() {
             <CardHeader>
               <CardTitle>Documents à soumettre</CardTitle>
               <CardDescription>
-                Calculs basés sur le régime {currentTenant?.regimeFiscal} et l'activité NAP {currentTenant?.activiteNAP}.
+                Calculs basés sur le régime {currentTenant?.regimeFiscal} et la conformité LF 2024.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -191,14 +178,6 @@ export default function DeclarationsPage() {
                   </div>
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="history">
-          <Card>
-            <CardContent className="py-20 flex flex-col items-center justify-center text-muted-foreground">
-              <Download className="h-10 w-10 mb-4 opacity-20" />
-              <p className="text-lg font-medium">Aucune archive pour le moment.</p>
             </CardContent>
           </Card>
         </TabsContent>

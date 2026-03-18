@@ -2,17 +2,18 @@ import { findActivityByNap } from './nap-data';
 
 /**
  * Algerian Tax & Payroll Calculation Engine (Client-side)
- * Logique basée sur la Loi de Finances Algérienne et Nomenclature NAP.
+ * Logique basée sur la Loi de Finances Algérienne 2024-2026.
  */
 
 export const TAX_RATES = {
   TVA_NORMAL: 0.19,
   TVA_REDUIT: 0.09,
-  TAP_DEFAULT: 0.015,
+  // TAP supprimée par la Loi de Finances 2024 pour l'ensemble des contribuables
+  TAP_DEFAULT: 0.00, 
   STAMP_DUTY_MAX: 2500,
   STAMP_DUTY_MIN: 5,
   STAMP_DUTY_RATE: 0.01,
-  // Taux IFU (Impôt Forfaitaire Unique)
+  // Taux IFU (Impôt Forfaitaire Unique) - Maintenus en LF 2024
   IFU_PRODUCTION_VENTE: 0.05,
   IFU_SERVICES: 0.12,
   IFU_AUTO_ENTREPRENEUR: 0.005,
@@ -25,18 +26,12 @@ export const PAYROLL_CONSTANTS = {
 };
 
 /**
- * Calcule le taux de TAP précis en fonction du code NAP.
+ * Calcule le taux de TAP précis. 
+ * Retourne désormais 0 conformément à la LF 2024.
  */
 export function getTAPRate(secteur: string, napCode?: string): number {
-  if (napCode) {
-    const activity = findActivityByNap(napCode);
-    if (activity) return activity.tapRate;
-  }
-  
-  if (secteur === "PRODUCTION") return 0.01;
-  if (secteur === "BTP") return 0.03;
-  if (secteur === "AGRICULTURE") return 0.00;
-  return TAX_RATES.TAP_DEFAULT;
+  // Conformité LF 2024 : La TAP est supprimée (0%)
+  return 0;
 }
 
 /**
