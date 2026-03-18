@@ -20,7 +20,8 @@ import {
   Library,
   BookOpenCheck,
   FileBarChart,
-  FileStack
+  FileStack,
+  ClipboardList
 } from "lucide-react"
 
 import {
@@ -64,6 +65,10 @@ const legalBooks = [
   { name: "Livre-Journal", href: "/dashboard/accounting/journal", icon: BookOpenCheck },
   { name: "Grand Livre", href: "/dashboard/accounting/ledger", icon: Library },
   { name: "États Financiers", href: "/dashboard/accounting/financial-statements", icon: FileBarChart },
+]
+
+const socialCompliance = [
+  { name: "Déclaration DAS", href: "/dashboard/payroll/das", icon: ClipboardList },
 ]
 
 export function DashboardSidebar() {
@@ -213,6 +218,19 @@ export function DashboardSidebar() {
           <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Livres Légaux (SCF)</SidebarGroupLabel>
           <SidebarMenu>
             {legalBooks.map((item) => (
+              <SidebarMenuItem key={item.name}>
+                <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name} className="hover:bg-sidebar-accent">
+                  <Link href={item.href}><item.icon /><span>{item.name}</span></Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Conformité Sociale</SidebarGroupLabel>
+          <SidebarMenu>
+            {socialCompliance.map((item) => (
               <SidebarMenuItem key={item.name}>
                 <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name} className="hover:bg-sidebar-accent">
                   <Link href={item.href}><item.icon /><span>{item.name}</span></Link>
