@@ -1,51 +1,131 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    /**
+     * ComptaFisc-DZ Security Rules
+     *
+     * CORE PHILOSOPHY:
+     * This ruleset implements a robust multi-tenant and administrative security model. 
+     * Authorization is "independent," meaning it relies on the physical structure of 
+     * the database (the /saas_admins/ collection) and denormalized data (members maps 
+     * in tenants) rather than deep, recursive lookups.
+     *
+     * DATA STRUCTURE:
+     * - /userProfiles/{userId}: Individual user metadata.
+     * - /saas_admins/{userId}: Flags for global SaaS administrators.
+     * - /tenants/{tenantId}: Independent company data with a 'members' map for access.
+     * - /taxRegulations & /legalCorpusArticles: Global, read-only data for users, 
+     *   managed by admins.
+     *
+     * KEY DECISIONS:
+     * - SaaS Admin status is verified using exists() on a dedicated collection for 
+     *   performance and atomicity.
+     * - Tenant access is governed by a denormalized 'members' map {uid: role} inside 
+     *   the tenant document to facilitate secure listing and immediate authorization.
+     * - All writes are strictly protected by ownership or administrative checks.
+     * - Prototyping Mode: Schema validation is bypassed for general fields, but 
+     *   relational integrity (e.g., matching UIDs to document IDs) is strictly enforced.
+     */
+
+    // --- Helper Functions ---
 
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isCabinetMember(cabinetId) {
-      return isSignedIn() && 
-        get(/databases/$(database)/documents/cabinets/$(cabinetId)).data.members[request.auth.uid] != null;
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isExistingOwner(userId) {
+      return resource != null && isOwner(userId);
+    }
+
+    function isSaaSAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/saas_admins/$(request.auth.uid));
     }
 
     function isTenantMember(tenantData) {
       return isSignedIn() && tenantData.members[request.auth.uid] != null;
     }
 
-    match /cabinets/{cabinetId} {
-      allow read: if isCabinetMember(cabinetId);
-      allow create: if isSignedIn();
-      allow update: if isCabinetMember(cabinetId) && get(/databases/$(database)/documents/cabinets/$(cabinetId)).data.members[request.auth.uid] == 'admin';
-      
-      match /clients/{clientId} {
-        allow read, write: if isCabinetMember(cabinetId);
-      }
-      
-      match /messages/{messageId} {
-        allow read, write: if isCabinetMember(cabinetId) || 
-          (isSignedIn() && get(/databases/$(database)/documents/tenants/$(resource.data.tenantId)).data.members[request.auth.uid] != null);
-      }
+    function isRelationalValid(id) {
+      return request.resource.data.id == id;
     }
 
+    function isRelationalImmutable() {
+      return request.resource.data.id == resource.data.id;
+    }
+
+    // --- Collection Rules ---
+
+    /**
+     * @description Rules for individual user profiles. Users manage their own; admins can view all.
+     * @path /userProfiles/{userId}
+     * @allow (get) If user is the owner or a SaaS Admin.
+     * @deny (write) If the authenticated user ID does not match the document ID.
+     * @principle Enforces path-based ownership and administrative oversight.
+     */
+    match /userProfiles/{userId} {
+      allow get: if isSignedIn() && (isOwner(userId) || isSaaSAdmin());
+      allow list: if isSignedIn() && isSaaSAdmin();
+      allow create: if isOwner(userId) && isRelationalValid(userId);
+      allow update: if isExistingOwner(userId) && isRelationalImmutable();
+      allow delete: if false; // Profiles are generally preserved; delete requires admin-level intervention.
+    }
+
+    /**
+     * @description Administrative flags. The existence of a UID here defines global admin status.
+     * @path /saas_admins/{userId}
+     * @allow (read) Authenticated users can check their own status; admins can see all.
+     * @deny (write) Any non-SaaS admin user attempting to create or modify admin status.
+     * @principle Authorization Independence: uses existence check instead of profile attributes.
+     */
+    match /saas_admins/{userId} {
+      allow get: if isSignedIn() && (isOwner(userId) || isSaaSAdmin());
+      allow list: if isSaaSAdmin();
+      allow create, update, delete: if isSaaSAdmin();
+    }
+
+    /**
+     * @description Tenant documents representing companies. Access is shared via member maps.
+     * @path /tenants/{tenantId}
+     * @allow (read) If the user is a SaaS Admin or listed in the tenant's 'members' map.
+     * @deny (write) If the user is not a SaaS Admin.
+     * @principle Shared Access (Closed Collaborators) via denormalized member maps.
+     */
     match /tenants/{tenantId} {
-      allow get: if isSignedIn() && (resource.data.members[request.auth.uid] != null || 
-        (resource.data.cabinetId != null && isCabinetMember(resource.data.cabinetId)));
-      allow list: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && (resource.data.members[request.auth.uid] != null || 
-        (resource.data.cabinetId != null && isCabinetMember(resource.data.cabinetId)));
+      allow get, list: if isSignedIn() && (isSaaSAdmin() || isTenantMember(resource.data));
+      allow create: if isSaaSAdmin() && isRelationalValid(tenantId);
+      allow update: if isSaaSAdmin() && resource != null && isRelationalImmutable();
+      allow delete: if isSaaSAdmin() && resource != null;
     }
 
-    match /tenants/{tenantId}/{allSubcollections=**} {
-      allow read, write: if isSignedIn() && (
-        get(/databases/$(database)/documents/tenants/$(tenantId)).data.members[request.auth.uid] != null ||
-        (get(/databases/$(database)/documents/tenants/$(tenantId)).data.cabinetId != null && 
-         isCabinetMember(get(/databases/$(database)/documents/tenants/$(tenantId)).data.cabinetId))
-      );
+    /**
+     * @description Global Algerian tax regulations and rates.
+     * @path /taxRegulations/{regulationId}
+     * @allow (read) Any authenticated user.
+     * @deny (write) Anyone who is not a SaaS Admin.
+     * @principle Public Read with Owner-Only Writes (Administrative).
+     */
+    match /taxRegulations/{regulationId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSaaSAdmin();
+      allow update, delete: if isSaaSAdmin() && resource != null;
+    }
+
+    /**
+     * @description Legal articles for the AI Fiscal Assistant.
+     * @path /legalCorpusArticles/{articleId}
+     * @allow (read) Any authenticated user.
+     * @deny (write) Anyone who is not a SaaS Admin.
+     * @principle Public Read with Owner-Only Writes (Administrative).
+     */
+    match /legalCorpusArticles/{articleId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSaaSAdmin();
+      allow update, delete: if isSaaSAdmin() && resource != null;
     }
   }
 }
