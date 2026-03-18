@@ -34,7 +34,8 @@ import {
   BookOpen,
   CalendarDays,
   Eye,
-  GraduationCap
+  GraduationCap,
+  FileBadge
 } from "lucide-react"
 
 import {
@@ -88,6 +89,10 @@ const cabinetNavigation = [
   { name: "Collaboration Hub", href: "/dashboard/cabinet/collaboration", icon: MessagesSquare },
   { name: "G50 Groupées", href: "/dashboard/cabinet/bulk-g50", icon: Repeat },
   { name: "Rapprochement Bancaire", href: "/dashboard/cabinet/bank-recon", icon: Landmark },
+]
+
+const adminNav = [
+  { name: "Existence (G8)", href: "/dashboard/declarations/g8", icon: FileBadge },
 ]
 
 export function DashboardSidebar() {
@@ -193,6 +198,19 @@ export function DashboardSidebar() {
           <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Portail Cabinet</SidebarGroupLabel>
           <SidebarMenu>
             {cabinetNavigation.map((item) => (
+              <SidebarMenuItem key={item.name}>
+                <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name} className="hover:bg-sidebar-accent">
+                  <Link href={item.href}><item.icon /><span>{item.name}</span></Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Démarrage Dossier</SidebarGroupLabel>
+          <SidebarMenu>
+            {adminNav.map((item) => (
               <SidebarMenuItem key={item.name}>
                 <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name} className="hover:bg-sidebar-accent">
                   <Link href={item.href}><item.icon /><span>{item.name}</span></Link>

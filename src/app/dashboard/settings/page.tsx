@@ -13,7 +13,7 @@ import { useFirestore, useUser, useCollection, useMemoFirebase, updateDocumentNo
 import { collection, query, where, limit, doc } from "firebase/firestore"
 import { findActivityByNap, NAP_ACTIVITIES } from "@/lib/nap-data"
 import { 
-  Building2, Save, MapPin, ShieldCheck, Zap, Loader2, Info, Search, Check, Rocket, Landmark
+  Building2, Save, MapPin, ShieldCheck, Zap, Loader2, Info, Search, Check, Rocket, Landmark, CalendarDays
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
@@ -154,6 +154,11 @@ export default function TenantSettingsPage() {
                 <label className="text-xs font-bold uppercase">NIN (Obligatoire 2026)</label>
                 <Input placeholder="Numéro d'Identification Nationale" value={formData.nin || ""} onChange={(e) => handleUpdate("nin", e.target.value)} />
               </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase flex items-center gap-1"><CalendarDays className="h-3 w-3" /> Date de début d'activité</Label>
+                <Input type="date" value={formData.debutActivite || ""} onChange={(e) => handleUpdate("debutActivite", e.target.value)} />
+                <p className="text-[10px] text-muted-foreground italic">Crucial pour la Déclaration d'Existence (G8).</p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -180,8 +185,8 @@ export default function TenantSettingsPage() {
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase">Activité Mixte ?</label>
                   <div className="flex items-center space-x-2 mt-2">
-                    <Checkbox checked={formData.isMixedActivity} onCheckedChange={(v) => handleUpdate("isMixedActivity", !!v)} />
-                    <span className="text-sm">Calcul au prorata du CA par activité (Art. 282sexies)</span>
+                    <Checkbox id="isMixedActivity" checked={formData.isMixedActivity} onCheckedChange={(v) => handleUpdate("isMixedActivity", !!v)} />
+                    <Label htmlFor="isMixedActivity" className="text-sm font-normal">Calcul au prorata du CA par activité (Art. 282sexies)</Label>
                   </div>
                 </div>
               </div>
@@ -245,7 +250,7 @@ export default function TenantSettingsPage() {
                 <div className="p-4 border rounded-xl space-y-4">
                   <div className="flex items-center justify-between">
                     <Label className="font-bold">Label "Start-up"</Label>
-                    <Switch checked={formData.isStartup} onCheckedChange={(v) => handleUpdate("isStartup", v)} />
+                    <Switch id="startup-toggle" checked={formData.isStartup} onCheckedChange={(v) => handleUpdate("isStartup", v)} />
                   </div>
                   <p className="text-[10px] text-muted-foreground">Exonération IFU de 4 ans + 1 an si renouvellement (Art. 100 LF 2026).</p>
                   {formData.isStartup && (
@@ -259,13 +264,13 @@ export default function TenantSettingsPage() {
                 <div className="p-4 border rounded-xl space-y-4">
                   <div className="flex items-center justify-between">
                     <Label className="font-bold">Dispositif ANADE/ANGEM/CNAC</Label>
-                    <Switch checked={formData.isJobSponsor} onCheckedChange={(v) => handleUpdate("isJobSponsor", v)} />
+                    <Switch id="job-sponsor-toggle" checked={formData.isJobSponsor} onCheckedChange={(v) => handleUpdate("isJobSponsor", v)} />
                   </div>
                   <p className="text-[10px] text-muted-foreground">Exonération de 3 ans (6 ans en zone à promouvoir) (Art. 20 LF 2024).</p>
                   {formData.isJobSponsor && (
                     <div className="flex items-center space-x-2">
-                      <Checkbox checked={formData.isPromoteZone} onCheckedChange={(v) => handleUpdate("isPromoteZone", !!v)} />
-                      <span className="text-xs">Implanté en zone à promouvoir</span>
+                      <Checkbox id="isPromoteZone" checked={formData.isPromoteZone} onCheckedChange={(v) => handleUpdate("isPromoteZone", !!v)} />
+                      <Label htmlFor="isPromoteZone" className="text-xs font-normal">Implanté en zone à promouvoir</Label>
                     </div>
                   )}
                 </div>

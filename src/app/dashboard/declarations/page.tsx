@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
-import { FileText, Calculator, Info, Landmark, Sparkles, TrendingDown, CalendarDays, AlertCircle, Clock, ShieldCheck } from "lucide-react"
+import { FileText, Calculator, Info, Landmark, Sparkles, TrendingDown, CalendarDays, AlertCircle, Clock, ShieldCheck, FileBadge } from "lucide-react"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, query, where, limit } from "firebase/firestore"
-import { getTAPRate, getIFURate, getIBSRate, calculateIBS, TAX_RATES, calculateIBSInstallment, getIBSInstallmentDeadlines, calculateIFU } from "@/lib/calculations"
+import { getTAPRate, getIFURate, getIBSRate, calculateIBS, TAX_RATES, calculateIFU } from "@/lib/calculations"
 import { findActivityByNap } from "@/lib/nap-data"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import Link from "next/link"
 
 export default function DeclarationsPage() {
   const db = useFirestore()
@@ -20,14 +21,12 @@ export default function DeclarationsPage() {
   const [mounted, setMounted] = React.useState(false)
   const [estimatedProfit, setEstimatedProfit] = React.useState<number>(0)
   const [reinvestedAmount, setReinvestedAmount] = React.useState<number>(0)
-  const [previousYearIBS, setPreviousYearIBS] = React.useState<number>(0)
   
   React.useEffect(() => {
     setMounted(true)
   }, [])
 
   const formatAmount = (val: number) => mounted ? val.toLocaleString() : "..."
-  const formatDate = (dateStr: string) => mounted ? new Date(dateStr).toLocaleDateString() : "..."
 
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -38,10 +37,8 @@ export default function DeclarationsPage() {
 
   const isIFU = currentTenant?.regimeFiscal === "IFU";
   const isAuto = currentTenant?.formeJuridique === "Auto-entrepreneur";
-  const tapRate = 0; // TAP supprimée LF 2024
   const ifuRate = isIFU ? getIFURate(currentTenant?.secteurActivite || "SERVICES", currentTenant?.formeJuridique || "") : 0;
   const ibsRate = !isIFU ? getIBSRate(currentTenant?.secteurActivite || "SERVICES", currentTenant?.activiteNAP) : 0;
-  const activityInfo = findActivityByNap(currentTenant?.activiteNAP || "");
 
   const invoicesQuery = useMemoFirebase(() => {
     if (!db || !currentTenant || !user) return null;
@@ -132,8 +129,7 @@ export default function DeclarationsPage() {
                   {formatAmount(projectedIBS)} <span className="text-sm font-normal">DZD</span>
                 </div>
               </CardContent>
-            </Card>
-          </>
+            </>
         )}
         <Card className="border-l-4 border-l-blue-500 shadow-sm">
           <CardHeader className="pb-2">
@@ -151,7 +147,7 @@ export default function DeclarationsPage() {
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="calendar">Calendrier 2026</TabsTrigger>
           <TabsTrigger value="ibs-sim">Simulation IBS</TabsTrigger>
-          <TabsTrigger value="mixed">Activités Mixtes</TabsTrigger>
+          <TabsTrigger value="onboarding">Démarrage Dossier</TabsTrigger>
         </TabsList>
         
         <TabsContent value="calendar">
@@ -177,19 +173,19 @@ export default function DeclarationsPage() {
                         <TableCell className="font-bold">Série G n°12 bis</TableCell>
                         <TableCell className="text-amber-600 font-bold">01 Mars 2026</TableCell>
                         <TableCell>Définitive Exercice 2025</TableCell>
-                        <TableCell className="text-right"><Button size="sm" variant="outline">Générer</Button></TableCell>
+                        <TableCell className="text-right"><Button size="sm" variant="outline" asChild><Link href="/dashboard/declarations/g12">Générer</Link></Button></TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell className="font-bold">Série G n°12</TableCell>
                         <TableCell>30 Juin 2026</TableCell>
                         <TableCell>Prévisionnelle Exercice 2026</TableCell>
-                        <TableCell className="text-right"><Button size="sm" variant="outline">Générer</Button></TableCell>
+                        <TableCell className="text-right"><Button size="sm" variant="outline" asChild><Link href="/dashboard/declarations/g12">Générer</Link></Button></TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell className="font-bold">Série G n°50 ter</TableCell>
                         <TableCell>20 du mois/trimestre</TableCell>
                         <TableCell>IRG Salariés (Retenue à la source)</TableCell>
-                        <TableCell className="text-right"><Button size="sm" variant="outline">Générer</Button></TableCell>
+                        <TableCell className="text-right"><Button size="sm" variant="outline" asChild><Link href="/dashboard/declarations/g50ter">Générer</Link></Button></TableCell>
                       </TableRow>
                     </>
                   ) : (
@@ -197,14 +193,14 @@ export default function DeclarationsPage() {
                       <TableCell className="font-bold">Série G n°50</TableCell>
                       <TableCell>20 du mois suivant</TableCell>
                       <TableCell>Mensuelle (TVA, IRG, IBS)</TableCell>
-                      <TableCell className="text-right"><Button size="sm" variant="outline">Générer</Button></TableCell>
+                      <TableCell className="text-right"><Button size="sm" variant="outline" asChild><Link href="/dashboard/declarations/g50">Générer</Link></Button></TableCell>
                     </TableRow>
                   )}
                   <TableRow>
                     <TableCell className="font-bold">Série G n°29</TableCell>
                     <TableCell>30 Avril 2026</TableCell>
                     <TableCell>Déclaration annuelle des salaires (NIN requis)</TableCell>
-                    <TableCell className="text-right"><Button size="sm" variant="outline">Générer</Button></TableCell>
+                    <TableCell className="text-right"><Button size="sm" variant="outline" asChild><Link href="/dashboard/payroll/das">Générer</Link></Button></TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
@@ -212,29 +208,35 @@ export default function DeclarationsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="mixed">
-          <Card className="border-primary/20 bg-primary/5">
+        <TabsContent value="onboarding">
+          <Card>
             <CardHeader>
-              <CardTitle>Gestion des Activités Mixtes (Art. 282sexies)</CardTitle>
-              <CardDescription>Répartition du CA par taux IFU (5% vs 12%).</CardDescription>
+              <CardTitle>Premières étapes obligatoires</CardTitle>
+              <CardDescription>Déclarations à effectuer lors de la création de l'entreprise.</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>CA Production/Vente (5%)</Label>
-                    <Input type="number" placeholder="DA" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>CA Services (12%)</Label>
-                    <Input type="number" placeholder="DA" />
-                  </div>
-                </div>
-                <div className="pt-4 border-t flex justify-between items-center">
-                  <span className="font-bold">IFU Total Calculé</span>
-                  <span className="text-xl font-black text-primary">0 DZD</span>
-                </div>
-              </div>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader className="bg-muted/50">
+                  <TableRow>
+                    <TableHead>Déclaration</TableHead>
+                    <TableHead>Délai légal</TableHead>
+                    <TableHead>Sanction retard</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow>
+                    <TableCell className="font-bold">Série G n°8</TableCell>
+                    <TableCell>30 jours après début</TableCell>
+                    <TableCell className="text-destructive font-bold">30 000 DA</TableCell>
+                    <TableCell className="text-right">
+                      <Button size="sm" variant="default" asChild className="bg-accent text-accent-foreground">
+                        <Link href="/dashboard/declarations/g8"><FileBadge className="mr-2 h-4 w-4" /> Existence</Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </TabsContent>
