@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { useFirestore, useUser, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase"
 import { collection, query, where, limit, doc } from "firebase/firestore"
 import { findActivityByNap, NAP_ACTIVITIES } from "@/lib/nap-data"
@@ -16,7 +18,6 @@ import {
 import { toast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
 import { PLANS } from "@/lib/plans"
-import { IFU_EXCLUDED_ACTIVITIES } from "@/lib/calculations"
 
 export default function TenantSettingsPage() {
   const db = useFirestore()
@@ -100,12 +101,6 @@ export default function TenantSettingsPage() {
 
   const selectedActivityInfo = React.useMemo(() => {
     return findActivityByNap(formData.activiteNAP || "");
-  }, [formData.activiteNAP]);
-
-  const isExcludedFromIFU = React.useMemo(() => {
-    if (!formData.activiteNAP) return false;
-    // Logic to check if activity code is in exclusion list (Mapping needed between NAP and exclusion keys)
-    return false; 
   }, [formData.activiteNAP]);
 
   if (isTenantsLoading) return <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
@@ -321,16 +316,4 @@ export default function TenantSettingsPage() {
       </Tabs>
     </div>
   )
-}
-
-function Switch({ checked, onCheckedChange }: { checked: boolean, onCheckedChange: (v: boolean) => void }) {
-  return (
-    <button 
-      type="button"
-      onClick={() => onCheckedChange(!checked)}
-      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${checked ? 'bg-primary' : 'bg-muted'}`}
-    >
-      <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
-    </button>
-  );
 }
