@@ -1,0 +1,199 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * ComptaFisc-DZ Security Rules
+     * 
+     * Core Philosophy:
+     * This ruleset implements a robust multi-tenant architecture designed for the Algerian fiscal context.
+     * The security model is based on "Authorization Independence," where access control metadata 
+     * is denormalized directly onto every document to ensure high performance and simplify 
+     * complex list operations without relying on expensive cross-document lookups (get() calls).
+     * 
+     * Data Structure:
+     * - Tenant-Specific Data: All accounting data (Invoices, Journal Entries, Clients, etc.) is 
+     *   strictly partitioned under /tenants/{tenantId}.
+     * - Global Reference Data: Tax regulations and legal articles are stored in top-level 
+     *   collections accessible to all authenticated users for calculation and AI assistance.
+     * 
+     * Key Security Decisions:
+     * 1. Multi-Role Membership: Access to a tenant is determined by a 'members' map on the 
+     *    Tenant document and a 'tenantMembers' map on all sub-documents.
+     * 2. Denormalization for Authorization: To enable secure and performant 'list' queries, 
+     *    the membership map is copied from the Tenant to every nested document. Rules 
+     *    verify membership against the document's own data.
+     * 3. Relational Integrity: The rules strictly enforce that the 'tenantId' stored 
+     *    inside a document matches the URL path to prevent data from being moved between dossiers.
+     * 4. Prototyping Flexibility: While authorization is strictly enforced (who can access), 
+     *    the internal data schema (types and optional fields) is kept flexible to allow for 
+     *    rapid iteration during the prototyping phase.
+     */
+
+    // --- Helper Functions ---
+
+    /** @description Checks if a user is signed into the application. */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /** @description Checks if the current user's UID is present in a provided membership map. */
+    function isMember(membersMap) {
+      return isSignedIn() && membersMap != null && membersMap.keys().hasAny([request.auth.uid]);
+    }
+
+    /** @description Validates that the document exists and the user is a member. Used for updates and deletes. */
+    function isExistingMember(membersMap) {
+      return resource != null && isMember(membersMap);
+    }
+
+    /** @description Enforces that a field remains unchanged during an update operation. */
+    function isImmutable(fieldName) {
+      return request.resource.data[fieldName] == resource.data[fieldName];
+    }
+
+    // --- Collection Rules ---
+
+    /**
+     * @description Rules for the Tenant entity, the root of all accounting dossiers.
+     * @path /tenants/{tenantId}
+     * @allow (create) if the user includes themselves as an 'owner' in the members map.
+     * @deny (get) if the user's UID is not a key in the 'members' map.
+     * @principle Implements Shared Access pattern via a membership map.
+     */
+    match /tenants/{tenantId} {
+      allow get, list: if isMember(resource.data.members);
+      allow create: if isSignedIn() && request.resource.data.members[request.auth.uid] == 'owner';
+      allow update: if isExistingMember(resource.data.members) && isMember(request.resource.data.members);
+      allow delete: if isExistingMember(resource.data.members) && resource.data.members[request.auth.uid] == 'owner';
+    }
+
+    /**
+     * @description Rules for accounting structure and reference data within a tenant.
+     * @path /tenants/{tenantId}/chart_of_accounts/{chartOfAccountId}
+     * @allow (list) if the user is in the denormalized 'tenantMembers' map of the documents.
+     * @deny (create) if the 'tenantId' in the data does not match the URL path.
+     * @principle Enforces relational integrity and authorization independence.
+     */
+    match /tenants/{tenantId}/chart_of_accounts/{chartOfAccountId} {
+      allow get, list: if isMember(resource.data.tenantMembers);
+      allow create: if isMember(request.resource.data.tenantMembers) && request.resource.data.tenantId == tenantId;
+      allow update: if isExistingMember(resource.data.tenantMembers) && isImmutable('tenantId');
+      allow delete: if isExistingMember(resource.data.tenantMembers);
+    }
+
+    /**
+     * @description Rules for Journal Entries (Transactions).
+     * @path /tenants/{tenantId}/journal_entries/{journalEntryId}
+     * @allow (update) if user is a member and the tenant association is not changed.
+     * @deny (delete) if user is not a member of this specific tenant dossier.
+     * @principle Uses denormalized membership for performant list operations.
+     */
+    match /tenants/{tenantId}/journal_entries/{journalEntryId} {
+      allow get, list: if isMember(resource.data.tenantMembers);
+      allow create: if isMember(request.resource.data.tenantMembers) && request.resource.data.tenantId == tenantId;
+      allow update: if isExistingMember(resource.data.tenantMembers) && isImmutable('tenantId');
+      allow delete: if isExistingMember(resource.data.tenantMembers);
+
+      /**
+       * @description Rules for line items within a journal entry.
+       * @path /tenants/{tenantId}/journal_entries/{journalEntryId}/line_items/{lineItemId}
+       * @allow (get) if member of the grandparent tenant.
+       * @principle Nested resource protection via denormalized grandparent membership.
+       */
+      match /line_items/{lineItemId} {
+        allow get, list: if isMember(resource.data.tenantMembers);
+        allow create: if isMember(request.resource.data.tenantMembers) && request.resource.data.journalEntryId == journalEntryId;
+        allow update: if isExistingMember(resource.data.tenantMembers) && isImmutable('journalEntryId');
+        allow delete: if isExistingMember(resource.data.tenantMembers);
+      }
+    }
+
+    /**
+     * @description Rules for managing Clients/Customers of a tenant.
+     * @path /tenants/{tenantId}/clients/{clientId}
+     * @allow (create) if the client document is correctly linked to the active tenant path.
+     * @principle Relational integrity check on creation.
+     */
+    match /tenants/{tenantId}/clients/{clientId} {
+      allow get, list: if isMember(resource.data.tenantMembers);
+      allow create: if isMember(request.resource.data.tenantMembers) && request.resource.data.tenantId == tenantId;
+      allow update: if isExistingMember(resource.data.tenantMembers) && isImmutable('tenantId');
+      allow delete: if isExistingMember(resource.data.tenantMembers);
+    }
+
+    /**
+     * @description Rules for Invoices generated for clients.
+     * @path /tenants/{tenantId}/invoices/{invoiceId}
+     * @allow (list) filtered by the denormalized 'tenantMembers' map.
+     * @principle Authorization Independence for fiscal documents.
+     */
+    match /tenants/{tenantId}/invoices/{invoiceId} {
+      allow get, list: if isMember(resource.data.tenantMembers);
+      allow create: if isMember(request.resource.data.tenantMembers) && request.resource.data.tenantId == tenantId;
+      allow update: if isExistingMember(resource.data.tenantMembers) && isImmutable('tenantId');
+      allow delete: if isExistingMember(resource.data.tenantMembers);
+
+      /**
+       * @description Rules for individual items within an invoice.
+       * @path /tenants/{tenantId}/invoices/{invoiceId}/items/{itemId}
+       * @principle Deeply nested relational integrity.
+       */
+      match /items/{itemId} {
+        allow get, list: if isMember(resource.data.tenantMembers);
+        allow create: if isMember(request.resource.data.tenantMembers) && request.resource.data.invoiceId == invoiceId;
+        allow update: if isExistingMember(resource.data.tenantMembers) && isImmutable('invoiceId');
+        allow delete: if isExistingMember(resource.data.tenantMembers);
+      }
+    }
+
+    /**
+     * @description Rules for Tax and Social Declarations (G50, CNAS, etc.).
+     * @path /tenants/{tenantId}/tax_declarations/{taxDeclarationId}
+     * @allow (create) if the user preparing the declaration is a tenant member.
+     * @principle Secures sensitive fiscal reporting data.
+     */
+    match /tenants/{tenantId}/tax_declarations/{taxDeclarationId} {
+      allow get, list: if isMember(resource.data.tenantMembers);
+      allow create: if isMember(request.resource.data.tenantMembers) && request.resource.data.tenantId == tenantId;
+      allow update: if isExistingMember(resource.data.tenantMembers) && isImmutable('tenantId');
+      allow delete: if isExistingMember(resource.data.tenantMembers);
+    }
+
+    /**
+     * @description Rules for documents uploaded for OCR processing (Receipts, Statements).
+     * @path /tenants/{tenantId}/uploaded_documents/{uploadedDocumentId}
+     * @allow (delete) only if the document exists and the user has tenant access.
+     * @principle Protects raw uploaded evidence and OCR metadata.
+     */
+    match /tenants/{tenantId}/uploaded_documents/{uploadedDocumentId} {
+      allow get, list: if isMember(resource.data.tenantMembers);
+      allow create: if isMember(request.resource.data.tenantMembers) && request.resource.data.tenantId == tenantId;
+      allow update: if isExistingMember(resource.data.tenantMembers) && isImmutable('tenantId');
+      allow delete: if isExistingMember(resource.data.tenantMembers);
+    }
+
+    /**
+     * @description Rules for global Algerian tax regulations and rates.
+     * @path /tax_regulations/{taxRegulationId}
+     * @allow (get, list) for any signed-in user to support client-side calculations.
+     * @deny (write) client-side writes are prohibited; managed via admin tools.
+     * @principle Authenticated Read-Only for global reference data.
+     */
+    match /tax_regulations/{taxRegulationId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    /**
+     * @description Rules for the Algerian legal corpus (CIDTA, CTCA).
+     * @path /legal_articles/{legalArticleId}
+     * @allow (get, list) for AI Fiscal Assistant retrieval.
+     * @principle Facilitates RAG (Retrieval-Augmented Generation) for authenticated users.
+     */
+    match /legal_articles/{legalArticleId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+  }
+}
