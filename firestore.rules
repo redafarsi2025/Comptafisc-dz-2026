@@ -28,16 +28,41 @@ service cloud.firestore {
 
     match /saas_admins/{userId} {
       allow get, list: if isSignedIn();
-      allow create, update, delete: if isSignedIn(); // Prototype: restricted to isSignedIn for bootstrapping
+      allow create, update, delete: if isSignedIn(); 
     }
 
     match /plans/{planId} {
       allow read: if true; // Publicly readable for pricing pages
-      allow write: if isSaaSAdmin();
+      // Autoriser temporairement tout utilisateur connecté pour l'initialisation
+      allow write: if isSignedIn(); 
     }
 
     match /tenants/{tenantId} {
-      allow read, write: if isSignedIn(); // Simplified for prototype
+      allow read, write: if isSignedIn(); 
+      
+      match /journal_entries/{entryId} {
+        allow read, write: if isSignedIn();
+      }
+      
+      match /accounts/{accountId} {
+        allow read, write: if isSignedIn();
+      }
+
+      match /clients/{clientId} {
+        allow read, write: if isSignedIn();
+      }
+
+      match /invoices/{invoiceId} {
+        allow read, write: if isSignedIn();
+      }
+
+      match /employees/{employeeId} {
+        allow read, write: if isSignedIn();
+      }
+      
+      match /assets/{assetId} {
+        allow read, write: if isSignedIn();
+      }
     }
   }
 }
