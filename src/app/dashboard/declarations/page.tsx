@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -6,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
-import { FileText, Calculator, Info, Landmark, Sparkles, TrendingDown, CalendarDays, AlertCircle, CheckCircle2 } from "lucide-react"
+import { FileText, Calculator, Info, Landmark, Sparkles, TrendingDown, CalendarDays, AlertCircle } from "lucide-react"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, query, where, limit } from "firebase/firestore"
 import { getTAPRate, getIFURate, getIBSRate, calculateIBS, TAX_RATES, calculateIBSInstallment, getIBSInstallmentDeadlines } from "@/lib/calculations"
@@ -17,10 +18,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 export default function DeclarationsPage() {
   const db = useFirestore()
   const { user } = useUser()
+  const [mounted, setMounted] = React.useState(false)
   const [estimatedProfit, setEstimatedProfit] = React.useState<number>(0)
   const [reinvestedAmount, setReinvestedAmount] = React.useState<number>(0)
   const [previousYearIBS, setPreviousYearIBS] = React.useState<number>(0)
   
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const formatAmount = (val: number) => mounted ? val.toLocaleString() : "..."
+  const formatDate = (dateStr: string) => mounted ? new Date(dateStr).toLocaleDateString() : "..."
+
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null), limit(1));
@@ -67,8 +76,9 @@ export default function DeclarationsPage() {
   }, [previousYearIBS]);
 
   const deadlines = React.useMemo(() => {
+    if (!mounted) return [];
     return getIBSInstallmentDeadlines(new Date().getFullYear());
-  }, []);
+  }, [mounted]);
 
   const isNewCompany = React.useMemo(() => {
     if (!currentTenant?.dateCreation) return false;
@@ -112,7 +122,7 @@ export default function DeclarationsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-primary">
-                {stats.ifu.toLocaleString()} <span className="text-sm font-normal">DZD</span>
+                {formatAmount(stats.ifu)} <span className="text-sm font-normal">DZD</span>
               </div>
               <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
                 <Info className="h-3 w-3" /> Taxe globale remplaçant TVA + TAP + IRG/IBS.
@@ -127,7 +137,7 @@ export default function DeclarationsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-primary">
-                  {currentTenant?.assujettissementTva ? stats.tva.toLocaleString() : "0"} <span className="text-sm font-normal">DZD</span>
+                  {currentTenant?.assujettissementTva ? formatAmount(stats.tva) : "0"} <span className="text-sm font-normal">DZD</span>
                 </div>
               </CardContent>
             </Card>
@@ -150,7 +160,7 @@ export default function DeclarationsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-amber-600">
-                  {projectedIBS.toLocaleString()} <span className="text-sm font-normal">DZD</span>
+                  {formatAmount(projectedIBS)} <span className="text-sm font-normal">DZD</span>
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-1">Min. légal de 10 000 DA inclus.</p>
               </CardContent>
@@ -163,7 +173,7 @@ export default function DeclarationsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
-              {stats.ca.toLocaleString()} <span className="text-sm font-normal">DZD</span>
+              {formatAmount(stats.ca)} <span className="text-sm font-normal">DZD</span>
             </div>
           </CardContent>
         </Card>
@@ -193,7 +203,7 @@ export default function DeclarationsPage() {
                     </div>
                     <div>
                       <h4 className="font-bold">Déclaration G n° 12 (IFU Annuel)</h4>
-                      <p className="text-sm text-muted-foreground">Impôt estimé : {stats.ifu.toLocaleString()} DZD • Base : {stats.ca.toLocaleString()} DZD</p>
+                      <p className="text-sm text-muted-foreground">Impôt estimé : {formatAmount(stats.ifu)} DZD • Base : {formatAmount(stats.ca)} DZD</p>
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -209,7 +219,7 @@ export default function DeclarationsPage() {
                     </div>
                     <div>
                       <h4 className="font-bold">Déclaration G n° 50 (Mensuelle)</h4>
-                      <p className="text-sm text-muted-foreground">Période : {new Date().toLocaleString('fr-FR', { month: 'long', year: 'numeric' })}</p>
+                      <p className="text-sm text-muted-foreground">Période : {mounted ? new Date().toLocaleString('fr-FR', { month: 'long', year: 'numeric' }) : "..."}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -256,7 +266,7 @@ export default function DeclarationsPage() {
                       <Input 
                         type="number" 
                         placeholder="Montant du réinvestissement" 
-                        className="bg-white border-emerald-300 focus-visible:ring-emerald-500"
+                        className="bg-white border-amber-300 focus-visible:ring-amber-500"
                         value={reinvestedAmount || ""}
                         onChange={(e) => setReinvestedAmount(parseFloat(e.target.value) || 0)}
                       />
@@ -267,7 +277,7 @@ export default function DeclarationsPage() {
                     <div className="p-4 bg-white border border-amber-300 rounded-lg shadow-inner">
                       <p className="text-xs uppercase text-muted-foreground font-bold mb-1">IBS Total à payer</p>
                       <div className="flex items-baseline gap-2">
-                        <span className="text-3xl font-bold text-amber-600">{projectedIBS.toLocaleString()}</span>
+                        <span className="text-3xl font-bold text-amber-600">{formatAmount(projectedIBS)}</span>
                         <span className="text-sm font-medium text-amber-600">DZD</span>
                       </div>
                       <p className="text-[10px] text-muted-foreground mt-2 italic">Calculé au taux hybride {(estimatedProfit > 0 && reinvestedAmount > 0) ? "Cible" : "Standard"}.</p>
@@ -277,9 +287,9 @@ export default function DeclarationsPage() {
                       <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-center justify-between">
                         <div>
                           <p className="text-xs font-bold text-emerald-700 uppercase flex items-center gap-1">
-                            <TrendingDown className="h-3 w-3" /> Économie d'impôt réalisée
+                            <TrendingUp className="h-3 w-3" /> Économie d'impôt réalisée
                           </p>
-                          <p className="text-xl font-bold text-emerald-600">-{taxSavings.toLocaleString()} DA</p>
+                          <p className="text-xl font-bold text-emerald-600">-{formatAmount(taxSavings)} DA</p>
                         </div>
                         <Badge className="bg-emerald-600 text-white animate-pulse">Gain Fiscal</Badge>
                       </div>
@@ -326,7 +336,7 @@ export default function DeclarationsPage() {
                     />
                     <div className="pt-4 border-t mt-4">
                       <p className="text-xs text-muted-foreground uppercase font-bold">Montant par acompte (30%)</p>
-                      <p className="text-2xl font-bold text-primary">{installmentAmount.toLocaleString()} DZD</p>
+                      <p className="text-2xl font-bold text-primary">{formatAmount(installmentAmount)} DZD</p>
                     </div>
                   </div>
                 )}
@@ -336,7 +346,7 @@ export default function DeclarationsPage() {
             <Card className="md:col-span-2">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <CalendarDays className="h-5 w-5 text-accent" /> Calendrier de Paiement {new Date().getFullYear()}
+                  <CalendarDays className="h-5 w-5 text-accent" /> Calendrier de Paiement {mounted ? new Date().getFullYear() : "..."}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -354,13 +364,13 @@ export default function DeclarationsPage() {
                       <TableRow key={i} className={i === 3 ? "bg-muted/30 font-semibold" : ""}>
                         <TableCell>{d.name}</TableCell>
                         <TableCell className="text-xs">
-                          Du {new Date(d.start).toLocaleDateString()} au {new Date(d.end).toLocaleDateString()}
+                          Du {formatDate(d.start)} au {formatDate(d.end)}
                         </TableCell>
                         <TableCell className="text-right">
-                          {i < 3 ? installmentAmount.toLocaleString() : "Solde variable"} DA
+                          {i < 3 ? formatAmount(installmentAmount) : "Solde variable"} DA
                         </TableCell>
                         <TableCell className="text-right">
-                          {new Date() > new Date(d.end) ? (
+                          {mounted && new Date() > new Date(d.end) ? (
                             <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">Passé</Badge>
                           ) : (
                             <Badge variant="outline" className="animate-pulse border-amber-300 text-amber-600">À venir</Badge>

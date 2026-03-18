@@ -8,13 +8,21 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { FileStack, Printer, FileDown, Calculator, Landmark, PieChart, ShieldCheck, AlertCircle, TrendingDown } from "lucide-react"
+import { FileStack, Printer, Calculator, PieChart, ShieldCheck, AlertCircle, TrendingDown } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function LiasseFiscaleG4() {
   const db = useFirestore()
   const { user } = useUser()
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const formatAmount = (val: number) => mounted ? val.toLocaleString() : "..."
+  const formatDate = (dateStr: string) => mounted ? new Date(dateStr).toLocaleDateString() : "..."
 
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -40,7 +48,7 @@ export default function LiasseFiscaleG4() {
       where(`tenantMembers.${user.uid}`, "!=", null)
     );
   }, [db, currentTenant, user]);
-  const { data: assets, isLoading: isAssetsLoading } = useCollection(assetsQuery);
+  const { data: assets } = useCollection(assetsQuery);
 
   // Agrégation des données pour la G4
   const g4Data = React.useMemo(() => {
@@ -96,7 +104,6 @@ export default function LiasseFiscaleG4() {
   // Simulation des données d'amortissement si pas d'assets réels
   const displayAssets = React.useMemo(() => {
     if (assets && assets.length > 0) return assets;
-    // Mock pour démonstration si la collection est vide
     return [
       { id: '1', designation: 'Matériel Industriel (Presse)', acquisitionDate: '2023-01-15', acquisitionValue: 5000000, amortizationRate: 10 },
       { id: '2', designation: 'Matériel de Transport', acquisitionDate: '2022-06-10', acquisitionValue: 2500000, amortizationRate: 20 },
@@ -157,12 +164,12 @@ export default function LiasseFiscaleG4() {
                 <Table>
                   <TableHeader><TableRow><TableHead>Rubriques G4</TableHead><TableHead className="text-right">Montant</TableHead></TableRow></TableHeader>
                   <TableBody>
-                    <TableRow><TableCell>Immobilisations Incorporelles</TableCell><TableCell className="text-right font-mono">{(g4Data?.actif.immos_incorp || 0).toLocaleString()} DA</TableCell></TableRow>
-                    <TableRow><TableCell>Immobilisations Corporelles</TableCell><TableCell className="text-right font-mono">{(g4Data?.actif.immos_corp || 0).toLocaleString()} DA</TableCell></TableRow>
-                    <TableRow><TableCell>Stocks et en-cours</TableCell><TableCell className="text-right font-mono">{(g4Data?.actif.stocks || 0).toLocaleString()} DA</TableCell></TableRow>
-                    <TableRow><TableCell>Créances et Emplois assimilés</TableCell><TableCell className="text-right font-mono">{(g4Data?.actif.clients || 0).toLocaleString()} DA</TableCell></TableRow>
-                    <TableRow><TableCell>Disponibilités</TableCell><TableCell className="text-right font-mono">{(g4Data?.actif.tresorerie || 0).toLocaleString()} DA</TableCell></TableRow>
-                    <TableRow className="bg-primary text-white"><TableCell className="font-bold">TOTAL ACTIF</TableCell><TableCell className="text-right font-bold">{(Object.values(g4Data?.actif || {}).reduce((a, b) => a + b, 0)).toLocaleString()} DA</TableCell></TableRow>
+                    <TableRow><TableCell>Immobilisations Incorporelles</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.actif.immos_incorp || 0)} DA</TableCell></TableRow>
+                    <TableRow><TableCell>Immobilisations Corporelles</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.actif.immos_corp || 0)} DA</TableCell></TableRow>
+                    <TableRow><TableCell>Stocks et en-cours</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.actif.stocks || 0)} DA</TableCell></TableRow>
+                    <TableRow><TableCell>Créances et Emplois assimilés</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.actif.clients || 0)} DA</TableCell></TableRow>
+                    <TableRow><TableCell>Disponibilités</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.actif.tresorerie || 0)} DA</TableCell></TableRow>
+                    <TableRow className="bg-primary text-white"><TableCell className="font-bold">TOTAL ACTIF</TableCell><TableCell className="text-right font-bold">{formatAmount(Object.values(g4Data?.actif || {}).reduce((a, b) => a + b, 0))} DA</TableCell></TableRow>
                   </TableBody>
                 </Table>
               </CardContent>
@@ -177,12 +184,12 @@ export default function LiasseFiscaleG4() {
                 <Table>
                   <TableHeader><TableRow><TableHead>Rubriques G4</TableHead><TableHead className="text-right">Montant</TableHead></TableRow></TableHeader>
                   <TableBody>
-                    <TableRow><TableCell>Capitaux Propres</TableCell><TableCell className="text-right font-mono">{(g4Data?.passif.capitaux || 0).toLocaleString()} DA</TableCell></TableRow>
-                    <TableRow><TableCell>Résultat de l'exercice</TableCell><TableCell className="text-right font-mono">{(g4Data?.passif.resultats || 0).toLocaleString()} DA</TableCell></TableRow>
-                    <TableRow><TableCell>Dettes Financières</TableCell><TableCell className="text-right font-mono">{(g4Data?.passif.dettes_fi || 0).toLocaleString()} DA</TableCell></TableRow>
-                    <TableRow><TableCell>Fournisseurs et Comptes Rattachés</TableCell><TableCell className="text-right font-mono">{(g4Data?.passif.fournisseurs || 0).toLocaleString()} DA</TableCell></TableRow>
-                    <TableRow><TableCell>Dettes Fiscales et Sociales</TableCell><TableCell className="text-right font-mono">{(g4Data?.passif.dettes_fisc || 0).toLocaleString()} DA</TableCell></TableRow>
-                    <TableRow className="bg-accent text-accent-foreground"><TableCell className="font-bold">TOTAL PASSIF</TableCell><TableCell className="text-right font-bold">{(Object.values(g4Data?.passif || {}).reduce((a, b) => a + b, 0)).toLocaleString()} DA</TableCell></TableRow>
+                    <TableRow><TableCell>Capitaux Propres</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.passif.capitaux || 0)} DA</TableCell></TableRow>
+                    <TableRow><TableCell>Résultat de l'exercice</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.passif.resultats || 0)} DA</TableCell></TableRow>
+                    <TableRow><TableCell>Dettes Financières</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.passif.dettes_fi || 0)} DA</TableCell></TableRow>
+                    <TableRow><TableCell>Fournisseurs et Comptes Rattachés</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.passif.fournisseurs || 0)} DA</TableCell></TableRow>
+                    <TableRow><TableCell>Dettes Fiscales et Sociales</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.passif.dettes_fisc || 0)} DA</TableCell></TableRow>
+                    <TableRow className="bg-accent text-accent-foreground"><TableCell className="font-bold">TOTAL PASSIF</TableCell><TableCell className="text-right font-bold">{formatAmount(Object.values(g4Data?.passif || {}).reduce((a, b) => a + b, 0))} DA</TableCell></TableRow>
                   </TableBody>
                 </Table>
               </CardContent>
@@ -201,12 +208,12 @@ export default function LiasseFiscaleG4() {
                   <TableRow><TableHead>Libellés</TableHead><TableHead className="text-right">Montant</TableHead></TableRow>
                 </TableHeader>
                 <TableBody>
-                  <TableRow><TableCell className="font-medium">Production de l'exercice (Ventes)</TableCell><TableCell className="text-right font-mono text-emerald-600 font-bold">+{(g4Data?.tcr.ventes || 0).toLocaleString()}</TableCell></TableRow>
-                  <TableRow><TableCell>Consommations de l'exercice (Achats)</TableCell><TableCell className="text-right font-mono text-destructive">-{(g4Data?.tcr.achats || 0).toLocaleString()}</TableCell></TableRow>
-                  <TableRow><TableCell>Services extérieurs et autres consommations</TableCell><TableCell className="text-right font-mono text-destructive">-{(g4Data?.tcr.services || 0).toLocaleString()}</TableCell></TableRow>
-                  <TableRow className="bg-muted/20"><TableCell className="font-bold">VALEUR AJOUTÉE D'EXPLOITATION</TableCell><TableCell className="text-right font-bold text-primary">{((g4Data?.tcr.ventes || 0) - (g4Data?.tcr.achats || 0) - (g4Data?.tcr.services || 0)).toLocaleString()}</TableCell></TableRow>
-                  <TableRow><TableCell>Charges de personnel</TableCell><TableCell className="text-right font-mono text-destructive">-{(g4Data?.tcr.salaires || 0).toLocaleString()}</TableCell></TableRow>
-                  <TableRow className="bg-primary text-white"><TableCell className="font-bold">RÉSULTAT NET COMPTABLE (Bénéfice/Perte)</TableCell><TableCell className="text-right font-bold text-lg">{resComptable.toLocaleString()} DA</TableCell></TableRow>
+                  <TableRow><TableCell className="font-medium">Production de l'exercice (Ventes)</TableCell><TableCell className="text-right font-mono text-emerald-600 font-bold">+{formatAmount(g4Data?.tcr.ventes || 0)}</TableCell></TableRow>
+                  <TableRow><TableCell>Consommations de l'exercice (Achats)</TableCell><TableCell className="text-right font-mono text-destructive">-{formatAmount(g4Data?.tcr.achats || 0)}</TableCell></TableRow>
+                  <TableRow><TableCell>Services extérieurs et autres consommations</TableCell><TableCell className="text-right font-mono text-destructive">-{formatAmount(g4Data?.tcr.services || 0)}</TableCell></TableRow>
+                  <TableRow className="bg-muted/20"><TableCell className="font-bold">VALEUR AJOUTÉE D'EXPLOITATION</TableCell><TableCell className="text-right font-bold text-primary">{formatAmount((g4Data?.tcr.ventes || 0) - (g4Data?.tcr.achats || 0) - (g4Data?.tcr.services || 0))}</TableCell></TableRow>
+                  <TableRow><TableCell>Charges de personnel</TableCell><TableCell className="text-right font-mono text-destructive">-{formatAmount(g4Data?.tcr.salaires || 0)}</TableCell></TableRow>
+                  <TableRow className="bg-primary text-white"><TableCell className="font-bold">RÉSULTAT NET COMPTABLE (Bénéfice/Perte)</TableCell><TableCell className="text-right font-bold text-lg">{formatAmount(resComptable)} DA</TableCell></TableRow>
                 </TableBody>
               </Table>
             </CardContent>
@@ -223,12 +230,12 @@ export default function LiasseFiscaleG4() {
               <CardContent className="p-0">
                 <Table>
                   <TableBody>
-                    <TableRow><TableCell className="font-medium">Résultat Net Comptable</TableCell><TableCell className="text-right font-mono">{resComptable.toLocaleString()}</TableCell></TableRow>
+                    <TableRow><TableCell className="font-medium">Résultat Net Comptable</TableCell><TableCell className="text-right font-mono">{formatAmount(resComptable)}</TableCell></TableRow>
                     <TableRow className="text-emerald-600"><TableCell>+ Réintégrations (Amendes, charges non déductibles...)</TableCell><TableCell className="text-right font-mono">0</TableCell></TableRow>
                     <TableRow className="text-destructive"><TableCell>- Déductions (Dividendes, plus-values exonérées...)</TableCell><TableCell className="text-right font-mono">0</TableCell></TableRow>
                     <TableRow className="bg-amber-100 text-amber-900 border-t-2 border-amber-300">
                       <TableCell className="font-bold uppercase">Résultat Fiscal (Base de calcul IBS)</TableCell>
-                      <TableCell className="text-right font-bold text-lg font-mono">{resFiscal.toLocaleString()} DA</TableCell>
+                      <TableCell className="text-right font-bold text-lg font-mono">{formatAmount(resFiscal)} DA</TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
@@ -238,7 +245,7 @@ export default function LiasseFiscaleG4() {
             <Card className="bg-primary text-primary-foreground shadow-2xl">
               <CardHeader><CardTitle className="text-sm uppercase font-bold opacity-80">IBS À PAYER (Simulation)</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                <div className="text-4xl font-bold">{Math.max(10000, resFiscal * 0.19).toLocaleString()} DA</div>
+                <div className="text-4xl font-bold">{formatAmount(Math.max(10000, resFiscal * 0.19))} DA</div>
                 <div className="space-y-2 pt-4 border-t border-white/20">
                   <div className="flex justify-between text-xs"><span>Taux applicable :</span><span className="font-bold">19%</span></div>
                   <div className="flex justify-between text-xs"><span>Minimum fiscal :</span><span className="font-bold">10 000 DA</span></div>
@@ -277,24 +284,24 @@ export default function LiasseFiscaleG4() {
                         <TableCell className="font-medium text-xs">
                           <div className="flex flex-col">
                             <span>{asset.designation}</span>
-                            <span className="text-[10px] text-muted-foreground italic">Acquis le {new Date(asset.acquisitionDate).toLocaleDateString()}</span>
+                            <span className="text-[10px] text-muted-foreground italic">Acquis le {formatDate(asset.acquisitionDate)}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-right font-mono text-xs">{asset.acquisitionValue.toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-mono text-xs">{formatAmount(asset.acquisitionValue)}</TableCell>
                         <TableCell className="text-center font-mono text-xs">{asset.amortizationRate}%</TableCell>
-                        <TableCell className="text-right font-mono text-xs text-destructive">-{dotation.toLocaleString()}</TableCell>
-                        <TableCell className="text-right font-mono text-xs">-{cumul.toLocaleString()}</TableCell>
-                        <TableCell className="text-right font-mono text-xs font-bold text-primary">{vnc.toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-mono text-xs text-destructive">-{formatAmount(dotation)}</TableCell>
+                        <TableCell className="text-right font-mono text-xs">-{formatAmount(cumul)}</TableCell>
+                        <TableCell className="text-right font-mono text-xs font-bold text-primary">{formatAmount(vnc)}</TableCell>
                       </TableRow>
                     );
                   })}
                   <TableRow className="bg-primary/10 font-bold">
                     <TableCell className="uppercase text-[10px]">TOTAUX DES AMORTISSEMENTS</TableCell>
-                    <TableCell className="text-right font-mono">{displayAssets.reduce((s, a) => s + a.acquisitionValue, 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-right font-mono">{formatAmount(displayAssets.reduce((s, a) => s + a.acquisitionValue, 0))}</TableCell>
                     <TableCell></TableCell>
-                    <TableCell className="text-right font-mono text-destructive">-{displayAssets.reduce((s, a) => s + calculateAmort(a).dotation, 0).toLocaleString()}</TableCell>
-                    <TableCell className="text-right font-mono">-{displayAssets.reduce((s, a) => s + calculateAmort(a).cumul, 0).toLocaleString()}</TableCell>
-                    <TableCell className="text-right font-mono text-primary">{displayAssets.reduce((s, a) => s + calculateAmort(a).vnc, 0).toLocaleString()} DA</TableCell>
+                    <TableCell className="text-right font-mono text-destructive">-{formatAmount(displayAssets.reduce((s, a) => s + calculateAmort(a).dotation, 0))}</TableCell>
+                    <TableCell className="text-right font-mono">-{formatAmount(displayAssets.reduce((s, a) => s + calculateAmort(a).cumul, 0))}</TableCell>
+                    <TableCell className="text-right font-mono text-primary">{formatAmount(displayAssets.reduce((s, a) => s + calculateAmort(a).vnc, 0))} DA</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
@@ -302,7 +309,7 @@ export default function LiasseFiscaleG4() {
                 <AlertCircle className="h-5 w-5 text-amber-600 mt-1" />
                 <div className="text-xs text-amber-900 leading-relaxed">
                   <strong>Note réglementaire :</strong> Ces amortissements sont calculés selon le mode linéaire conformément aux durées de vie usuelles admises par l'administration fiscale algérienne. 
-                  La dotation totale de <strong>{displayAssets.reduce((s, a) => s + calculateAmort(a).dotation, 0).toLocaleString()} DA</strong> doit être reportée au débit du compte 681 et en déduction du résultat fiscal au Tableau 9 si elle respecte les conditions de déductibilité.
+                  La dotation totale de <strong>{formatAmount(displayAssets.reduce((s, a) => s + calculateAmort(a).dotation, 0))} DA</strong> doit être reportée au débit du compte 681 et en déduction du résultat fiscal au Tableau 9 si elle respecte les conditions de déductibilité.
                 </div>
               </div>
             </CardContent>
