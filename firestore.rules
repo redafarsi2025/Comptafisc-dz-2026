@@ -47,6 +47,10 @@ service cloud.firestore {
       allow read, write: if isTenantMember(tenantId);
     }
 
+    match /tenants/{tenantId}/assets/{assetId} {
+      allow read, write: if isTenantMember(tenantId);
+    }
+
     match /tax_regulations/{taxRegulationId} {
       allow get, list: if isSignedIn();
       allow create, update, delete: if false;

@@ -81,6 +81,21 @@
         "tenantId": { "type": "string" }
       },
       "required": ["code", "name", "rootCode", "class", "tenantId"]
+    },
+    "Asset": {
+      "title": "Asset (Immobilisation)",
+      "description": "Élément d'actif immobilisé soumis à amortissement.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "designation": { "type": "string" },
+        "accountCode": { "type": "string" },
+        "acquisitionDate": { "type": "string", "format": "date" },
+        "acquisitionValue": { "type": "number" },
+        "amortizationRate": { "type": "number" },
+        "usefulLife": { "type": "number" },
+        "status": { "type": "string", "enum": ["ACTIVE", "DISPOSED"] }
+      }
     }
   },
   "auth": {
@@ -98,6 +113,10 @@
     "/tenants/{tenantId}/accounts/{accountId}": {
       "schema": "#/entities/Account",
       "description": "Plan de comptes personnalisé de l'entité"
+    },
+    "/tenants/{tenantId}/assets/{assetId}": {
+      "schema": "#/entities/Asset",
+      "description": "Registre des immobilisations"
     }
   }
 }
