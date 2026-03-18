@@ -31,7 +31,7 @@ export const TAX_RATES = {
 export const PAYROLL_CONSTANTS = {
   CNAS_EMPLOYEE: 0.09,
   CNAS_EMPLOYER: 0.26,
-  SNMG: 20000, // Salaire National Minimum Garanti
+  SNMG: 24000, // Salaire National Minimum Garanti (Maj Janvier 2026)
   IRG_THRESHOLD: 30000,
 };
 

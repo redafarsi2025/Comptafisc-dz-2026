@@ -25,7 +25,7 @@ export default function PayrollPage() {
   const [newEmployee, setNewEmployee] = React.useState({
     name: "",
     position: "",
-    baseSalary: 20000,
+    baseSalary: 24000,
     primesImposables: 0,
     indemnitePanier: 0,
     indemniteTransport: 0,
@@ -88,7 +88,7 @@ export default function PayrollPage() {
       toast({
         variant: "destructive",
         title: "Erreur SNMG",
-        description: `Le salaire de base ne peut être inférieur au SNMG (${PAYROLL_CONSTANTS.SNMG} DA).`
+        description: `Le salaire de base ne peut être inférieur au SNMG (${PAYROLL_CONSTANTS.SNMG} DA) en vigueur depuis Janvier 2026.`
       });
       return;
     }
@@ -109,7 +109,7 @@ export default function PayrollPage() {
       toast({ title: "Salarié ajouté", description: `${newEmployee.name} a été inscrit au registre.` });
       setIsDialogOpen(false);
       setNewEmployee({ 
-        name: "", position: "", baseSalary: 20000, primesImposables: 0, 
+        name: "", position: "", baseSalary: 24000, primesImposables: 0, 
         indemnitePanier: 0, indemniteTransport: 0, cnasNumber: "",
         isGrandSud: false, isHandicapped: false
       });
@@ -143,7 +143,7 @@ export default function PayrollPage() {
           <h1 className="text-3xl font-bold text-primary flex items-center gap-2">
             <Users className="h-8 w-8 text-accent" /> Gestion Sociale & Paie
           </h1>
-          <p className="text-muted-foreground text-sm">Conforme Loi de Finances 2026, Barème IRG et SNMG.</p>
+          <p className="text-muted-foreground text-sm">Conforme Loi de Finances 2026, Barème IRG et SNMG (24 000 DA).</p>
         </div>
         <div className="flex gap-2">
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -155,7 +155,7 @@ export default function PayrollPage() {
             <DialogContent className="max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Fiche Salarié & Contrat</DialogTitle>
-                <DialogDescription>Paramétrez les éléments du salaire et les avantages fiscaux.</DialogDescription>
+                <DialogDescription>Paramétrez les éléments du salaire (SNMG 24 000 DA) et les avantages fiscaux.</DialogDescription>
               </DialogHeader>
               <div className="grid gap-6 py-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -197,7 +197,7 @@ export default function PayrollPage() {
                   <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-4">
                       <div className="grid gap-2">
-                        <Label className="text-primary font-bold">Salaire de Base (Min: 20 000 DA)</Label>
+                        <Label className="text-primary font-bold">Salaire de Base (Min: 24 000 DA)</Label>
                         <Input type="number" value={newEmployee.baseSalary} onChange={e => setNewEmployee({...newEmployee, baseSalary: parseFloat(e.target.value)})} />
                       </div>
                       <div className="grid gap-2">
@@ -386,6 +386,7 @@ export default function PayrollPage() {
         <div className="text-xs text-amber-900 leading-relaxed">
           <p className="font-bold mb-1">Rappel de conformité Loi de Finances 2026 :</p>
           <ul className="list-disc pl-4 space-y-1">
+            <li>SNMG : Augmenté à 24 000 DA à partir du 1er Janvier 2026.</li>
             <li>Exonération totale de l'IRG pour les salaires imposables ≤ 30 000 DA.</li>
             <li>Barème 2026 appliqué avec abattement plafonné à 1 500 DA par mois.</li>
             <li>Réduction de 50% de l'IRG pour les zones Sud (IZCV) et les travailleurs handicapés.</li>
