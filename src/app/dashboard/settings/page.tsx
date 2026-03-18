@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -11,10 +12,11 @@ import { useFirestore, useUser, useCollection, useMemoFirebase, updateDocumentNo
 import { collection, query, where, limit, doc } from "firebase/firestore"
 import { findActivityByNap, NAP_ACTIVITIES } from "@/lib/nap-data"
 import { 
-  Building2, Save, MapPin, CreditCard, ShieldCheck, Zap, Loader2, Info, Search
+  Building2, Save, MapPin, CreditCard, ShieldCheck, Zap, Loader2, Info, Search, Check, Star
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
+import { PLANS } from "@/lib/plans"
 
 export default function TenantSettingsPage() {
   const db = useFirestore()
@@ -269,6 +271,73 @@ export default function TenantSettingsPage() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="subscription" className="mt-6">
+          <div className="grid grid-cols-1 gap-8">
+            <Card className="border-t-4 border-t-primary">
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle className="text-lg">Votre Plan Actuel</CardTitle>
+                    <CardDescription>Gérez votre engagement et vos capacités.</CardDescription>
+                  </div>
+                  <Badge className="text-lg py-1 px-4 bg-primary/10 text-primary border-primary/20" variant="outline">
+                    {formData.plan || "GRATUIT"}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-3 gap-6">
+                  <div className="p-4 bg-muted/20 rounded-xl">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Expiration</p>
+                    <p className="text-sm font-bold">{formData.subscription?.dateExpiration?.split('T')[0] || "Permanent"}</p>
+                  </div>
+                  <div className="p-4 bg-muted/20 rounded-xl">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Utilisateurs</p>
+                    <p className="text-sm font-bold">1 / {PLANS.find(p => p.id === (formData.plan || 'GRATUIT'))?.limits.users}</p>
+                  </div>
+                  <div className="p-4 bg-muted/20 rounded-xl">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Stockage</p>
+                    <p className="text-sm font-bold">45 MB / {PLANS.find(p => p.id === (formData.plan || 'GRATUIT'))?.limits.storage}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {PLANS.filter(p => p.id !== 'CABINET').map((plan) => (
+                <Card key={plan.id} className={`flex flex-col border-2 ${formData.plan === plan.id ? 'border-primary bg-primary/5' : 'border-transparent'}`}>
+                  <CardHeader className="pb-4">
+                    <div className="flex justify-between items-start">
+                      <CardTitle className="text-sm font-bold">{plan.name}</CardTitle>
+                      {formData.plan === plan.id && <Badge className="bg-primary text-white"><Check className="h-3 w-3 mr-1" /> Actif</Badge>}
+                    </div>
+                    <div className="text-2xl font-black mt-2">{plan.price} DA</div>
+                  </CardHeader>
+                  <CardContent className="flex-1">
+                    <ul className="space-y-2 text-xs">
+                      {plan.categories.flatMap(c => c.features).slice(0, 4).map((f, i) => (
+                        <li key={i} className="flex items-center gap-2">
+                          <Check className="h-3 w-3 text-emerald-500" />
+                          <span>{f.name}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                  <CardFooter>
+                    <Button 
+                      variant={formData.plan === plan.id ? "outline" : "default"} 
+                      className="w-full"
+                      disabled={formData.plan === plan.id}
+                    >
+                      {formData.plan === plan.id ? "Plan Actuel" : "Changer de Plan"}
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </TabsContent>
+
         <TabsContent value="contact" className="mt-6">
           <Card>
             <CardHeader><CardTitle className="text-lg flex items-center gap-2"><MapPin className="h-5 w-5" />Coordonnées & Contact</CardTitle></CardHeader>
@@ -286,22 +355,6 @@ export default function TenantSettingsPage() {
               <div className="space-y-2">
                 <label className="text-xs font-bold uppercase">Adresse du siège</label>
                 <Input value={formData.adresse?.rue || ""} onChange={(e) => handleUpdate("adresse.rue", e.target.value)} />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="subscription" className="mt-6">
-          <Card>
-            <CardHeader><CardTitle className="text-lg flex items-center gap-2"><CreditCard className="h-5 w-5" />Plan & Abonnement</CardTitle></CardHeader>
-            <CardContent className="grid md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-muted-foreground">Plan actuel :</span>
-                <Badge className="ml-2 bg-primary/10 text-primary border-primary/20" variant="outline">{formData.plan || "GRATUIT"}</Badge>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Expiration :</span>
-                <span className="ml-2 font-mono font-bold text-primary">{formData.subscription?.dateExpiration?.split('T')[0] || "N/A"}</span>
               </div>
             </CardContent>
           </Card>
