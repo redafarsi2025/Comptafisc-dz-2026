@@ -54,6 +54,7 @@ export const NAP_ACTIVITIES: NapActivity[] = [
   { code: '1107', sector: 'PRODUCTION', label: 'Fabrication de boissons non alcoolisées', tapRate: 0.02 },
   { code: '1413', sector: 'PRODUCTION', label: 'Fabrication de vêtements de dessus', tapRate: 0.02 },
   { code: '1811', sector: 'PRODUCTION', label: 'Imprimerie de journaux', tapRate: 0.01 },
+  { code: '1812', sector: 'PRODUCTION', label: 'Imprimerie industrielle', tapRate: 0.01 },
   { code: '3101', sector: 'PRODUCTION', label: 'Fabrication de meubles de bureau et de magasin', tapRate: 0.02 },
   { code: '2332', sector: 'PRODUCTION', label: 'Fabrication de briques, tuiles et produits en terre cuite', tapRate: 0.01 },
   { code: '2511', sector: 'PRODUCTION', label: 'Fabrication de structures métalliques', tapRate: 0.01 },
