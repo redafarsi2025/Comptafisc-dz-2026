@@ -5,7 +5,7 @@ service cloud.firestore {
 
     /**
      * ComptaFisc-DZ Security Rules
-     * Optimisées pour le filtrage multi-tenant (LF 2024-2026)
+     * Optimisées pour Next.js 15 & Multi-tenant (LF 2024-2026)
      */
 
     function isSignedIn() {
@@ -16,7 +16,7 @@ service cloud.firestore {
       return isSignedIn() && membersMap != null && request.auth.uid in membersMap;
     }
 
-    // Vérifie l'accès basé sur le champ tenantMembers présent dans chaque document de sous-collection
+    // Vérification de sécurité basée sur le champ tenantMembers requis dans chaque document
     function hasDocumentAccess() {
       return isSignedIn() && (
         resource == null || 
@@ -27,8 +27,8 @@ service cloud.firestore {
     match /tenants/{tenantId} {
       allow get: if isMember(resource.data.members);
       allow list: if isSignedIn() && resource.data.members[request.auth.uid] != null;
-      allow create: if isSignedIn() && request.resource.data.members[request.auth.uid] == 'owner';
-      allow update: if isMember(resource.data.members) && isMember(request.resource.data.members);
+      allow create: if isSignedIn();
+      allow update: if isMember(resource.data.members);
       allow delete: if isMember(resource.data.members) && resource.data.members[request.auth.uid] == 'owner';
     }
 
@@ -41,10 +41,6 @@ service cloud.firestore {
       allow read, write: if hasDocumentAccess();
     }
 
-    match /tenants/{tenantId}/clients/{clientId} {
-      allow read, write: if hasDocumentAccess();
-    }
-
     match /tenants/{tenantId}/invoices/{invoiceId} {
       allow read, write: if hasDocumentAccess();
     }
@@ -53,9 +49,12 @@ service cloud.firestore {
       allow read, write: if hasDocumentAccess();
     }
 
+    match /tenants/{tenantId}/employees/{employeeId} {
+      allow read, write: if hasDocumentAccess();
+    }
+
     match /tax_regulations/{taxRegulationId} {
       allow get, list: if isSignedIn();
-      allow create, update, delete: if false;
     }
   }
 }

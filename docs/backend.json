@@ -74,27 +74,37 @@
       "description": "Sous-compte personnalisé créé par l'entité.",
       "type": "object",
       "properties": {
-        "code": { "type": "string", "description": "Code du compte (ex: 30001)" },
-        "name": { "type": "string", "description": "Nom du compte" },
-        "rootCode": { "type": "string", "description": "Code racine SCF (2 chiffres)" },
+        "code": { "type": "string" },
+        "name": { "type": "string" },
+        "rootCode": { "type": "string" },
         "class": { "type": "number" },
         "tenantId": { "type": "string" }
-      },
-      "required": ["code", "name", "rootCode", "class", "tenantId"]
+      }
     },
     "Asset": {
       "title": "Asset (Immobilisation)",
-      "description": "Élément d'actif immobilisé soumis à amortissement.",
+      "description": "Élément d'actif immobilisé.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "designation": { "type": "string" },
-        "accountCode": { "type": "string" },
-        "acquisitionDate": { "type": "string", "format": "date" },
         "acquisitionValue": { "type": "number" },
-        "amortizationRate": { "type": "number" },
-        "usefulLife": { "type": "number" },
-        "status": { "type": "string", "enum": ["ACTIVE", "DISPOSED"] }
+        "amortizationRate": { "type": "number" }
+      }
+    },
+    "Employee": {
+      "title": "Employee",
+      "description": "Fiche salarié pour le livre de paye.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "position": { "type": "string" },
+        "baseSalary": { "type": "number" },
+        "primes": { "type": "number" },
+        "cnasNumber": { "type": "string" },
+        "hireDate": { "type": "string", "format": "date" },
+        "tenantId": { "type": "string" }
       }
     }
   },
@@ -112,11 +122,15 @@
     },
     "/tenants/{tenantId}/accounts/{accountId}": {
       "schema": "#/entities/Account",
-      "description": "Plan de comptes personnalisé de l'entité"
+      "description": "Plan de comptes personnalisé"
     },
     "/tenants/{tenantId}/assets/{assetId}": {
       "schema": "#/entities/Asset",
       "description": "Registre des immobilisations"
+    },
+    "/tenants/{tenantId}/employees/{employeeId}": {
+      "schema": "#/entities/Employee",
+      "description": "Registre du personnel"
     }
   }
 }
