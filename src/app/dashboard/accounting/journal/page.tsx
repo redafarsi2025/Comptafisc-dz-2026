@@ -87,13 +87,11 @@ export default function LivreJournal() {
               ) : (
                 entries.map((entry) => (
                   <React.Fragment key={entry.id}>
-                    {/* Header Row for each Entry */}
                     <TableRow className="bg-primary/5 hover:bg-primary/5">
                       <TableCell className="font-bold text-[10px] text-primary" colSpan={6}>
                         PIÈCE: {entry.documentReference || 'N/A'} — {entry.description}
                       </TableCell>
                     </TableRow>
-                    {/* Lines of the Entry */}
                     {entry.lines.map((line: any, lidx: number) => (
                       <TableRow key={`${entry.id}-${lidx}`} className="hover:bg-muted/10 border-none">
                         <TableCell className="text-xs">{lidx === 0 ? new Date(entry.entryDate).toLocaleDateString() : ""}</TableCell>

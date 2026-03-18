@@ -33,7 +33,6 @@ export default function GrandLivre() {
   }, [db, currentTenant, user]);
   const { data: entries, isLoading } = useCollection(entriesQuery);
 
-  // Ventilation par compte
   const ledgerData = React.useMemo(() => {
     if (!entries) return {};
     const ledger: any = {};
