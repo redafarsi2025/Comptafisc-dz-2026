@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { HardHat, Download, ShieldCheck, Info, Loader2, AlertCircle } from "lucide-react"
+import { HardHat, Download, ShieldCheck, Info, Loader2, AlertCircle, Smartphone } from "lucide-react"
 import { PAYROLL_CONSTANTS } from "@/lib/calculations"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
@@ -60,9 +60,9 @@ export default function CacobatphPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-primary flex items-center gap-2">
-            <HardHat className="h-8 w-8 text-accent" /> CACOBATPH (BTP)
+            <HardHat className="h-8 w-8 text-accent" /> CACOBATPH (BTP) 2026
           </h1>
-          <p className="text-muted-foreground text-sm">Gestion des cotisations Congés Payés et Chômage-Intempéries.</p>
+          <p className="text-muted-foreground text-sm">Gestion des cotisations CP & CI - Transition Zéro Papier Tasrihatcom.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" disabled={!isBTP}><Download className="mr-2 h-4 w-4" /> Bordereau CI</Button>
@@ -70,13 +70,20 @@ export default function CacobatphPage() {
         </div>
       </div>
 
+      <Alert className="bg-emerald-50 border-emerald-200">
+        <Smartphone className="h-4 w-4 text-emerald-600" />
+        <AlertTitle className="text-emerald-800 font-bold">Innovation Tasrihatcom</AlertTitle>
+        <AlertDescription className="text-xs">
+          Le portail CACOBATPH est désormais totalement optimisé pour mobile. Soumettez vos DAC et déclarations d'intempéries directement via votre smartphone en quelques clics.
+        </AlertDescription>
+      </Alert>
+
       {!isBTP && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Module Inactif</AlertTitle>
           <AlertDescription>
-            Ce dossier est configuré sur le secteur <strong>{currentTenant?.secteurActivite}</strong>. 
-            Les cotisations CACOBATPH sont exclusivement réservées au secteur <strong>BTP (Construction)</strong>.
+            Les cotisations CACOBATPH sont exclusivement réservées au secteur <strong>BTP (Construction)</strong>. Votre dossier est configuré en : {currentTenant?.secteurActivite}.
           </AlertDescription>
         </Alert>
       )}
@@ -88,7 +95,7 @@ export default function CacobatphPage() {
           </CardHeader>
           <CardContent>
             <h2 className="text-3xl font-bold">{formatAmount(stats.cp)} DA</h2>
-            <p className="text-xs mt-2 opacity-70">Part patronale uniquement.</p>
+            <p className="text-xs mt-2 opacity-70">Part Patronale (Annuelle).</p>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-amber-500">
@@ -97,12 +104,12 @@ export default function CacobatphPage() {
           </CardHeader>
           <CardContent>
             <h2 className="text-2xl font-bold text-amber-600">{formatAmount(stats.ci)} DA</h2>
-            <p className="text-xs text-muted-foreground mt-1 italic">Part patronale (0.375%).</p>
+            <p className="text-xs text-muted-foreground mt-1 italic">Partagé 50/50 (0.375% x 2).</p>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-emerald-500">
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Total CACOBATPH</CardTitle>
+            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">À Verser ce mois</CardTitle>
           </CardHeader>
           <CardContent>
             <h2 className="text-2xl font-bold text-emerald-600">{formatAmount(stats.total)} DA</h2>
@@ -113,14 +120,14 @@ export default function CacobatphPage() {
       <Card className="border-t-4 border-t-primary shadow-lg overflow-hidden">
         <CardHeader className="bg-muted/30">
           <CardTitle className="text-lg">Déclinaison des Rubriques BTP</CardTitle>
-          <CardDescription>Assiette de calcul basée sur le Salaire de Poste (SCF 63).</CardDescription>
+          <CardDescription>Assiette de calcul basée sur le Salaire de Poste (Vérifié 2026).</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader className="bg-muted/50">
               <TableRow>
                 <TableHead>Libellé de la Cotisation</TableHead>
-                <TableHead className="text-right">Assiette</TableHead>
+                <TableHead className="text-right">Assiette (Poste)</TableHead>
                 <TableHead className="text-center">Taux</TableHead>
                 <TableHead className="text-right font-bold">Montant dû</TableHead>
               </TableRow>
@@ -154,9 +161,8 @@ export default function CacobatphPage() {
         <div className="text-xs text-blue-900 leading-relaxed">
           <p className="font-bold mb-1 underline">Rappel Réglementaire CACOBATPH :</p>
           <p>
-            Le versement des cotisations doit s'effectuer au plus tard le 20 du mois suivant la période de référence. 
-            L'assiette est identique à celle de la CNAS. N'oubliez pas que pour le Chômage-Intempéries, la cotisation globale est de 0.75% 
-            (partagée entre l'employeur et le salarié à parts égales de 0.375%).
+            Le versement des DAC doit s'effectuer au plus tard le 20 du mois suivant. N'oubliez pas que la DAS 2025 (Annuelle) 
+            devait être soumise avant le 31 janvier 2026 via la nouvelle version allégée de l'application Tasrihatcom.
           </p>
         </div>
       </div>

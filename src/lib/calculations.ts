@@ -13,7 +13,8 @@ export const TAX_RATES = {
   STAMP_DUTY_MAX: 2500,
   STAMP_DUTY_MIN: 5,
   STAMP_DUTY_RATE: 0.01,
-  // Taux IFU (Impôt Forfaitaire Unique) - Maintenus en LF 2024
+  // Taux IFU (Impôt Forfaitaire Unique) - Mise à jour 2026
+  IFU_THRESHOLD: 8000000, // Seuil d'éligibilité 2026
   IFU_PRODUCTION_VENTE: 0.05,
   IFU_SERVICES: 0.12,
   IFU_AUTO_ENTREPRENEUR: 0.005,
@@ -60,7 +61,7 @@ export function getIFURate(secteur: string, formeJuridique: string): number {
  * Détermine le minimum d'imposition IFU.
  */
 export function getIFUMinimum(formeJuridique: string): number {
-  return formeJuridique === "Auto-entrepreneur" ? TAX_RATES.IFU_MIN_AUTO : TAX_RATES.IFU_MIN_STANDARD;
+  return (formeJuridique === "Auto-entrepreneur" || formeJuridique === "Personne physique") ? TAX_RATES.IFU_MIN_AUTO : TAX_RATES.IFU_MIN_STANDARD;
 }
 
 /**
