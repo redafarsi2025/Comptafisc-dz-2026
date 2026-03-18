@@ -6,18 +6,20 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
-import { FileText, Calculator, Info, Landmark, Sparkles, TrendingDown } from "lucide-react"
+import { FileText, Calculator, Info, Landmark, Sparkles, TrendingDown, CalendarDays, AlertCircle, CheckCircle2 } from "lucide-react"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, query, where, limit } from "firebase/firestore"
-import { getTAPRate, getIFURate, getIBSRate, calculateIBS, TAX_RATES } from "@/lib/calculations"
+import { getTAPRate, getIFURate, getIBSRate, calculateIBS, TAX_RATES, calculateIBSInstallment, getIBSInstallmentDeadlines } from "@/lib/calculations"
 import { findActivityByNap } from "@/lib/nap-data"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 export default function DeclarationsPage() {
   const db = useFirestore()
   const { user } = useUser()
   const [estimatedProfit, setEstimatedProfit] = React.useState<number>(0)
   const [reinvestedAmount, setReinvestedAmount] = React.useState<number>(0)
+  const [previousYearIBS, setPreviousYearIBS] = React.useState<number>(0)
   
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -59,6 +61,20 @@ export default function DeclarationsPage() {
     const standardIBS = calculateIBS(estimatedProfit, ibsRate, 0);
     return Math.max(0, standardIBS - projectedIBS);
   }, [estimatedProfit, ibsRate, projectedIBS]);
+
+  const installmentAmount = React.useMemo(() => {
+    return calculateIBSInstallment(previousYearIBS);
+  }, [previousYearIBS]);
+
+  const deadlines = React.useMemo(() => {
+    return getIBSInstallmentDeadlines(new Date().getFullYear());
+  }, []);
+
+  const isNewCompany = React.useMemo(() => {
+    if (!currentTenant?.dateCreation) return false;
+    const creationYear = new Date(currentTenant.dateCreation).getFullYear();
+    return creationYear === new Date().getFullYear();
+  }, [currentTenant]);
 
   return (
     <div className="space-y-6">
@@ -153,76 +169,13 @@ export default function DeclarationsPage() {
         </Card>
       </div>
 
-      {!isIFU && (
-        <Card className="border-amber-200 bg-amber-50 shadow-md">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2 text-amber-800">
-              <Landmark className="h-5 w-5" /> Simulateur IBS & Réinvestissement (Exercice 2024/2025)
-            </CardTitle>
-            <CardDescription className="text-amber-700">
-              Optimisez votre IBS en réinvestissant vos bénéfices. Bénéficiez du taux réduit de <strong>{(TAX_RATES.IBS_REINVESTMENT * 100).toFixed(0)}%</strong> au lieu de {(ibsRate * 100).toFixed(0)}%.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-amber-900">1. Bénéfice Net Imposable (DA)</label>
-                  <Input 
-                    type="number" 
-                    placeholder="Ex: 1 000 000" 
-                    className="bg-white border-amber-300 focus-visible:ring-amber-500"
-                    value={estimatedProfit || ""}
-                    onChange={(e) => setEstimatedProfit(parseFloat(e.target.value) || 0)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-amber-900 flex items-center gap-2">
-                    2. Part à Réinvestir (Equipements/Social) 
-                    <Badge variant="outline" className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-200">Eco-Taux 10%</Badge>
-                  </label>
-                  <Input 
-                    type="number" 
-                    placeholder="Montant du réinvestissement" 
-                    className="bg-white border-emerald-300 focus-visible:ring-emerald-500"
-                    value={reinvestedAmount || ""}
-                    onChange={(e) => setReinvestedAmount(parseFloat(e.target.value) || 0)}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4">
-                <div className="p-4 bg-white border border-amber-300 rounded-lg shadow-inner">
-                  <p className="text-xs uppercase text-muted-foreground font-bold mb-1">IBS Total à payer</p>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-bold text-amber-600">{projectedIBS.toLocaleString()}</span>
-                    <span className="text-sm font-medium text-amber-600">DZD</span>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-2 italic">Calculé au taux hybride {(estimatedProfit > 0 && reinvestedAmount > 0) ? "Cible" : "Standard"}.</p>
-                </div>
-
-                {taxSavings > 0 && (
-                  <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-bold text-emerald-700 uppercase flex items-center gap-1">
-                        <TrendingDown className="h-3 w-3" /> Économie d'impôt réalisée
-                      </p>
-                      <p className="text-xl font-bold text-emerald-600">-{taxSavings.toLocaleString()} DA</p>
-                    </div>
-                    <Badge className="bg-emerald-600 text-white animate-pulse">Gain Fiscal</Badge>
-                  </div>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       <Tabs defaultValue="current" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="current">Échéances en cours</TabsTrigger>
-          <TabsTrigger value="history">Historique & Archives</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="current">Échéances G50/G12</TabsTrigger>
+          <TabsTrigger value="ibs-sim">Simulation IBS & Réinvestissement</TabsTrigger>
+          {!isIFU && <TabsTrigger value="ibs-installments">Acomptes IBS (N-1)</TabsTrigger>}
         </TabsList>
+        
         <TabsContent value="current">
           <Card>
             <CardHeader>
@@ -269,6 +222,168 @@ export default function DeclarationsPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="ibs-sim">
+          {!isIFU ? (
+            <Card className="border-amber-200 bg-amber-50 shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2 text-amber-800">
+                  <Landmark className="h-5 w-5" /> Simulateur IBS & Réinvestissement (Exercice 2024/2025)
+                </CardTitle>
+                <CardDescription className="text-amber-700">
+                  Optimisez votre IBS en réinvestissant vos bénéfices. Bénéficiez du taux réduit de <strong>{(TAX_RATES.IBS_REINVESTMENT * 100).toFixed(0)}%</strong> au lieu de {(ibsRate * 100).toFixed(0)}%.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-amber-900">1. Bénéfice Net Imposable (DA)</label>
+                      <Input 
+                        type="number" 
+                        placeholder="Ex: 1 000 000" 
+                        className="bg-white border-amber-300 focus-visible:ring-amber-500"
+                        value={estimatedProfit || ""}
+                        onChange={(e) => setEstimatedProfit(parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-amber-900 flex items-center gap-2">
+                        2. Part à Réinvestir (Equipements/Social) 
+                        <Badge variant="outline" className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-200">Eco-Taux 10%</Badge>
+                      </label>
+                      <Input 
+                        type="number" 
+                        placeholder="Montant du réinvestissement" 
+                        className="bg-white border-emerald-300 focus-visible:ring-emerald-500"
+                        value={reinvestedAmount || ""}
+                        onChange={(e) => setReinvestedAmount(parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="p-4 bg-white border border-amber-300 rounded-lg shadow-inner">
+                      <p className="text-xs uppercase text-muted-foreground font-bold mb-1">IBS Total à payer</p>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-3xl font-bold text-amber-600">{projectedIBS.toLocaleString()}</span>
+                        <span className="text-sm font-medium text-amber-600">DZD</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-2 italic">Calculé au taux hybride {(estimatedProfit > 0 && reinvestedAmount > 0) ? "Cible" : "Standard"}.</p>
+                    </div>
+
+                    {taxSavings > 0 && (
+                      <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-bold text-emerald-700 uppercase flex items-center gap-1">
+                            <TrendingDown className="h-3 w-3" /> Économie d'impôt réalisée
+                          </p>
+                          <p className="text-xl font-bold text-emerald-600">-{taxSavings.toLocaleString()} DA</p>
+                        </div>
+                        <Badge className="bg-emerald-600 text-white animate-pulse">Gain Fiscal</Badge>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertTitle>Non applicable</AlertTitle>
+              <AlertDescription>Le simulateur IBS est réservé aux entreprises au régime du Réel.</AlertDescription>
+            </Alert>
+          )}
+        </TabsContent>
+
+        <TabsContent value="ibs-installments">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card className="md:col-span-1">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Calculator className="h-5 w-5 text-primary" /> Calcul des Acomptes
+                </CardTitle>
+                <CardDescription>Basé sur l'IBS de l'exercice précédent (N-1).</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {isNewCompany ? (
+                  <Alert className="bg-blue-50 border-blue-200">
+                    <Info className="h-4 w-4 text-blue-600" />
+                    <AlertTitle className="text-blue-800">Nouvelle Entreprise</AlertTitle>
+                    <AlertDescription className="text-blue-700 text-xs">
+                      Vous êtes dispensé d'acomptes pour votre première année d'activité.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Montant IBS N-1 (DA)</label>
+                    <Input 
+                      type="number" 
+                      placeholder="Ex: 500 000"
+                      value={previousYearIBS || ""}
+                      onChange={(e) => setPreviousYearIBS(parseFloat(e.target.value) || 0)}
+                    />
+                    <div className="pt-4 border-t mt-4">
+                      <p className="text-xs text-muted-foreground uppercase font-bold">Montant par acompte (30%)</p>
+                      <p className="text-2xl font-bold text-primary">{installmentAmount.toLocaleString()} DZD</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <CalendarDays className="h-5 w-5 text-accent" /> Calendrier de Paiement {new Date().getFullYear()}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Échéance</TableHead>
+                      <TableHead>Période de paiement</TableHead>
+                      <TableHead className="text-right">Montant estimé</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {deadlines.map((d, i) => (
+                      <TableRow key={i} className={i === 3 ? "bg-muted/30 font-semibold" : ""}>
+                        <TableCell>{d.name}</TableCell>
+                        <TableCell className="text-xs">
+                          Du {new Date(d.start).toLocaleDateString()} au {new Date(d.end).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {i < 3 ? installmentAmount.toLocaleString() : "Solde variable"} DA
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {new Date() > new Date(d.end) ? (
+                            <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">Passé</Badge>
+                          ) : (
+                            <Badge variant="outline" className="animate-pulse border-amber-300 text-amber-600">À venir</Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                
+                <div className="mt-6 p-4 bg-muted/50 rounded-lg space-y-3">
+                  <h5 className="text-sm font-bold flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-amber-600" /> Notes Importantes
+                  </h5>
+                  <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-1">
+                    <li>Paiement via bordereau G n°50 auprès de votre recette des impôts.</li>
+                    <li>Si l'exercice N-1 était déficitaire, aucun acompte n'est dû (sauf minimum de 10 000 DA si non déjà payé).</li>
+                    <li>Vous pouvez demander une dispense si les acomptes versés couvrent l'impôt prévisible.</li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

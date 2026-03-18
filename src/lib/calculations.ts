@@ -23,6 +23,7 @@ export const TAX_RATES = {
   IBS_SERVICES_COMMERCE: 0.26,
   IBS_REINVESTMENT: 0.10, // Taux réduit sur bénéfices réinvestis
   IBS_MINIMUM: 10000,
+  IBS_INSTALLMENT_RATE: 0.30, // 30% par acompte
 };
 
 export const PAYROLL_CONSTANTS = {
@@ -36,7 +37,6 @@ export const PAYROLL_CONSTANTS = {
  * Retourne désormais 0 conformément à la LF 2024.
  */
 export function getTAPRate(secteur: string, napCode?: string): number {
-  // Conformité LF 2024 : La TAP est supprimée (0%)
   return 0;
 }
 
@@ -55,11 +55,7 @@ export function getIFURate(secteur: string, formeJuridique: string): number {
 export function getIBSRate(secteur: string, napCode?: string): number {
   if (secteur === "PRODUCTION") return TAX_RATES.IBS_PRODUCTION;
   if (secteur === "BTP") return TAX_RATES.IBS_BTPH_TOURISM;
-  
-  // Vérification spécifique pour le tourisme (Hôtellerie codes 55xx)
   if (napCode && napCode.startsWith('55')) return TAX_RATES.IBS_BTPH_TOURISM;
-  
-  // Défaut pour Services et Commerce
   return TAX_RATES.IBS_SERVICES_COMMERCE;
 }
 
@@ -69,15 +65,30 @@ export function getIBSRate(secteur: string, napCode?: string): number {
  */
 export function calculateIBS(benefit: number, rate: number, reinvestedAmount: number = 0): number {
   if (benefit <= 0) return TAX_RATES.IBS_MINIMUM;
-  
-  // Le réinvestissement ne peut pas dépasser le bénéfice imposable
   const actualReinvested = Math.min(reinvestedAmount, benefit);
   const remainingBenefit = benefit - actualReinvested;
-  
-  // Calcul hybride : Part réinvestie à 10% + Part classique au taux normal
   const calculated = (remainingBenefit * rate) + (actualReinvested * TAX_RATES.IBS_REINVESTMENT);
-  
   return Math.max(calculated, TAX_RATES.IBS_MINIMUM);
+}
+
+/**
+ * Calcule le montant d'un acompte provisionnel IBS (30% de l'IBS N-1).
+ */
+export function calculateIBSInstallment(previousYearIBS: number): number {
+  if (previousYearIBS <= 0) return 0;
+  return previousYearIBS * TAX_RATES.IBS_INSTALLMENT_RATE;
+}
+
+/**
+ * Retourne le calendrier des acomptes IBS pour l'année en cours.
+ */
+export function getIBSInstallmentDeadlines(year: number) {
+  return [
+    { name: "1er Acompte (30%)", start: `${year}-02-20`, end: `${year}-03-20`, status: "upcoming" },
+    { name: "2ème Acompte (30%)", start: `${year}-05-20`, end: `${year}-06-20`, status: "upcoming" },
+    { name: "3ème Acompte (30%)", start: `${year}-10-20`, end: `${year}-11-20`, status: "upcoming" },
+    { name: "Liquidation (Solde)", start: `${year + 1}-01-01`, end: `${year + 1}-04-30`, status: "upcoming" },
+  ];
 }
 
 export function calculateStampDuty(amount: number, isCash: boolean): number {
@@ -89,7 +100,7 @@ export function calculateStampDuty(amount: number, isCash: boolean): number {
 }
 
 export function calculateTVA(ht: number, enumRate: string = "TVA_19", isIFU: boolean = false): number {
-  if (isIFU) return 0; // Un contribuable à l'IFU ne facture jamais de TVA
+  if (isIFU) return 0;
   const rate = enumRate === "TVA_19" ? 0.19 : enumRate === "TVA_9" ? 0.09 : 0;
   return ht * rate;
 }
