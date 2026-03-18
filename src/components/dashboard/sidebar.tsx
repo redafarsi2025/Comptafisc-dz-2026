@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -51,7 +52,7 @@ const navigation = [
   { name: "Saisie Comptable", href: "/dashboard/accounting", icon: BookText },
   { name: "Facturation", href: "/dashboard/invoicing", icon: Receipt },
   { name: "Paie & Social", href: "/dashboard/payroll", icon: Users },
-  { name: "Déclarations (G50)", href: "/dashboard/declarations", icon: FileText },
+  { name: "Déclarations Fisc", href: "/dashboard/declarations", icon: FileText },
   { name: "Assistant Fiscal", href: "/dashboard/assistant", icon: MessageSquareMore },
   { name: "OCR Ingestion", href: "/dashboard/ocr", icon: Camera },
 ]
@@ -93,6 +94,8 @@ export function DashboardSidebar() {
       members: { [user.uid]: 'owner' },
       nif: "000000000000000",
       rc: "",
+      activityType: "Prestations de services",
+      taxRegime: "Réel",
       address: "Alger, Algérie",
       email: user.email || "contact@exemple.dz",
       creationDate: new Date().toISOString(),
@@ -104,7 +107,7 @@ export function DashboardSidebar() {
     
     try {
       await setDoc(newTenantRef, tenantData);
-      toast({ title: "Dossier créé", description: "Votre premier dossier fiscal a été configuré." });
+      toast({ title: "Dossier créé", description: "Votre dossier fiscal a été configuré au régime Réel par défaut." });
     } catch (e) {
       console.error(e);
     }
@@ -135,7 +138,7 @@ export function DashboardSidebar() {
                       {isTenantsLoading ? "Chargement..." : (currentTenant?.name || "Aucun dossier")}
                     </span>
                     <span className="text-xs text-sidebar-foreground/70">
-                      {currentTenant ? `Rôle: ${currentTenant.members?.[user?.uid || '']}` : "Cliquez pour créer"}
+                      {currentTenant ? `${currentTenant.taxRegime}` : "Cliquez pour créer"}
                     </span>
                   </div>
                   <ChevronDown className="ml-auto size-4" />
@@ -148,7 +151,10 @@ export function DashboardSidebar() {
                     onClick={() => setCurrentTenantId(t.id)}
                     className="cursor-pointer"
                   >
-                    {t.name}
+                    <div className="flex flex-col">
+                      <span>{t.name}</span>
+                      <span className="text-[10px] text-muted-foreground">{t.taxRegime} - {t.activityType}</span>
+                    </div>
                   </DropdownMenuItem>
                 ))}
                 <DropdownMenuSeparator />

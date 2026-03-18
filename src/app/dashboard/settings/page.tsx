@@ -1,12 +1,14 @@
+
 "use client"
 
 import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useFirestore, useUser, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase"
 import { collection, query, where, limit, doc } from "firebase/firestore"
-import { Building2, Save, Fingerprint, MapPin, Phone, Globe, Loader2 } from "lucide-react"
+import { Building2, Save, Fingerprint, MapPin, Phone, Globe, Loader2, Briefcase, FileText } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 
 export default function TenantSettingsPage() {
@@ -29,7 +31,9 @@ export default function TenantSettingsPage() {
     rc: "",
     address: "",
     phoneNumber: "",
-    email: ""
+    email: "",
+    activityType: "",
+    taxRegime: "Réel"
   })
 
   // Pre-fill form when tenant is loaded
@@ -41,7 +45,9 @@ export default function TenantSettingsPage() {
         rc: currentTenant.rc || "",
         address: currentTenant.address || "",
         phoneNumber: currentTenant.phoneNumber || "",
-        email: currentTenant.email || ""
+        email: currentTenant.email || "",
+        activityType: currentTenant.activityType || "",
+        taxRegime: currentTenant.taxRegime || "Réel"
       })
     }
   }, [currentTenant])
@@ -88,7 +94,7 @@ export default function TenantSettingsPage() {
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold text-primary">Paramètres du Dossier</h1>
-        <p className="text-muted-foreground">Identifiants fiscaux et coordonnées de l'entité gérée.</p>
+        <p className="text-muted-foreground">Identifiants fiscaux, commerciaux et régime d'imposition.</p>
       </div>
 
       <Card>
@@ -96,7 +102,7 @@ export default function TenantSettingsPage() {
           <CardTitle className="flex items-center gap-2">
             <Building2 className="h-5 w-5 text-primary" /> Informations Générales
           </CardTitle>
-          <CardDescription>Ces données apparaissent sur vos factures et déclarations G50.</CardDescription>
+          <CardDescription>Ces données apparaissent sur vos factures et déclarations G50/G12.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -119,6 +125,36 @@ export default function TenantSettingsPage() {
                   placeholder="contact@entreprise.dz"
                 />
               </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                Type d'Activité <Briefcase className="h-3 w-3" />
+              </label>
+              <Input 
+                value={formData.activityType} 
+                onChange={(e) => setFormData({...formData, activityType: e.target.value})} 
+                placeholder="Ex: Prestations de services, Commerce..."
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                Régime d'Imposition <FileText className="h-3 w-3" />
+              </label>
+              <Select 
+                value={formData.taxRegime} 
+                onValueChange={(val) => setFormData({...formData, taxRegime: val as any})}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choisir le régime" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Réel">Régime du Réel (G50 Mensuel)</SelectItem>
+                  <SelectItem value="IFU">IFU (Impôt Forfaitaire Unique)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -179,7 +215,7 @@ export default function TenantSettingsPage() {
         </CardHeader>
         <CardContent>
           <p className="text-amber-700 text-xs">
-            La modification du NIF impactera rétroactivement les déclarations non archivées. Assurez-vous de la conformité de ces informations avec votre carte fiscale.
+            Le changement de régime fiscal (Réel vers IFU ou inversement) modifie les formulaires de déclaration disponibles. Assurez-vous de valider ce choix avec un conseiller fiscal.
           </p>
         </CardContent>
       </Card>

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { FileText, Download, CheckCircle, Clock, AlertTriangle } from "lucide-react"
+import { FileText, Download, CheckCircle, Clock, AlertTriangle, Building2 } from "lucide-react"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, query, where, limit } from "firebase/firestore"
 
@@ -21,7 +21,9 @@ export default function DeclarationsPage() {
   const { data: tenants } = useCollection(tenantsQuery);
   const currentTenant = tenants?.[0];
 
-  // Fetch invoices for calculation (G50 preparation)
+  const isIFU = currentTenant?.taxRegime === "IFU";
+
+  // Fetch invoices for calculation
   const invoicesQuery = useMemoFirebase(() => {
     if (!db || !currentTenant) return null;
     return collection(db, "tenants", currentTenant.id, "invoices");
@@ -31,9 +33,9 @@ export default function DeclarationsPage() {
   const stats = React.useMemo(() => {
     if (!invoices) return { tva: 0, tap: 0, ca: 0 };
     return invoices.reduce((acc, inv) => ({
-      tva: acc.tva + inv.totalTaxAmount,
-      tap: acc.tap + (inv.totalAmountExcludingTax * 0.015),
-      ca: acc.ca + inv.totalAmountExcludingTax
+      tva: acc.tva + (inv.totalTaxAmount || 0),
+      tap: acc.tap + ((inv.totalAmountExcludingTax || 0) * 0.015),
+      ca: acc.ca + (inv.totalAmountExcludingTax || 0)
     }), { tva: 0, tap: 0, ca: 0 });
   }, [invoices]);
 
@@ -42,10 +44,14 @@ export default function DeclarationsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-primary">Déclarations Fiscales</h1>
-          <p className="text-muted-foreground">Génération automatique des formulaires G50, G12 et G11.</p>
+          <p className="text-muted-foreground">
+            Dossier : <span className="font-semibold text-foreground">{currentTenant?.name || "..."}</span> 
+            • Régime : <Badge variant="secondary" className="ml-1">{currentTenant?.taxRegime || "Réel"}</Badge>
+          </p>
         </div>
         <Button className="bg-emerald-600 hover:bg-emerald-700">
-          <FileText className="mr-2 h-4 w-4" /> Préparer G50 Juillet 2024
+          <FileText className="mr-2 h-4 w-4" /> 
+          {isIFU ? "Préparer G12 (IFU)" : "Préparer G50 Juillet 2024"}
         </Button>
       </div>
 
@@ -85,26 +91,41 @@ export default function DeclarationsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Formulaires à soumettre</CardTitle>
-              <CardDescription>Échéances fiscales pour le dossier {currentTenant?.name || '...'}</CardDescription>
+              <CardDescription>Échéances fiscales basées sur le régime {currentTenant?.taxRegime}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/30 transition-colors">
-                <div className="flex items-center gap-4">
-                  <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
-                    <FileText className="h-5 w-5 text-primary" />
+              {isIFU ? (
+                <div className="flex items-center justify-between p-4 border rounded-lg border-primary/30 bg-primary/5">
+                  <div className="flex items-center gap-4">
+                    <div className="h-10 w-10 bg-primary/20 rounded-full flex items-center justify-center">
+                      <Building2 className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm">Série G n° 12 - Déclaration IFU</p>
+                      <p className="text-xs text-muted-foreground">Prévisionnelle annuelle • CA estimé : {stats.ca.toLocaleString()} DZD</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-bold text-sm">Série G n° 50 - Mensuelle</p>
-                    <p className="text-xs text-muted-foreground">Période : Juin 2024 • À payer : {(stats.tva + stats.tap).toLocaleString()} DZD</p>
+                  <Button size="sm">Générer G12</Button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/30 transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
+                      <FileText className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm">Série G n° 50 - Mensuelle</p>
+                      <p className="text-xs text-muted-foreground">Période : Juin 2024 • À payer : {(stats.tva + stats.tap).toLocaleString()} DZD</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
+                      <Clock className="mr-1 h-3 w-3" /> Échéance : 20/07/2024
+                    </Badge>
+                    <Button size="sm">Télécharger PDF</Button>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
-                    <Clock className="mr-1 h-3 w-3" /> Échéance : 20/07/2024
-                  </Badge>
-                  <Button size="sm">Télécharger PDF</Button>
-                </div>
-              </div>
+              )}
               
               <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/30 transition-colors opacity-60">
                 <div className="flex items-center gap-4">
