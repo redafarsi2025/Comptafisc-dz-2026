@@ -5,7 +5,7 @@ import { Building2, ShieldCheck, Zap, FileSearch } from 'lucide-react';
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[#ECF1F6] flex flex-col">
-      <nav className="flex items-center justify-between px-8 py-6 bg-white border-b">
+      <nav className="flex items-center justify-between px-8 py-6 bg-white border-b sticky top-0 z-50">
         <div className="flex items-center gap-2">
           <div className="bg-[#0C55CC] p-1.5 rounded-lg">
             <Building2 className="text-white h-6 w-6" />
@@ -13,8 +13,12 @@ export default function LandingPage() {
           <span className="text-2xl font-bold text-[#0C55CC]">ComptaFisc-DZ</span>
         </div>
         <div className="flex items-center gap-4">
-          <Button variant="ghost">Connexion</Button>
-          <Button className="bg-[#0C55CC] hover:bg-[#0A47A6]">S'inscrire</Button>
+          <Button variant="ghost" asChild>
+            <Link href="/login">Connexion</Link>
+          </Button>
+          <Button className="bg-[#0C55CC] hover:bg-[#0A47A6]" asChild>
+            <Link href="/register">S'inscrire</Link>
+          </Button>
         </div>
       </nav>
 
@@ -29,8 +33,8 @@ export default function LandingPage() {
         </p>
 
         <div className="flex gap-4 mb-20">
-          <Button size="lg" className="bg-[#0C55CC] hover:bg-[#0A47A6] px-8 h-12 text-lg" asChild>
-            <Link href="/dashboard">Accéder au Dashboard</Link>
+          <Button size="lg" className="bg-[#0C55CC] hover:bg-[#0A47A6] px-8 h-12 text-lg shadow-lg hover:scale-105 transition-transform" asChild>
+            <Link href="/register">Essayer Gratuitement</Link>
           </Button>
           <Button size="lg" variant="outline" className="border-[#0C55CC] text-[#0C55CC] px-8 h-12 text-lg">
             Demander une démo
@@ -56,7 +60,7 @@ export default function LandingPage() {
         </div>
       </main>
 
-      <footer className="bg-slate-900 text-slate-400 py-12 px-8">
+      <footer className="bg-slate-900 text-slate-400 py-12 px-8 mt-auto">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="flex items-center gap-2">
             <Building2 className="text-white h-5 w-5" />
