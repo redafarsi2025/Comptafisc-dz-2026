@@ -17,6 +17,8 @@ export const TAX_RATES = {
   IFU_PRODUCTION_VENTE: 0.05,
   IFU_SERVICES: 0.12,
   IFU_AUTO_ENTREPRENEUR: 0.005,
+  IFU_MIN_AUTO: 10000,
+  IFU_MIN_STANDARD: 30000,
   // Taux IBS (Impôt sur les Bénéfices des Sociétés) - CIDTA Art. 150
   IBS_PRODUCTION: 0.19,
   IBS_BTPH_TOURISM: 0.23,
@@ -48,6 +50,13 @@ export function getIFURate(secteur: string, formeJuridique: string): number {
   if (formeJuridique === "Auto-entrepreneur") return TAX_RATES.IFU_AUTO_ENTREPRENEUR;
   if (secteur === "PRODUCTION" || secteur === "COMMERCE") return TAX_RATES.IFU_PRODUCTION_VENTE;
   return TAX_RATES.IFU_SERVICES;
+}
+
+/**
+ * Détermine le minimum d'imposition IFU.
+ */
+export function getIFUMinimum(formeJuridique: string): number {
+  return formeJuridique === "Auto-entrepreneur" ? TAX_RATES.IFU_MIN_AUTO : TAX_RATES.IFU_MIN_STANDARD;
 }
 
 /**
