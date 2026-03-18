@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -17,7 +16,9 @@ import {
   Building2,
   Plus,
   User as UserIcon,
-  LogOut
+  LogOut,
+  Library,
+  BookOpenCheck
 } from "lucide-react"
 
 import {
@@ -56,6 +57,11 @@ const navigation = [
   { name: "Capture OCR", href: "/dashboard/ocr", icon: Camera },
 ]
 
+const legalBooks = [
+  { name: "Livre-Journal", href: "/dashboard/accounting/journal", icon: BookOpenCheck },
+  { name: "Grand Livre", href: "/dashboard/accounting/ledger", icon: Library },
+]
+
 export function DashboardSidebar() {
   const pathname = usePathname()
   const router = useRouter()
@@ -87,7 +93,6 @@ export function DashboardSidebar() {
     if (!db || !user) return;
     const newTenantRef = doc(collection(db, "tenants"));
     
-    // Initialisation avec les 35 variables structurelles
     const tenantData = {
       id: newTenantRef.id,
       raisonSociale: "Nouveau Dossier " + (user.displayName || "Client"),
@@ -191,6 +196,19 @@ export function DashboardSidebar() {
           <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Menu</SidebarGroupLabel>
           <SidebarMenu>
             {navigation.map((item) => (
+              <SidebarMenuItem key={item.name}>
+                <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name} className="hover:bg-sidebar-accent">
+                  <Link href={item.href}><item.icon /><span>{item.name}</span></Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Livres Légaux (SCF)</SidebarGroupLabel>
+          <SidebarMenu>
+            {legalBooks.map((item) => (
               <SidebarMenuItem key={item.name}>
                 <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name} className="hover:bg-sidebar-accent">
                   <Link href={item.href}><item.icon /><span>{item.name}</span></Link>

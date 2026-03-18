@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { SCF_ACCOUNTS, JournalEntryLine } from "@/lib/scf-accounts"
+import { SCF_ACCOUNTS, JournalEntryLine, JournalType } from "@/lib/scf-accounts"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Trash2, CheckCircle, Calculator, Loader2 } from "lucide-react"
+import { Plus, Trash2, CheckCircle, Calculator, Loader2, BookOpen } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useFirestore, useUser, addDocumentNonBlocking } from "@/firebase"
 import { collection, query, where, limit } from "firebase/firestore"
@@ -20,9 +20,9 @@ export default function AccountingJournal() {
   const [description, setDescription] = React.useState("")
   const [entryDate, setEntryDate] = React.useState(new Date().toISOString().split('T')[0])
   const [reference, setReference] = React.useState("")
+  const [journalType, setJournalType] = React.useState<JournalType>("ACHATS")
   const [isSubmitting, setIsSubmitting] = React.useState(false)
 
-  // Fetch tenants to get the first one as active (dossier)
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null), limit(1));
@@ -31,9 +31,8 @@ export default function AccountingJournal() {
   const currentTenant = tenants?.[0];
 
   const [lines, setLines] = React.useState<JournalEntryLine[]>([
-    { accountCode: "607", accountName: "Achats de marchandises", debit: 0, credit: 0 },
-    { accountCode: "4456", accountName: "TVA déductible", debit: 0, credit: 0 },
-    { accountCode: "401", accountName: "Fournisseurs", debit: 0, credit: 0 },
+    { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0 },
+    { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0 },
   ])
 
   const totals = React.useMemo(() => {
@@ -74,24 +73,28 @@ export default function AccountingJournal() {
       entryDate: new Date(entryDate).toISOString(),
       description,
       documentReference: reference,
+      journalType,
       status: 'Validated',
       createdAt: new Date().toISOString(),
       createdByUserId: user.uid,
       tenantMembers: currentTenant.members,
-      lines: lines.map(l => ({ ...l, amount: l.debit > 0 ? l.debit : l.credit, type: l.debit > 0 ? 'Debit' : 'Credit' }))
+      lines: lines.map(l => ({ 
+        accountCode: l.accountCode, 
+        accountName: l.accountName, 
+        debit: l.debit, 
+        credit: l.credit 
+      }))
     }
 
     try {
       addDocumentNonBlocking(journalEntriesRef, entryData);
       toast({
         title: "Écriture enregistrée",
-        description: "L'écriture comptable a été ajoutée au journal avec succès.",
+        description: `L'écriture a été ajoutée au journal ${journalType} avec succès.`,
       });
-      // Reset form
       setLines([
-        { accountCode: "607", accountName: "Achats de marchandises", debit: 0, credit: 0 },
-        { accountCode: "4456", accountName: "TVA déductible", debit: 0, credit: 0 },
-        { accountCode: "401", accountName: "Fournisseurs", debit: 0, credit: 0 },
+        { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0 },
+        { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0 },
       ]);
       setDescription("");
       setReference("");
@@ -104,19 +107,21 @@ export default function AccountingJournal() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-primary">Journal des Achats</h1>
-          <p className="text-muted-foreground">Saisie d'écritures réelles conformes au SCF Algérien.</p>
+          <h1 className="text-3xl font-bold text-primary flex items-center gap-2">
+            <BookOpen className="h-8 w-8 text-accent" /> Saisie Comptable (SCF)
+          </h1>
+          <p className="text-muted-foreground text-sm">Saisie d'écritures pour les journaux auxiliaires du dossier.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={addLine}>
-            <Plus className="mr-2 h-4 w-4" /> Ajouter ligne
+            <Plus className="mr-2 h-4 w-4" /> Ligne
           </Button>
           <Button 
             disabled={!isBalanced || isSubmitting || !currentTenant} 
             onClick={handleValidate}
-            className="bg-emerald-600 hover:bg-emerald-700"
+            className="bg-emerald-600 hover:bg-emerald-700 shadow-md"
           >
             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
             Valider l'écriture
@@ -124,49 +129,50 @@ export default function AccountingJournal() {
         </div>
       </div>
 
-      {!currentTenant && !isUserLoading && (
-        <Card className="bg-amber-50 border-amber-200">
-          <CardContent className="pt-6">
-            <p className="text-amber-700 text-sm">Attention : Veuillez sélectionner ou créer un dossier dans la barre latérale pour pouvoir enregistrer des écritures.</p>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col md:flex-row items-end gap-4">
-            <div className="flex-1 w-full space-y-1">
-              <label className="text-sm font-medium">Libellé de l'opération</label>
+      <Card className="border-t-4 border-t-primary">
+        <CardHeader className="bg-muted/30 pb-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase text-muted-foreground">Journal Auxiliaire</label>
+              <Select value={journalType} onValueChange={(v: JournalType) => setJournalType(v)}>
+                <SelectTrigger className="bg-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ACHATS">Journal des Achats</SelectItem>
+                  <SelectItem value="VENTES">Journal des Ventes</SelectItem>
+                  <SelectItem value="BANQUE">Journal de Banque</SelectItem>
+                  <SelectItem value="CAISSE">Journal de Caisse</SelectItem>
+                  <SelectItem value="OD">Opérations Diverses (OD)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-2 space-y-1">
+              <label className="text-[10px] font-bold uppercase text-muted-foreground">Libellé de l'opération</label>
               <Input 
-                placeholder="Ex: Achat marchandises Facture N° 123/24" 
+                placeholder="Ex: Facture N° 456 - Fournisseur ABC" 
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                className="bg-white"
               />
             </div>
-            <div className="w-full md:w-48 space-y-1">
-              <label className="text-sm font-medium">Date</label>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase text-muted-foreground">Date d'opération</label>
               <Input 
                 type="date" 
                 value={entryDate}
                 onChange={(e) => setEntryDate(e.target.value)}
-              />
-            </div>
-            <div className="w-full md:w-48 space-y-1">
-              <label className="text-sm font-medium">Référence</label>
-              <Input 
-                placeholder="N° Pièce" 
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
+                className="bg-white"
               />
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-muted/50">
                 <TableHead className="w-[180px]">Compte SCF</TableHead>
-                <TableHead>Intitulé du compte</TableHead>
+                <TableHead>Intitulé</TableHead>
                 <TableHead className="w-[150px] text-right">Débit</TableHead>
                 <TableHead className="w-[150px] text-right">Crédit</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
@@ -174,14 +180,14 @@ export default function AccountingJournal() {
             </TableHeader>
             <TableBody>
               {lines.map((line, index) => (
-                <TableRow key={index}>
+                <TableRow key={index} className="hover:bg-muted/20">
                   <TableCell>
                     <Select
                       value={line.accountCode}
                       onValueChange={(val) => updateLine(index, "accountCode", val)}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Compte" />
+                        <SelectValue placeholder="Code" />
                       </SelectTrigger>
                       <SelectContent>
                         {SCF_ACCOUNTS.map(acc => (
@@ -194,22 +200,22 @@ export default function AccountingJournal() {
                     <Input
                       value={line.accountName}
                       readOnly
-                      className="bg-muted/30"
+                      className="bg-muted/30 border-none shadow-none text-xs"
                     />
                   </TableCell>
                   <TableCell>
                     <Input
                       type="number"
-                      className="text-right"
-                      value={line.debit}
+                      className="text-right font-mono"
+                      value={line.debit || ""}
                       onChange={(e) => updateLine(index, "debit", parseFloat(e.target.value) || 0)}
                     />
                   </TableCell>
                   <TableCell>
                     <Input
                       type="number"
-                      className="text-right"
-                      value={line.credit}
+                      className="text-right font-mono"
+                      value={line.credit || ""}
                       onChange={(e) => updateLine(index, "credit", parseFloat(e.target.value) || 0)}
                     />
                   </TableCell>
@@ -217,7 +223,7 @@ export default function AccountingJournal() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="text-destructive"
+                      className="text-destructive hover:bg-destructive/10"
                       onClick={() => removeLine(index)}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -232,26 +238,34 @@ export default function AccountingJournal() {
           <div className="flex w-full justify-between items-center">
             <div className="flex items-center gap-2 text-sm">
               <Calculator className="h-4 w-4 text-muted-foreground" />
-              <span className="font-semibold">Vérification des soldes :</span>
+              <span className="font-semibold">Statut d'équilibre :</span>
               {isBalanced ? (
-                <Badge className="bg-emerald-500">Equilibré</Badge>
+                <Badge className="bg-emerald-500">Document Équilibré</Badge>
               ) : (
-                <Badge variant="destructive">Déséquilibré (Diff: {Math.abs(totals.debit - totals.credit).toFixed(2)})</Badge>
+                <Badge variant="destructive">Écart: {Math.abs(totals.debit - totals.credit).toLocaleString()} DA</Badge>
               )}
             </div>
             <div className="flex gap-12 text-lg font-bold">
               <div className="flex flex-col items-end">
-                <span className="text-xs text-muted-foreground uppercase">Total Débit</span>
-                <span className="text-primary">{totals.debit.toLocaleString()} DZD</span>
+                <span className="text-[10px] text-muted-foreground uppercase font-bold">Débit Total</span>
+                <span className="text-primary font-mono">{totals.debit.toLocaleString()} DA</span>
               </div>
               <div className="flex flex-col items-end">
-                <span className="text-xs text-muted-foreground uppercase">Total Crédit</span>
-                <span className="text-primary">{totals.credit.toLocaleString()} DZD</span>
+                <span className="text-[10px] text-muted-foreground uppercase font-bold">Crédit Total</span>
+                <span className="text-primary font-mono">{totals.credit.toLocaleString()} DA</span>
               </div>
             </div>
           </div>
         </CardFooter>
       </Card>
+      
+      <div className="p-4 bg-primary/5 border rounded-lg flex items-start gap-3">
+        <div className="mt-1 h-2 w-2 rounded-full bg-primary animate-pulse shrink-0" />
+        <p className="text-xs text-muted-foreground italic">
+          Rappel SCF : Les livres comptables doivent être conservés pendant 10 ans. 
+          Cette saisie alimentera automatiquement le Livre-Journal Centralisateur et le Grand Livre du dossier.
+        </p>
+      </div>
     </div>
   )
 }
