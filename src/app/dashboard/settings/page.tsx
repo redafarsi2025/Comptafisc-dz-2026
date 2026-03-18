@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -36,7 +35,6 @@ export default function TenantSettingsPage() {
   React.useEffect(() => {
     if (currentTenant) {
       setFormData(currentTenant)
-      // Auto-set sector if NAP exists
       const activity = findActivityByNap(currentTenant.activiteNAP);
       if (activity) setSelectedSector(activity.sector);
     }
@@ -52,10 +50,16 @@ export default function TenantSettingsPage() {
         current = current[keys[i]]
       }
       current[keys[keys.length - 1]] = value
+
+      // Règle IFU : Pas de TVA
+      if (path === "regimeFiscal" && value === "IFU") {
+        newData.assujettissementTva = false;
+        newData.tauxTvaApplicable = "TVA_EXONERE";
+      }
+
       return newData
     })
 
-    // If updating NAP via direct input, try to sync sector
     if (path === "activiteNAP") {
       const activity = findActivityByNap(value);
       if (activity) setSelectedSector(activity.sector);
@@ -156,7 +160,7 @@ export default function TenantSettingsPage() {
           <Card className="border-primary/20 bg-primary/5">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2 text-primary"><Zap className="h-5 w-5" />Profil Fiscal (Moteur de calcul)</CardTitle>
-              <CardDescription>Configurez votre régime et votre activité NAP pour activer les calculs automatiques.</CardDescription>
+              <CardDescription>Le régime IFU désactive automatiquement la TVA.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
@@ -238,13 +242,20 @@ export default function TenantSettingsPage() {
                   <Checkbox 
                     id="tva" 
                     checked={formData.assujettissementTva} 
+                    disabled={formData.regimeFiscal === "IFU"}
                     onCheckedChange={(c) => handleUpdate("assujettissementTva", !!c)} 
                   />
-                  <label htmlFor="tva" className="text-sm font-medium leading-none cursor-pointer">Assujetti à la TVA</label>
+                  <label htmlFor="tva" className={`text-sm font-medium leading-none ${formData.regimeFiscal === "IFU" ? "text-muted-foreground" : "cursor-pointer"}`}>
+                    Assujetti à la TVA {formData.regimeFiscal === "IFU" && "(Non applicable en IFU)"}
+                  </label>
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase">Taux TVA par défaut</label>
-                  <Select value={formData.tauxTvaApplicable} onValueChange={(v) => handleUpdate("tauxTvaApplicable", v)}>
+                  <Select 
+                    value={formData.tauxTvaApplicable} 
+                    disabled={formData.regimeFiscal === "IFU"}
+                    onValueChange={(v) => handleUpdate("tauxTvaApplicable", v)}
+                  >
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="TVA_19">Taux Normal (19%)</SelectItem>

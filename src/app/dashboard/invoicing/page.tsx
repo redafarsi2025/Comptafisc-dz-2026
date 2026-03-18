@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -7,11 +6,12 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Trash2, FileText, Save, Loader2 } from "lucide-react"
+import { Plus, Trash2, FileText, Save, Loader2, Info } from "lucide-react"
 import { useFirestore, useUser, addDocumentNonBlocking, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, query, where, limit } from "firebase/firestore"
 import { toast } from "@/hooks/use-toast"
 import { calculateStampDuty, calculateTVA } from "@/lib/calculations"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function InvoicingPage() {
   const db = useFirestore()
@@ -30,6 +30,8 @@ export default function InvoicingPage() {
   const { data: tenants } = useCollection(tenantsQuery);
   const currentTenant = tenants?.[0];
 
+  const isIFU = currentTenant?.regimeFiscal === "IFU";
+
   // Fetch clients for the active tenant with security filter
   const clientsQuery = useMemoFirebase(() => {
     if (!db || !currentTenant || !user) return null;
@@ -42,10 +44,11 @@ export default function InvoicingPage() {
 
   const totals = React.useMemo(() => {
     const ht = items.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0);
-    const tva = calculateTVA(ht);
+    // Règle : Pas de TVA si IFU
+    const tva = calculateTVA(ht, "TVA_19", isIFU);
     const stamp = calculateStampDuty(ht + tva, paymentMethod === "Espèces");
     return { ht, tva, stamp, ttc: ht + tva + stamp };
-  }, [items, paymentMethod]);
+  }, [items, paymentMethod, isIFU]);
 
   const addItem = () => setItems([...items, { description: "", quantity: 1, unitPrice: 0 }]);
   const removeItem = (idx: number) => setItems(items.filter((_, i) => i !== idx));
@@ -79,9 +82,9 @@ export default function InvoicingPage() {
       tenantMembers: currentTenant.members,
       items: items.map(item => ({
         ...item,
-        taxAmount: calculateTVA(item.quantity * item.unitPrice),
+        taxAmount: calculateTVA(item.quantity * item.unitPrice, "TVA_19", isIFU),
         lineTotalExcludingTax: item.quantity * item.unitPrice,
-        lineTotalIncludingTax: (item.quantity * item.unitPrice) * 1.19
+        lineTotalIncludingTax: (item.quantity * item.unitPrice) + calculateTVA(item.quantity * item.unitPrice, "TVA_19", isIFU)
       }))
     };
 
@@ -99,15 +102,25 @@ export default function InvoicingPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
+        <div className="flex flex-col gap-1">
           <h1 className="text-3xl font-bold text-primary">Gestion des Factures</h1>
-          <p className="text-muted-foreground">Émission de factures conformes à la LF 2026 (Timbre & TVA).</p>
+          <p className="text-muted-foreground">Conformité Loi de Finances (Timbre & TVA).</p>
         </div>
-        <Button onClick={handleSaveInvoice} disabled={isSubmitting || !currentTenant} className="bg-primary">
+        <Button onClick={handleSaveInvoice} disabled={isSubmitting || !currentTenant} className="bg-primary shadow-lg">
           {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
           Générer la Facture
         </Button>
       </div>
+
+      {isIFU && (
+        <Alert className="bg-primary/5 border-primary/20">
+          <Info className="h-4 w-4 text-primary" />
+          <AlertTitle className="text-primary font-bold">Régime IFU Actif</AlertTitle>
+          <AlertDescription className="text-sm">
+            En tant que contribuable à l'IFU, vous facturez en <strong>Hors Taxe (HT)</strong> sans collecter de TVA.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="md:col-span-2">
@@ -178,10 +191,12 @@ export default function InvoicingPage() {
               <span className="text-muted-foreground">Total HT</span>
               <span className="font-semibold">{totals.ht.toLocaleString()} DZD</span>
             </div>
-            <div className="flex justify-between text-sm text-primary">
-              <span className="text-muted-foreground">TVA (19%)</span>
-              <span className="font-semibold">+{totals.tva.toLocaleString()} DZD</span>
-            </div>
+            {!isIFU && (
+              <div className="flex justify-between text-sm text-primary">
+                <span className="text-muted-foreground">TVA (19%)</span>
+                <span className="font-semibold">+{totals.tva.toLocaleString()} DZD</span>
+              </div>
+            )}
             <div className="flex justify-between text-sm text-accent">
               <span className="text-muted-foreground">Droit de Timbre</span>
               <span className="font-semibold">+{totals.stamp.toLocaleString()} DZD</span>

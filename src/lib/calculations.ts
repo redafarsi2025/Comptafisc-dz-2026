@@ -1,4 +1,3 @@
-
 import { findActivityByNap } from './nap-data';
 
 /**
@@ -13,6 +12,10 @@ export const TAX_RATES = {
   STAMP_DUTY_MAX: 2500,
   STAMP_DUTY_MIN: 5,
   STAMP_DUTY_RATE: 0.01,
+  // Taux IFU (Impôt Forfaitaire Unique)
+  IFU_PRODUCTION_VENTE: 0.05,
+  IFU_SERVICES: 0.12,
+  IFU_AUTO_ENTREPRENEUR: 0.005,
 };
 
 export const PAYROLL_CONSTANTS = {
@@ -23,7 +26,6 @@ export const PAYROLL_CONSTANTS = {
 
 /**
  * Calcule le taux de TAP précis en fonction du code NAP.
- * Si le code NAP n'est pas trouvé, utilise le taux par défaut du secteur.
  */
 export function getTAPRate(secteur: string, napCode?: string): number {
   if (napCode) {
@@ -31,11 +33,19 @@ export function getTAPRate(secteur: string, napCode?: string): number {
     if (activity) return activity.tapRate;
   }
   
-  // Fallback sectoriel
   if (secteur === "PRODUCTION") return 0.01;
   if (secteur === "BTP") return 0.03;
   if (secteur === "AGRICULTURE") return 0.00;
   return TAX_RATES.TAP_DEFAULT;
+}
+
+/**
+ * Calcule le taux d'IFU applicable selon le secteur et la forme juridique.
+ */
+export function getIFURate(secteur: string, formeJuridique: string): number {
+  if (formeJuridique === "Auto-entrepreneur") return TAX_RATES.IFU_AUTO_ENTREPRENEUR;
+  if (secteur === "PRODUCTION" || secteur === "COMMERCE") return TAX_RATES.IFU_PRODUCTION_VENTE;
+  return TAX_RATES.IFU_SERVICES;
 }
 
 export function calculateStampDuty(amount: number, isCash: boolean): number {
@@ -46,14 +56,14 @@ export function calculateStampDuty(amount: number, isCash: boolean): number {
   return Math.ceil(duty);
 }
 
-export function calculateTVA(ht: number, enumRate: string = "TVA_19"): number {
+export function calculateTVA(ht: number, enumRate: string = "TVA_19", isIFU: boolean = false): number {
+  if (isIFU) return 0; // Un contribuable à l'IFU ne facture jamais de TVA
   const rate = enumRate === "TVA_19" ? 0.19 : enumRate === "TVA_9" ? 0.09 : 0;
   return ht * rate;
 }
 
 export function calculateIRG(salary: number): number {
   if (salary <= 30000) return 0;
-  // Barème simplifié 2024
   if (salary <= 35000) return (salary - 30000) * 0.2;
   return (salary - 35000) * 0.3 + 1000;
 }
