@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
-import { FileText, Download, CheckCircle, Clock, Building2, Calculator, Info, ShieldAlert, Sparkles, Landmark } from "lucide-react"
+import { FileText, Calculator, Info, Landmark, Sparkles, TrendingDown } from "lucide-react"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, query, where, limit } from "firebase/firestore"
-import { getTAPRate, getIFURate, getIBSRate, calculateIBS } from "@/lib/calculations"
+import { getTAPRate, getIFURate, getIBSRate, calculateIBS, TAX_RATES } from "@/lib/calculations"
 import { findActivityByNap } from "@/lib/nap-data"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
@@ -17,6 +17,7 @@ export default function DeclarationsPage() {
   const db = useFirestore()
   const { user } = useUser()
   const [estimatedProfit, setEstimatedProfit] = React.useState<number>(0)
+  const [reinvestedAmount, setReinvestedAmount] = React.useState<number>(0)
   
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -51,8 +52,13 @@ export default function DeclarationsPage() {
   }, [invoices, tapRate, ifuRate]);
 
   const projectedIBS = React.useMemo(() => {
-    return calculateIBS(estimatedProfit, ibsRate);
-  }, [estimatedProfit, ibsRate]);
+    return calculateIBS(estimatedProfit, ibsRate, reinvestedAmount);
+  }, [estimatedProfit, ibsRate, reinvestedAmount]);
+
+  const taxSavings = React.useMemo(() => {
+    const standardIBS = calculateIBS(estimatedProfit, ibsRate, 0);
+    return Math.max(0, standardIBS - projectedIBS);
+  }, [estimatedProfit, ibsRate, projectedIBS]);
 
   return (
     <div className="space-y-6">
@@ -124,7 +130,7 @@ export default function DeclarationsPage() {
             </Card>
             <Card className="border-l-4 border-l-amber-600 shadow-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-bold uppercase text-muted-foreground">IBS Provision ({(ibsRate * 100).toFixed(0)}%)</CardTitle>
+                <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Provision IBS (Simulation)</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-amber-600">
@@ -148,29 +154,65 @@ export default function DeclarationsPage() {
       </div>
 
       {!isIFU && (
-        <Card className="border-amber-200 bg-amber-50">
+        <Card className="border-amber-200 bg-amber-50 shadow-md">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2 text-amber-800">
-              <Landmark className="h-5 w-5" /> Simulateur IBS (Exercice 2024/2025)
+              <Landmark className="h-5 w-5" /> Simulateur IBS & Réinvestissement (Exercice 2024/2025)
             </CardTitle>
             <CardDescription className="text-amber-700">
-              Saisissez votre bénéfice net estimé pour calculer l'IBS selon votre taux de {(ibsRate * 100).toFixed(0)}%.
+              Optimisez votre IBS en réinvestissant vos bénéfices. Bénéficiez du taux réduit de <strong>{(TAX_RATES.IBS_REINVESTMENT * 100).toFixed(0)}%</strong> au lieu de {(ibsRate * 100).toFixed(0)}%.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex items-end gap-4">
-            <div className="flex-1 space-y-2">
-              <label className="text-sm font-medium text-amber-900">Bénéfice Net Imposable (DA)</label>
-              <Input 
-                type="number" 
-                placeholder="Ex: 500000" 
-                className="bg-white border-amber-300"
-                value={estimatedProfit || ""}
-                onChange={(e) => setEstimatedProfit(parseFloat(e.target.value) || 0)}
-              />
-            </div>
-            <div className="flex-1 p-3 bg-white border border-amber-300 rounded-md">
-              <p className="text-xs uppercase text-muted-foreground font-bold">IBS à payer</p>
-              <p className="text-2xl font-bold text-amber-600">{projectedIBS.toLocaleString()} DZD</p>
+          <CardContent className="space-y-6">
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-amber-900">1. Bénéfice Net Imposable (DA)</label>
+                  <Input 
+                    type="number" 
+                    placeholder="Ex: 1 000 000" 
+                    className="bg-white border-amber-300 focus-visible:ring-amber-500"
+                    value={estimatedProfit || ""}
+                    onChange={(e) => setEstimatedProfit(parseFloat(e.target.value) || 0)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-amber-900 flex items-center gap-2">
+                    2. Part à Réinvestir (Equipements/Social) 
+                    <Badge variant="outline" className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-200">Eco-Taux 10%</Badge>
+                  </label>
+                  <Input 
+                    type="number" 
+                    placeholder="Montant du réinvestissement" 
+                    className="bg-white border-emerald-300 focus-visible:ring-emerald-500"
+                    value={reinvestedAmount || ""}
+                    onChange={(e) => setReinvestedAmount(parseFloat(e.target.value) || 0)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4">
+                <div className="p-4 bg-white border border-amber-300 rounded-lg shadow-inner">
+                  <p className="text-xs uppercase text-muted-foreground font-bold mb-1">IBS Total à payer</p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-bold text-amber-600">{projectedIBS.toLocaleString()}</span>
+                    <span className="text-sm font-medium text-amber-600">DZD</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-2 italic">Calculé au taux hybride {(estimatedProfit > 0 && reinvestedAmount > 0) ? "Cible" : "Standard"}.</p>
+                </div>
+
+                {taxSavings > 0 && (
+                  <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-emerald-700 uppercase flex items-center gap-1">
+                        <TrendingDown className="h-3 w-3" /> Économie d'impôt réalisée
+                      </p>
+                      <p className="text-xl font-bold text-emerald-600">-{taxSavings.toLocaleString()} DA</p>
+                    </div>
+                    <Badge className="bg-emerald-600 text-white animate-pulse">Gain Fiscal</Badge>
+                  </div>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -194,7 +236,7 @@ export default function DeclarationsPage() {
                 <div className="p-6 border rounded-xl border-primary/20 bg-primary/5 flex flex-col md:flex-row items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center">
-                      <Building2 className="h-6 w-6 text-primary" />
+                      <FileText className="h-6 w-6 text-primary" />
                     </div>
                     <div>
                       <h4 className="font-bold">Déclaration G n° 12 (IFU Annuel)</h4>
@@ -219,7 +261,7 @@ export default function DeclarationsPage() {
                   </div>
                   <div className="flex items-center gap-3">
                     <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
-                      <Clock className="mr-1 h-3 w-3" /> Échéance : 20 du mois prochain
+                      <Info className="mr-1 h-3 w-3" /> Échéance : 20 du mois prochain
                     </Badge>
                     <Button size="sm">Détail G50</Button>
                   </div>

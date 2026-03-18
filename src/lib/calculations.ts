@@ -21,6 +21,7 @@ export const TAX_RATES = {
   IBS_PRODUCTION: 0.19,
   IBS_BTPH_TOURISM: 0.23,
   IBS_SERVICES_COMMERCE: 0.26,
+  IBS_REINVESTMENT: 0.10, // Taux réduit sur bénéfices réinvestis
   IBS_MINIMUM: 10000,
 };
 
@@ -63,11 +64,19 @@ export function getIBSRate(secteur: string, napCode?: string): number {
 }
 
 /**
- * Calcule l'IBS en respectant le minimum fiscal de 10 000 DA.
+ * Calcule l'IBS en respectant le minimum fiscal de 10 000 DA
+ * et en appliquant le taux réduit de 10% sur la part réinvestie.
  */
-export function calculateIBS(benefit: number, rate: number): number {
+export function calculateIBS(benefit: number, rate: number, reinvestedAmount: number = 0): number {
   if (benefit <= 0) return TAX_RATES.IBS_MINIMUM;
-  const calculated = benefit * rate;
+  
+  // Le réinvestissement ne peut pas dépasser le bénéfice imposable
+  const actualReinvested = Math.min(reinvestedAmount, benefit);
+  const remainingBenefit = benefit - actualReinvested;
+  
+  // Calcul hybride : Part réinvestie à 10% + Part classique au taux normal
+  const calculated = (remainingBenefit * rate) + (actualReinvested * TAX_RATES.IBS_REINVESTMENT);
+  
   return Math.max(calculated, TAX_RATES.IBS_MINIMUM);
 }
 
