@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -6,27 +7,47 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Building2, Loader2, Mail, Lock, User } from "lucide-react"
-import { useAuth, useUser, initiateEmailSignUp } from "@/firebase"
+import { Building2, Loader2, Mail, Lock, User, KeyRound } from "lucide-react"
+import { useAuth, useUser, useFirestore, initiateEmailSignUp, setDocumentNonBlocking } from "@/firebase"
+import { doc } from "firebase/firestore"
 import { toast } from "@/hooks/use-toast"
 
 export default function RegisterPage() {
   const router = useRouter()
   const auth = useAuth()
+  const db = useFirestore()
   const { user, isUserLoading } = useUser()
   const [isLoading, setIsLoading] = React.useState(false)
   const [formData, setFormData] = React.useState({
     name: "",
     email: "",
     password: "",
+    adminKey: "",
   })
+
+  const SUPER_KEY = process.env.NEXT_PUBLIC_SUPERADMIN_KEY;
 
   // Redirect if already logged in
   React.useEffect(() => {
     if (!isUserLoading && user && !user.isAnonymous) {
-      router.push("/dashboard")
+      // Si l'utilisateur a utilisé la clé admin, on le redirige vers l'admin
+      if (formData.adminKey === SUPER_KEY && SUPER_KEY) {
+        // Promotion immédiate si la clé est valide
+        const adminRef = doc(db, "saas_admins", user.uid);
+        setDocumentNonBlocking(adminRef, {
+          id: user.uid,
+          email: user.email,
+          promotedAt: new Date().toISOString(),
+          isSuperAdmin: true,
+          method: "Auto-Promotion via Key"
+        }, { merge: true });
+        
+        router.push("/saas-admin");
+      } else {
+        router.push("/dashboard");
+      }
     }
-  }, [user, isUserLoading, router])
+  }, [user, isUserLoading, router, db, formData.adminKey, SUPER_KEY])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -42,10 +63,9 @@ export default function RegisterPage() {
     setIsLoading(true)
     try {
       initiateEmailSignUp(auth, formData.email, formData.password)
-      // The auth state listener in Provider will handle redirection via the useEffect above
       toast({
-        title: "Inscription réussie",
-        description: "Votre compte a été créé avec succès.",
+        title: "Compte en cours de création",
+        description: "Veuillez patienter pendant la redirection...",
       })
     } catch (error: any) {
       toast({
@@ -109,6 +129,21 @@ export default function RegisterPage() {
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   required
+                />
+              </div>
+            </div>
+
+            <div className="pt-4 border-t">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1">
+                  <KeyRound className="h-3 w-3" /> Clé d'administration (Optionnel)
+                </label>
+                <Input
+                  className="bg-muted/30 border-dashed"
+                  type="password"
+                  placeholder="Clé secrète superadmin"
+                  value={formData.adminKey}
+                  onChange={(e) => setFormData({ ...formData, adminKey: e.target.value })}
                 />
               </div>
             </div>
