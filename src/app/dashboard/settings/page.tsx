@@ -64,7 +64,7 @@ export default function TenantSettingsPage() {
       })
       toast({
         title: "Dossier mis à jour",
-        description: "Les 35 variables fiscales et commerciales ont été synchronisées.",
+        description: "Les variables fiscales et commerciales ont été synchronisées.",
       })
     } catch (error) {
       console.error(error)
@@ -112,7 +112,7 @@ export default function TenantSettingsPage() {
                 <Select value={formData.formeJuridique} onValueChange={(v) => handleUpdate("formeJuridique", v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {["SARL", "SPA", "EI", "SNC", "EURL", "Auto-entrepreneur"].map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                    {["SARL", "SPA", "EI", "SNC", "EURL", "Auto-entrepreneur", "Personne physique"].map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>

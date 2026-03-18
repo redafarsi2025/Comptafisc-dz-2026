@@ -9,7 +9,7 @@
       "properties": {
         "id": { "type": "string" },
         "raisonSociale": { "type": "string", "description": "Dénomination officielle (CNRC)" },
-        "formeJuridique": { "type": "string", "enum": ["SARL", "SPA", "EI", "SNC", "EURL", "Auto-entrepreneur"] },
+        "formeJuridique": { "type": "string", "enum": ["SARL", "SPA", "EI", "SNC", "EURL", "Auto-entrepreneur", "Personne physique"] },
         "nif": { "type": "string", "description": "Numéro d'Identification Fiscale (15 chiffres)" },
         "nis": { "type": "string", "description": "Numéro d'Identification Statistique" },
         "registreCommerce": { "type": "string", "description": "Format: WW/YY/BXXXXXX" },
