@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -44,24 +43,24 @@ export function AdminSidebar() {
   const pathname = usePathname()
 
   return (
-    <Sidebar variant="sidebar" className="border-r bg-white shadow-sm">
-      <SidebarHeader className="p-6 border-b bg-primary/5">
+    <Sidebar variant="sidebar" className="border-r bg-white">
+      <SidebarHeader className="p-6 border-b bg-slate-50/50">
         <div className="flex items-center gap-3 px-2">
-          <div className="bg-primary p-2 rounded-xl shadow-lg shadow-primary/20">
-            <Settings className="text-white h-6 w-6" />
+          <div className="bg-primary/10 p-2 rounded-xl border border-primary/20">
+            <Settings className="text-primary h-6 w-6" />
           </div>
           <div className="flex flex-col">
             <span className="font-black text-xl text-primary tracking-tighter leading-none">SaaS Admin</span>
-            <span className="text-[10px] text-primary/60 font-bold uppercase tracking-widest mt-1">Console Master</span>
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Console Master</span>
           </div>
         </div>
       </SidebarHeader>
-      <SidebarContent className="px-2 pt-4">
+      <SidebarContent className="px-3 pt-6">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-muted-foreground uppercase text-[10px] font-black px-4 mb-4 tracking-tighter opacity-70">
-            Moteur de Croissance
+          <SidebarGroupLabel className="text-slate-400 uppercase text-[10px] font-black px-4 mb-4 tracking-wider opacity-80">
+            Menu Administration
           </SidebarGroupLabel>
-          <SidebarMenu className="gap-1.5">
+          <SidebarMenu className="gap-1">
             {adminNavigation.map((item) => {
               const isActive = pathname === item.href
               return (
@@ -70,18 +69,20 @@ export function AdminSidebar() {
                     asChild 
                     isActive={isActive} 
                     className={cn(
-                      "group relative py-6 px-4 rounded-xl transition-all duration-200",
+                      "group relative py-6 px-4 rounded-xl transition-all duration-200 border border-transparent",
                       isActive 
-                        ? "bg-primary text-white shadow-lg shadow-primary/20 hover:bg-primary hover:text-white" 
-                        : "hover:bg-primary/5 text-slate-600 hover:text-primary"
+                        ? "bg-primary/5 text-primary border-primary/10 font-bold" 
+                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                     )}
                   >
                     <Link href={item.href} className="flex items-center justify-between w-full">
                       <div className="flex items-center gap-3">
-                        <item.icon className={cn("h-5 w-5", isActive ? "text-white" : "text-slate-400 group-hover:text-primary")} />
-                        <span className="text-sm font-bold">{item.name}</span>
+                        <item.icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-slate-400 group-hover:text-slate-600")} />
+                        <span className="text-sm">{item.name}</span>
                       </div>
-                      {isActive && <ChevronRight className="h-4 w-4 text-white opacity-50" />}
+                      {isActive && (
+                        <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                      )}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -90,18 +91,18 @@ export function AdminSidebar() {
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-4 border-t bg-slate-50">
+      <SidebarFooter className="p-4 border-t bg-slate-50/30">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton 
               asChild 
-              className="text-slate-500 hover:text-primary hover:bg-primary/10 transition-colors font-bold rounded-lg"
+              className="text-slate-400 hover:text-primary hover:bg-white transition-all font-bold rounded-lg border border-transparent hover:border-slate-200"
             >
               <Link href="/dashboard" className="flex items-center gap-3">
-                <div className="bg-slate-200 p-1.5 rounded-md group-hover:bg-primary/20">
+                <div className="bg-white p-1.5 rounded-md border border-slate-200 shadow-sm">
                   <ArrowLeft className="h-4 w-4" />
                 </div>
-                <span className="text-xs uppercase tracking-tight">Quitter l'Admin</span>
+                <span className="text-xs uppercase tracking-tight">Retour Client</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
