@@ -3,29 +3,10 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * ComptaFisc-DZ Security Rules
+     * ComptaFisc-DZ Security Rules - PROTOTYPE MODE
      *
-     * CORE PHILOSOPHY:
-     * This ruleset implements a robust multi-tenant and administrative security model. 
-     * Authorization is "independent," meaning it relies on the physical structure of 
-     * the database (the /saas_admins/ collection) and denormalized data (members maps 
-     * in tenants) rather than deep, recursive lookups.
-     *
-     * DATA STRUCTURE:
-     * - /userProfiles/{userId}: Individual user metadata.
-     * - /saas_admins/{userId}: Flags for global SaaS administrators.
-     * - /tenants/{tenantId}: Independent company data with a 'members' map for access.
-     * - /taxRegulations & /legalCorpusArticles: Global, read-only data for users, 
-     *   managed by admins.
-     *
-     * KEY DECISIONS:
-     * - SaaS Admin status is verified using exists() on a dedicated collection for 
-     *   performance and atomicity.
-     * - Tenant access is governed by a denormalized 'members' map {uid: role} inside 
-     *   the tenant document to facilitate secure listing and immediate authorization.
-     * - All writes are strictly protected by ownership or administrative checks.
-     * - Prototyping Mode: Schema validation is bypassed for general fields, but 
-     *   relational integrity (e.g., matching UIDs to document IDs) is strictly enforced.
+     * Note: En mode prototype, nous assouplissons les règles de 'list' et 'create' 
+     * pour permettre l'amorçage du système (création du premier admin).
      */
 
     // --- Helper Functions ---
@@ -61,53 +42,39 @@ service cloud.firestore {
     // --- Collection Rules ---
 
     /**
-     * @description Rules for individual user profiles. Users manage their own; admins can view all.
      * @path /userProfiles/{userId}
-     * @allow (get) If user is the owner or a SaaS Admin.
-     * @deny (write) If the authenticated user ID does not match the document ID.
-     * @principle Enforces path-based ownership and administrative oversight.
+     * allow list: Relaxé pour permettre de trouver des utilisateurs à promouvoir.
      */
     match /userProfiles/{userId} {
       allow get: if isSignedIn() && (isOwner(userId) || isSaaSAdmin());
-      allow list: if isSignedIn() && isSaaSAdmin();
+      allow list: if isSignedIn(); 
       allow create: if isOwner(userId) && isRelationalValid(userId);
       allow update: if isExistingOwner(userId) && isRelationalImmutable();
-      allow delete: if false; // Profiles are generally preserved; delete requires admin-level intervention.
+      allow delete: if false;
     }
 
     /**
-     * @description Administrative flags. The existence of a UID here defines global admin status.
      * @path /saas_admins/{userId}
-     * @allow (read) Authenticated users can check their own status; admins can see all.
-     * @deny (write) Any non-SaaS admin user attempting to create or modify admin status.
-     * @principle Authorization Independence: uses existence check instead of profile attributes.
+     * allow read/write: Relaxé pour permettre l'auto-promotion du premier admin.
      */
     match /saas_admins/{userId} {
-      allow get: if isSignedIn() && (isOwner(userId) || isSaaSAdmin());
-      allow list: if isSaaSAdmin();
-      allow create, update, delete: if isSaaSAdmin();
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
     }
 
     /**
-     * @description Tenant documents representing companies. Access is shared via member maps.
      * @path /tenants/{tenantId}
-     * @allow (read) If the user is a SaaS Admin or listed in the tenant's 'members' map.
-     * @deny (write) If the user is not a SaaS Admin.
-     * @principle Shared Access (Closed Collaborators) via denormalized member maps.
+     * allow create: Relaxé pour permettre la création du premier dossier client.
      */
     match /tenants/{tenantId} {
       allow get, list: if isSignedIn() && (isSaaSAdmin() || isTenantMember(resource.data));
-      allow create: if isSaaSAdmin() && isRelationalValid(tenantId);
-      allow update: if isSaaSAdmin() && resource != null && isRelationalImmutable();
-      allow delete: if isSaaSAdmin() && resource != null;
+      allow create: if isSignedIn(); 
+      allow update: if isSignedIn() && (isSaaSAdmin() || isTenantMember(resource.data));
+      allow delete: if isSaaSAdmin();
     }
 
     /**
-     * @description Global Algerian tax regulations and rates.
      * @path /taxRegulations/{regulationId}
-     * @allow (read) Any authenticated user.
-     * @deny (write) Anyone who is not a SaaS Admin.
-     * @principle Public Read with Owner-Only Writes (Administrative).
      */
     match /taxRegulations/{regulationId} {
       allow get, list: if isSignedIn();
@@ -116,11 +83,7 @@ service cloud.firestore {
     }
 
     /**
-     * @description Legal articles for the AI Fiscal Assistant.
      * @path /legalCorpusArticles/{articleId}
-     * @allow (read) Any authenticated user.
-     * @deny (write) Anyone who is not a SaaS Admin.
-     * @principle Public Read with Owner-Only Writes (Administrative).
      */
     match /legalCorpusArticles/{articleId} {
       allow get, list: if isSignedIn();
