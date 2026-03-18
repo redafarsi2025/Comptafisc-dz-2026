@@ -37,11 +37,14 @@ export default function AccountingJournal() {
   const { data: tenants } = useCollection(tenantsQuery);
   const currentTenant = tenants?.[0];
 
-  // Fetch custom accounts
+  // Fetch custom accounts with security filter
   const customAccountsQuery = useMemoFirebase(() => {
-    if (!db || !currentTenant) return null;
-    return collection(db, "tenants", currentTenant.id, "accounts");
-  }, [db, currentTenant]);
+    if (!db || !currentTenant || !user) return null;
+    return query(
+      collection(db, "tenants", currentTenant.id, "accounts"),
+      where(`tenantMembers.${user.uid}`, "!=", null)
+    );
+  }, [db, currentTenant, user]);
   const { data: customAccounts } = useCollection(customAccountsQuery);
 
   const allAccounts = React.useMemo(() => {
@@ -159,7 +162,8 @@ export default function AccountingJournal() {
       rootCode,
       class: rootAccount.class,
       tenantId: currentTenant.id,
-      category: rootAccount.category
+      category: rootAccount.category,
+      tenantMembers: currentTenant.members // Security filter field
     };
 
     try {

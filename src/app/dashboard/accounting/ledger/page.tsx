@@ -25,12 +25,13 @@ export default function GrandLivre() {
   const currentTenant = tenants?.[0];
 
   const entriesQuery = useMemoFirebase(() => {
-    if (!db || !currentTenant) return null;
+    if (!db || !currentTenant || !user) return null;
     return query(
       collection(db, "tenants", currentTenant.id, "journal_entries"),
+      where(`tenantMembers.${user.uid}`, "!=", null),
       orderBy("entryDate", "asc")
     );
-  }, [db, currentTenant]);
+  }, [db, currentTenant, user]);
   const { data: entries, isLoading } = useCollection(entriesQuery);
 
   const ledgerData = React.useMemo(() => {
