@@ -33,6 +33,10 @@ export const PAYROLL_CONSTANTS = {
   CNAS_EMPLOYER: 0.26,
   SNMG: 24000, // Salaire National Minimum Garanti (Maj Janvier 2026)
   IRG_THRESHOLD: 30000,
+  // CACOBATPH (BTP uniquement)
+  CACOBATPH_CP: 0.1221, // Congés Payés (Part Patronale)
+  CACOBATPH_CI_EMPLOYER: 0.00375, // Chômage Intempéries (0.75% partagé 50/50)
+  CACOBATPH_CI_EMPLOYEE: 0.00375,
 };
 
 /**
@@ -129,14 +133,8 @@ export function calculateIRG(
   if (base <= 30000) return 0;
 
   // 2. Barème progressif mensuel 2026
-  // 0 - 30,000 : 0%
-  // 30,001 - 120,000 : 23%
-  // 120,001 - 360,000 : 27%
-  // 360,001 - 1,440,000 : 30%
-  // + 1,440,000 : 35%
-  
   let irgStandard = 0;
-  const rgi = base - 30000; // La première tranche de 30k est à 0%
+  const rgi = base - 30000;
 
   if (base <= 120000) {
     irgStandard = rgi * 0.23;
@@ -156,15 +154,8 @@ export function calculateIRG(
   let irgFinal = Math.max(0, irgStandard - abattement);
 
   // 4. Réductions spécifiques
-  // Grand Sud (souvent 50% de réduction sur l'IRG dû)
-  if (isGrandSud) {
-    irgFinal = irgFinal * 0.5;
-  }
-
-  // Handicap (Abattement supplémentaire souvent géré par réduction de 50% également)
-  if (isHandicapped) {
-    irgFinal = irgFinal * 0.5;
-  }
+  if (isGrandSud) irgFinal = irgFinal * 0.5;
+  if (isHandicapped) irgFinal = irgFinal * 0.5;
 
   return Math.round(irgFinal);
 }

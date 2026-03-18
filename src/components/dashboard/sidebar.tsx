@@ -22,7 +22,9 @@ import {
   FileBarChart,
   FileStack,
   ClipboardList,
-  CalendarCheck
+  CalendarCheck,
+  HardHat,
+  AddressBook
 } from "lucide-react"
 
 import {
@@ -74,7 +76,9 @@ const legalBooks = [
 ]
 
 const socialCompliance = [
+  { name: "Bordereau DAC", href: "/dashboard/payroll/dac", icon: FileText },
   { name: "Déclaration DAS", href: "/dashboard/payroll/das", icon: ClipboardList },
+  { name: "CACOBATPH", href: "/dashboard/payroll/cacobatph", icon: HardHat },
 ]
 
 export function DashboardSidebar() {
@@ -262,6 +266,11 @@ export function DashboardSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Gestion</SidebarGroupLabel>
           <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={pathname === "/dashboard/contacts"} tooltip="Tiers (Clients/Forn.)">
+                <Link href="/dashboard/contacts"><AddressBook /><span>Tiers (Clients/Fourn.)</span></Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname === "/dashboard/settings"} tooltip="Paramètres Dossier">
                 <Link href="/dashboard/settings"><Settings /><span>Paramètres Dossier</span></Link>
