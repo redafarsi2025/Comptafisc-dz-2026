@@ -129,7 +129,8 @@ export default function DeclarationsPage() {
                   {formatAmount(projectedIBS)} <span className="text-sm font-normal">DZD</span>
                 </div>
               </CardContent>
-            </>
+            </Card>
+          </>
         )}
         <Card className="border-l-4 border-l-blue-500 shadow-sm">
           <CardHeader className="pb-2">
@@ -254,8 +255,4 @@ export default function DeclarationsPage() {
       </div>
     </div>
   )
-}
-
-function Label({ children, className }: { children: React.ReactNode, className?: string }) {
-  return <label className={`text-sm font-medium ${className}`}>{children}</label>;
 }
