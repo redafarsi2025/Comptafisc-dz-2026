@@ -30,6 +30,10 @@ export const TAX_RATES = {
   IBS_SERVICES_COMMERCE: 0.26,
   IBS_REINVESTMENT: 0.10,
   IBS_MINIMUM: 10000,
+
+  // --- Taxes Para-fiscales (Annexe I) ---
+  TAXE_APPRENTISSAGE: 0.01,     // 1% de la masse salariale
+  TAXE_FORMATION_CONT: 0.01,    // 1% de la masse salariale
 };
 
 // Activités EXCLUES de l'IFU (Art. 282ter / Art. 22 LF 2025)

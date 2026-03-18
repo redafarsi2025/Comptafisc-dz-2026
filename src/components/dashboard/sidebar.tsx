@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -34,7 +33,8 @@ import {
   ShieldAlert,
   BookOpen,
   CalendarDays,
-  Eye
+  Eye,
+  GraduationCap
 } from "lucide-react"
 
 import {
@@ -79,6 +79,7 @@ const socialNavigation = [
   { name: "DAS Annuelle", href: "/dashboard/payroll/das", icon: ClipboardList },
   { name: "G50 ter (Trimestriel)", href: "/dashboard/declarations/g50ter", icon: CalendarDays },
   { name: "CACOBATPH", href: "/dashboard/payroll/cacobatph", icon: HardHat },
+  { name: "Taxe Apprentissage", href: "/dashboard/declarations/taxe-apprentissage", icon: GraduationCap },
 ]
 
 const cabinetNavigation = [
