@@ -5,97 +5,70 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Tenant",
       "type": "object",
-      "description": "Represents an independent accounting entity or business dossier within the ComptaFisc-DZ application, often corresponding to a company or individual managed by the user.",
+      "description": "Représente une entité comptable ou un dossier d'entreprise dans ComptaFisc-DZ.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Tenant entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The official name of the tenant (e.g., company name, individual name)."
-        },
-        "nif": {
-          "type": "string",
-          "description": "The National Tax Identification Number (NIF) of the tenant."
-        },
-        "rc": {
-          "type": "string",
-          "description": "The Commercial Register Number (RC) of the tenant, if applicable."
-        },
-        "activityType": {
-          "type": "string",
-          "description": "The type of business activity (e.g., Production, Services, Trading)."
-        },
-        "taxRegime": {
-          "type": "string",
-          "description": "The Algerian tax regime for this entity.",
-          "enum": ["Réel", "IFU"]
-        },
-        "address": {
-          "type": "string",
-          "description": "The physical address of the tenant."
-        },
-        "email": {
-          "type": "string",
-          "description": "The primary contact email address for the tenant.",
-          "format": "email"
-        },
-        "phoneNumber": {
-          "type": "string",
-          "description": "The primary contact phone number for the tenant."
-        },
-        "creationDate": {
-          "type": "string",
-          "description": "The date and time when this tenant profile was created.",
-          "format": "date-time"
-        },
-        "currency": {
-          "type": "string",
-          "description": "The primary operating currency for this tenant (e.g., DZD for Algerian Dinar)."
-        },
-        "fiscalHealthScore": {
-          "type": "number",
-          "description": "A calculated score (0-100) indicating the fiscal health and compliance of the tenant."
-        },
-        "lastFiscalHealthUpdate": {
-          "type": "string",
-          "description": "The date and time when the fiscal health score was last calculated or updated.",
-          "format": "date-time"
-        },
-        "userIds": {
-          "type": "array",
-          "description": "An array of user IDs who have access to manage this tenant. (Relationship: Tenant N:N User)",
-          "items": {
-            "type": "string"
+        "id": { "type": "string" },
+        "raisonSociale": { "type": "string", "description": "Dénomination officielle (CNRC)" },
+        "formeJuridique": { "type": "string", "enum": ["SARL", "SPA", "EI", "SNC", "EURL", "Auto-entrepreneur"] },
+        "nif": { "type": "string", "description": "Numéro d'Identification Fiscale (15 chiffres)" },
+        "nis": { "type": "string", "description": "Numéro d'Identification Statistique" },
+        "registreCommerce": { "type": "string", "description": "Format: WW/YY/BXXXXXX" },
+        "articleImposition": { "type": "string" },
+        "dateCreation": { "type": "string", "format": "date-time" },
+        "capitalSocial": { "type": "number" },
+        "adresse": {
+          "type": "object",
+          "properties": {
+            "rue": { "type": "string" },
+            "commune": { "type": "string" },
+            "wilaya": { "type": "string" }
           }
         },
-        "members": {
+        "telephone": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "siteWeb": { "type": "string" },
+        "regimeFiscal": { "type": "string", "enum": ["IFU", "REGIME_REEL_SIMPLIFIE", "REGIME_REEL"] },
+        "assujettissementTva": { "type": "boolean" },
+        "tauxTvaApplicable": { "type": "string", "enum": ["TVA_19", "TVA_9", "TVA_EXONERE"] },
+        "periodiciteDeclaration": { "type": "string", "enum": ["MENSUEL", "TRIMESTRIEL", "ANNUEL"] },
+        "activiteNAP": { "type": "string", "description": "Code Nomenclature des Activités" },
+        "secteurActivite": { "type": "string", "enum": ["COMMERCE", "PRODUCTION", "SERVICES", "BTP", "AGRICULTURE"] },
+        "centreImpots": { "type": "string" },
+        "exerciceFiscal": {
           "type": "object",
-          "description": "A map of user IDs to their roles in the tenant (e.g., {userId: 'owner'})."
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "nif",
-        "activityType",
-        "taxRegime",
-        "address",
-        "email",
-        "creationDate",
-        "currency",
-        "fiscalHealthScore",
-        "lastFiscalHealthUpdate",
-        "userIds"
-      ]
+          "properties": {
+            "debut": { "type": "string", "format": "date-time" },
+            "fin": { "type": "string", "format": "date-time" }
+          }
+        },
+        "effectif": { "type": "number" },
+        "plan": { "type": "string", "enum": ["GRATUIT", "ESSENTIEL", "PRO", "CABINET"] },
+        "subscription": {
+          "type": "object",
+          "properties": {
+            "statut": { "type": "string", "enum": ["ACTIF", "ESSAI", "SUSPENDU", "EXPIRE", "RESILIE"] },
+            "dateDebut": { "type": "string", "format": "date-time" },
+            "dateExpiration": { "type": "string", "format": "date-time" }
+          }
+        },
+        "addOns": { "type": "array", "items": { "type": "string" } },
+        "efatura": {
+          "type": "object",
+          "properties": {
+            "active": { "type": "boolean" },
+            "prefixeFacture": { "type": "string" },
+            "dernierNumero": { "type": "number" }
+          }
+        },
+        "members": { "type": "object", "description": "Map des UIDs vers les rôles" },
+        "onboardingComplete": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["password", "anonymous"]
   },
   "firestore": {
     "structure": [
@@ -103,16 +76,8 @@
         "path": "/tenants/{tenantId}",
         "definition": {
           "entityName": "Tenant",
-          "schema": {
-            "$ref": "#/backend/entities/Tenant"
-          },
-          "description": "Represents an independent accounting entity.",
-          "params": [
-            {
-              "name": "tenantId",
-              "description": "The unique identifier for a specific Tenant."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/Tenant" },
+          "description": "Dossier fiscal complet du client."
         }
       }
     ]

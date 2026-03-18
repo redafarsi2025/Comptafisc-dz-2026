@@ -15,7 +15,6 @@ import {
   Settings,
   ChevronDown,
   Building2,
-  PieChart,
   Plus,
   User as UserIcon,
   LogOut
@@ -53,8 +52,8 @@ const navigation = [
   { name: "Facturation", href: "/dashboard/invoicing", icon: Receipt },
   { name: "Paie & Social", href: "/dashboard/payroll", icon: Users },
   { name: "Déclarations Fisc", href: "/dashboard/declarations", icon: FileText },
-  { name: "Assistant Fiscal", href: "/dashboard/assistant", icon: MessageSquareMore },
-  { name: "OCR Ingestion", href: "/dashboard/ocr", icon: Camera },
+  { name: "Assistant IA", href: "/dashboard/assistant", icon: MessageSquareMore },
+  { name: "Capture OCR", href: "/dashboard/ocr", icon: Camera },
 ]
 
 export function DashboardSidebar() {
@@ -65,14 +64,12 @@ export function DashboardSidebar() {
   const auth = useAuth()
   const [currentTenantId, setCurrentTenantId] = React.useState<string | null>(null)
 
-  // Auto sign-in for prototype purposes if no user
   React.useEffect(() => {
     if (!isUserLoading && !user && auth) {
       initiateAnonymousSignIn(auth);
     }
   }, [user, isUserLoading, auth]);
 
-  // Query tenants where user is a member
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
@@ -89,25 +86,52 @@ export function DashboardSidebar() {
   const createDefaultTenant = async () => {
     if (!db || !user) return;
     const newTenantRef = doc(collection(db, "tenants"));
+    
+    // Initialisation avec les 35 variables structurelles
     const tenantData = {
-      name: "Dossier " + (user.displayName || "Nouveau"),
-      members: { [user.uid]: 'owner' },
+      id: newTenantRef.id,
+      raisonSociale: "Nouveau Dossier " + (user.displayName || "Client"),
+      formeJuridique: "EURL",
       nif: "000000000000000",
-      rc: "",
-      activityType: "Prestations de services",
-      taxRegime: "Réel",
-      address: "Alger, Algérie",
-      email: user.email || "contact@exemple.dz",
-      creationDate: new Date().toISOString(),
-      currency: "DZD",
-      fiscalHealthScore: 100,
-      lastFiscalHealthUpdate: new Date().toISOString(),
-      userIds: [user.uid]
+      nis: "",
+      registreCommerce: "",
+      articleImposition: "",
+      dateCreation: new Date().toISOString(),
+      capitalSocial: 100000,
+      adresse: { rue: "", commune: "", wilaya: "16 - Alger" },
+      telephone: "",
+      email: user.email || "",
+      siteWeb: "",
+      regimeFiscal: "REGIME_REEL",
+      assujettissementTva: true,
+      tauxTvaApplicable: "TVA_19",
+      periodiciteDeclaration: "MENSUEL",
+      activiteNAP: "",
+      secteurActivite: "SERVICES",
+      centreImpots: "",
+      exerciceFiscal: {
+        debut: new Date(new Date().getFullYear(), 0, 1).toISOString(),
+        fin: new Date(new Date().getFullYear(), 11, 31).toISOString()
+      },
+      effectif: 0,
+      plan: "GRATUIT",
+      subscription: {
+        statut: "ESSAI",
+        dateDebut: new Date().toISOString(),
+        dateExpiration: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      addOns: [],
+      efatura: { active: false, prefixeFacture: "FAC-", dernierNumero: 0 },
+      members: { [user.uid]: 'owner' },
+      userIds: [user.uid],
+      onboardingComplete: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
     
     try {
       await setDoc(newTenantRef, tenantData);
-      toast({ title: "Dossier créé", description: "Votre dossier fiscal a été configuré au régime Réel par défaut." });
+      toast({ title: "Dossier créé", description: "Le nouveau dossier fiscal a été configuré avec succès." });
     } catch (e) {
       console.error(e);
     }
@@ -134,11 +158,11 @@ export function DashboardSidebar() {
                     <Building2 className="size-4" />
                   </div>
                   <div className="flex flex-col gap-0.5 leading-none">
-                    <span className="font-semibold text-sidebar-foreground">
-                      {isTenantsLoading ? "Chargement..." : (currentTenant?.name || "Aucun dossier")}
+                    <span className="font-semibold text-sidebar-foreground truncate w-32">
+                      {isTenantsLoading ? "Chargement..." : (currentTenant?.raisonSociale || "Aucun dossier")}
                     </span>
-                    <span className="text-xs text-sidebar-foreground/70">
-                      {currentTenant ? `${currentTenant.taxRegime}` : "Cliquez pour créer"}
+                    <span className="text-[10px] text-sidebar-foreground/70">
+                      {currentTenant ? `${currentTenant.regimeFiscal}` : "Créer un dossier"}
                     </span>
                   </div>
                   <ChevronDown className="ml-auto size-4" />
@@ -146,20 +170,16 @@ export function DashboardSidebar() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-64">
                 {tenants?.map((t) => (
-                  <DropdownMenuItem
-                    key={t.id}
-                    onClick={() => setCurrentTenantId(t.id)}
-                    className="cursor-pointer"
-                  >
+                  <DropdownMenuItem key={t.id} onClick={() => setCurrentTenantId(t.id)} className="cursor-pointer">
                     <div className="flex flex-col">
-                      <span>{t.name}</span>
-                      <span className="text-[10px] text-muted-foreground">{t.taxRegime} - {t.activityType}</span>
+                      <span className="font-medium">{t.raisonSociale}</span>
+                      <span className="text-[10px] text-muted-foreground">{t.regimeFiscal} - {t.nif}</span>
                     </div>
                   </DropdownMenuItem>
                 ))}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={createDefaultTenant} className="cursor-pointer text-primary">
-                  <Plus className="mr-2 h-4 w-4" /> Créer un nouveau dossier
+                  <Plus className="mr-2 h-4 w-4" /> Nouveau dossier fiscal
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -168,20 +188,12 @@ export function DashboardSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Principal</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Menu</SidebarGroupLabel>
           <SidebarMenu>
             {navigation.map((item) => (
               <SidebarMenuItem key={item.name}>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname === item.href}
-                  tooltip={item.name}
-                  className="hover:bg-sidebar-accent transition-all duration-200"
-                >
-                  <Link href={item.href}>
-                    <item.icon />
-                    <span>{item.name}</span>
-                  </Link>
+                <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name} className="hover:bg-sidebar-accent">
+                  <Link href={item.href}><item.icon /><span>{item.name}</span></Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
@@ -189,14 +201,11 @@ export function DashboardSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Paramètres</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Gestion</SidebarGroupLabel>
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname === "/dashboard/settings"} tooltip="Paramètres Dossier">
-                <Link href="/dashboard/settings">
-                  <Settings />
-                  <span>Paramètres Dossier</span>
-                </Link>
+                <Link href="/dashboard/settings"><Settings /><span>Paramètres Dossier</span></Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
@@ -214,23 +223,19 @@ export function DashboardSidebar() {
                   </Avatar>
                   <div className="flex flex-col gap-0.5 text-left text-sm leading-tight">
                     <span className="font-semibold text-sidebar-foreground truncate w-32">
-                      {user?.isAnonymous ? "Utilisateur Invité" : (user?.displayName || "Mon Compte")}
+                      {user?.displayName || "Expert-Comptable"}
                     </span>
-                    <span className="text-xs text-sidebar-foreground/70">Expert-Comptable</span>
+                    <span className="text-xs text-sidebar-foreground/70">Dossiers: {tenants?.length || 0}</span>
                   </div>
                   <ChevronDown className="ml-auto size-4" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="top" align="end" className="w-56">
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard/profile" className="flex items-center gap-2 cursor-pointer">
-                    <UserIcon className="h-4 w-4" /> Mon Profil
-                  </Link>
+                  <Link href="/dashboard/profile" className="flex items-center gap-2 cursor-pointer"><UserIcon className="h-4 w-4" /> Profil Expert</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 cursor-pointer text-destructive">
-                  <LogOut className="h-4 w-4" /> Déconnexion
-                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 cursor-pointer text-destructive"><LogOut className="h-4 w-4" /> Déconnexion</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>

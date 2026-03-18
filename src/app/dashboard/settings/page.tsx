@@ -6,9 +6,14 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Checkbox } from "@/components/ui/checkbox"
 import { useFirestore, useUser, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase"
 import { collection, query, where, limit, doc } from "firebase/firestore"
-import { Building2, Save, Fingerprint, MapPin, Phone, Globe, Loader2, Briefcase, FileText } from "lucide-react"
+import { 
+  Building2, Save, Fingerprint, MapPin, Phone, Globe, Loader2, 
+  Briefcase, FileText, CreditCard, ShieldCheck, Zap 
+} from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 
 export default function TenantSettingsPage() {
@@ -16,7 +21,6 @@ export default function TenantSettingsPage() {
   const { user } = useUser()
   const [isSaving, setIsSaving] = React.useState(false)
 
-  // Fetch current tenant
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null), limit(1));
@@ -25,32 +29,27 @@ export default function TenantSettingsPage() {
   const { data: tenants, isLoading: isTenantsLoading } = useCollection(tenantsQuery);
   const currentTenant = tenants?.[0];
 
-  const [formData, setFormData] = React.useState({
-    name: "",
-    nif: "",
-    rc: "",
-    address: "",
-    phoneNumber: "",
-    email: "",
-    activityType: "",
-    taxRegime: "Réel"
-  })
+  const [formData, setFormData] = React.useState<any>({})
 
-  // Pre-fill form when tenant is loaded
   React.useEffect(() => {
     if (currentTenant) {
-      setFormData({
-        name: currentTenant.name || "",
-        nif: currentTenant.nif || "",
-        rc: currentTenant.rc || "",
-        address: currentTenant.address || "",
-        phoneNumber: currentTenant.phoneNumber || "",
-        email: currentTenant.email || "",
-        activityType: currentTenant.activityType || "",
-        taxRegime: currentTenant.taxRegime || "Réel"
-      })
+      setFormData(currentTenant)
     }
   }, [currentTenant])
+
+  const handleUpdate = (path: string, value: any) => {
+    const keys = path.split('.')
+    setFormData((prev: any) => {
+      const newData = { ...prev }
+      let current = newData
+      for (let i = 0; i < keys.length - 1; i++) {
+        current[keys[i]] = { ...current[keys[i]] }
+        current = current[keys[i]]
+      }
+      current[keys[keys.length - 1]] = value
+      return newData
+    })
+  }
 
   const handleSave = async () => {
     if (!db || !currentTenant) return
@@ -61,11 +60,11 @@ export default function TenantSettingsPage() {
     try {
       updateDocumentNonBlocking(tenantRef, {
         ...formData,
-        lastFiscalHealthUpdate: new Date().toISOString()
+        updatedAt: new Date().toISOString()
       })
       toast({
-        title: "Paramètres mis à jour",
-        description: "Les informations de votre dossier ont été enregistrées avec succès.",
+        title: "Dossier mis à jour",
+        description: "Les 35 variables fiscales et commerciales ont été synchronisées.",
       })
     } catch (error) {
       console.error(error)
@@ -74,151 +73,226 @@ export default function TenantSettingsPage() {
     }
   }
 
-  if (isTenantsLoading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
-  }
-
-  if (!currentTenant) {
-    return (
-      <div className="text-center p-12">
-        <p className="text-muted-foreground">Aucun dossier actif trouvé. Veuillez en créer un dans la barre latérale.</p>
-      </div>
-    )
-  }
+  if (isTenantsLoading) return <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+  if (!currentTenant) return <div className="text-center p-12 text-muted-foreground">Aucun dossier actif trouvé.</div>
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold text-primary">Paramètres du Dossier</h1>
-        <p className="text-muted-foreground">Identifiants fiscaux, commerciaux et régime d'imposition.</p>
+    <div className="max-w-5xl mx-auto space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-3xl font-bold text-primary">Configuration du Dossier</h1>
+          <p className="text-muted-foreground">Paramétrage complet du moteur fiscal DzairCompta.</p>
+        </div>
+        <Button onClick={handleSave} disabled={isSaving} className="shadow-lg">
+          {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+          Sauvegarder les changements
+        </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-primary" /> Informations Générales
-          </CardTitle>
-          <CardDescription>Ces données apparaissent sur vos factures et déclarations G50/G12.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Nom de l'entité</label>
-              <Input 
-                value={formData.name} 
-                onChange={(e) => setFormData({...formData, name: e.target.value})} 
-                placeholder="Ex: SARL Alga Compta"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Email de contact</label>
-              <div className="relative">
-                <Globe className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  className="pl-9"
-                  value={formData.email} 
-                  onChange={(e) => setFormData({...formData, email: e.target.value})} 
-                  placeholder="contact@entreprise.dz"
-                />
+      <Tabs defaultValue="identification" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 h-auto p-1 bg-muted/50">
+          <TabsTrigger value="identification" className="py-2 text-xs">Identification</TabsTrigger>
+          <TabsTrigger value="contact" className="py-2 text-xs">Contact</TabsTrigger>
+          <TabsTrigger value="fiscal" className="py-2 text-xs">Profil Fiscal</TabsTrigger>
+          <TabsTrigger value="subscription" className="py-2 text-xs">Abonnement</TabsTrigger>
+          <TabsTrigger value="efatura" className="py-2 text-xs">e-Fatura</TabsTrigger>
+          <TabsTrigger value="audit" className="py-2 text-xs">Audit</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="identification" className="mt-6">
+          <Card>
+            <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Building2 className="h-5 w-5" />Identification Légale</CardTitle></CardHeader>
+            <CardContent className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase">Raison Sociale</label>
+                <Input value={formData.raisonSociale || ""} onChange={(e) => handleUpdate("raisonSociale", e.target.value)} />
               </div>
-            </div>
-          </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase">Forme Juridique</label>
+                <Select value={formData.formeJuridique} onValueChange={(v) => handleUpdate("formeJuridique", v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["SARL", "SPA", "EI", "SNC", "EURL", "Auto-entrepreneur"].map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase">NIF (15 chiffres)</label>
+                <Input value={formData.nif || ""} onChange={(e) => handleUpdate("nif", e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase">Registre Commerce</label>
+                <Input placeholder="WW/YY/BXXXXXX" value={formData.registreCommerce || ""} onChange={(e) => handleUpdate("registreCommerce", e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase">Article Imposition</label>
+                <Input value={formData.articleImposition || ""} onChange={(e) => handleUpdate("articleImposition", e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase">Date Création (CNRC)</label>
+                <Input type="date" value={formData.dateCreation?.split('T')[0] || ""} onChange={(e) => handleUpdate("dateCreation", new Date(e.target.value).toISOString())} />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                Type d'Activité <Briefcase className="h-3 w-3" />
-              </label>
-              <Input 
-                value={formData.activityType} 
-                onChange={(e) => setFormData({...formData, activityType: e.target.value})} 
-                placeholder="Ex: Prestations de services, Commerce..."
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                Régime d'Imposition <FileText className="h-3 w-3" />
-              </label>
-              <Select 
-                value={formData.taxRegime} 
-                onValueChange={(val) => setFormData({...formData, taxRegime: val as any})}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Choisir le régime" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Réel">Régime du Réel (G50 Mensuel)</SelectItem>
-                  <SelectItem value="IFU">IFU (Impôt Forfaitaire Unique)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+        <TabsContent value="contact" className="mt-6">
+          <Card>
+            <CardHeader><CardTitle className="text-lg flex items-center gap-2"><MapPin className="h-5 w-5" />Coordonnées & Contact</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="md:col-span-1 space-y-2">
+                  <label className="text-xs font-bold uppercase">Wilaya</label>
+                  <Input value={formData.adresse?.wilaya || ""} onChange={(e) => handleUpdate("adresse.wilaya", e.target.value)} placeholder="Ex: 16 - Alger" />
+                </div>
+                <div className="md:col-span-1 space-y-2">
+                  <label className="text-xs font-bold uppercase">Commune</label>
+                  <Input value={formData.adresse?.commune || ""} onChange={(e) => handleUpdate("adresse.commune", e.target.value)} />
+                </div>
+                <div className="md:col-span-1 space-y-2">
+                  <label className="text-xs font-bold uppercase">Rue / Adresse</label>
+                  <Input value={formData.adresse?.rue || ""} onChange={(e) => handleUpdate("adresse.rue", e.target.value)} />
+                </div>
+              </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase">Téléphone</label>
+                  <Input value={formData.telephone || ""} onChange={(e) => handleUpdate("telephone", e.target.value)} placeholder="+213..." />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase">Email Pro</label>
+                  <Input value={formData.email || ""} onChange={(e) => handleUpdate("email", e.target.value)} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                NIF <Fingerprint className="h-3 w-3" />
-              </label>
-              <Input 
-                value={formData.nif} 
-                onChange={(e) => setFormData({...formData, nif: e.target.value})} 
-                placeholder="Numéro d'Identification Fiscale"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Registre du Commerce (RC)</label>
-              <Input 
-                value={formData.rc} 
-                onChange={(e) => setFormData({...formData, rc: e.target.value})} 
-                placeholder="Ex: 16/00-1234567B22"
-              />
-            </div>
-          </div>
+        <TabsContent value="fiscal" className="mt-6">
+          <Card className="border-primary/20 bg-primary/5">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2 text-primary"><Zap className="h-5 w-5" />Profil Fiscal (Moteur de calcul)</CardTitle>
+              <CardDescription>Données critiques déterminant le régime G50/G12/IBS.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase">Régime Fiscal</label>
+                <Select value={formData.regimeFiscal} onValueChange={(v) => handleUpdate("regimeFiscal", v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="IFU">IFU (Impôt Forfaitaire Unique)</SelectItem>
+                    <SelectItem value="REGIME_REEL_SIMPLIFIE">Réel Simplifié</SelectItem>
+                    <SelectItem value="REGIME_REEL">Régime du Réel</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center space-x-2 pt-8">
+                <Checkbox 
+                  id="tva" 
+                  checked={formData.assujettissementTva} 
+                  onCheckedChange={(c) => handleUpdate("assujettissementTva", !!c)} 
+                />
+                <label htmlFor="tva" className="text-sm font-medium leading-none cursor-pointer">Assujetti à la TVA</label>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase">Taux TVA par défaut</label>
+                <Select value={formData.tauxTvaApplicable} onValueChange={(v) => handleUpdate("tauxTvaApplicable", v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TVA_19">Taux Normal (19%)</SelectItem>
+                    <SelectItem value="TVA_9">Taux Réduit (9%)</SelectItem>
+                    <SelectItem value="TVA_EXONERE">Exonéré (0%)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase">Périodicité Déclaration</label>
+                <Select value={formData.periodiciteDeclaration} onValueChange={(v) => handleUpdate("periodiciteDeclaration", v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="MENSUEL">Mensuel (G50)</SelectItem>
+                    <SelectItem value="TRIMESTRIEL">Trimestriel</SelectItem>
+                    <SelectItem value="ANNUEL">Annuel (G12)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase">Code NAP (Nomenclature)</label>
+                <Input value={formData.activiteNAP || ""} onChange={(e) => handleUpdate("activiteNAP", e.target.value)} placeholder="Détermine le taux TAP" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase">Secteur Activité</label>
+                <Select value={formData.secteurActivite} onValueChange={(v) => handleUpdate("secteurActivite", v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["COMMERCE", "PRODUCTION", "SERVICES", "BTP", "AGRICULTURE"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium flex items-center gap-2">
-              Adresse Siège Social <MapPin className="h-3 w-3" />
-            </label>
-            <Input 
-              value={formData.address} 
-              onChange={(e) => setFormData({...formData, address: e.target.value})} 
-              placeholder="Adresse complète"
-            />
-          </div>
+        <TabsContent value="subscription" className="mt-6">
+          <Card>
+            <CardHeader><CardTitle className="text-lg flex items-center gap-2"><CreditCard className="h-5 w-5" />Plan & Abonnement</CardTitle></CardHeader>
+            <CardContent className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase">Plan DzairCompta</label>
+                <Input value={formData.plan || ""} disabled className="bg-muted" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase">Statut Abonnement</label>
+                <Input value={formData.subscription?.statut || ""} disabled className="bg-muted" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase">Date Expiration</label>
+                <Input value={formData.subscription?.dateExpiration || ""} disabled className="bg-muted" />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium flex items-center gap-2">
-              Téléphone <Phone className="h-3 w-3" />
-            </label>
-            <Input 
-              value={formData.phoneNumber} 
-              onChange={(e) => setFormData({...formData, phoneNumber: e.target.value})} 
-              placeholder="021 XX XX XX"
-            />
-          </div>
-        </CardContent>
-        <CardFooter className="border-t bg-muted/20 flex justify-end p-6">
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-            Enregistrer les modifications
-          </Button>
-        </CardFooter>
-      </Card>
+        <TabsContent value="efatura" className="mt-6">
+          <Card>
+            <CardHeader><CardTitle className="text-lg flex items-center gap-2"><ShieldCheck className="h-5 w-5" />Facturation Électronique</CardTitle></CardHeader>
+            <CardContent className="grid md:grid-cols-2 gap-4">
+              <div className="flex items-center space-x-2 pt-4">
+                <Checkbox 
+                  id="efatura" 
+                  checked={formData.efatura?.active} 
+                  onCheckedChange={(c) => handleUpdate("efatura.active", !!c)} 
+                />
+                <label htmlFor="efatura" className="text-sm font-medium leading-none">Connexion API DGI active</label>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase">Préfixe Factures</label>
+                <Input value={formData.efatura?.prefixeFacture || ""} onChange={(e) => handleUpdate("efatura.prefixeFacture", e.target.value)} />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      <Card className="bg-amber-50 border-amber-200">
-        <CardHeader>
-          <CardTitle className="text-amber-800 text-sm">Note sur l'Intégrité</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-amber-700 text-xs">
-            Le changement de régime fiscal (Réel vers IFU ou inversement) modifie les formulaires de déclaration disponibles. Assurez-vous de valider ce choix avec un conseiller fiscal.
-          </p>
-        </CardContent>
-      </Card>
+        <TabsContent value="audit" className="mt-6">
+          <Card className="bg-muted/30">
+            <CardHeader><CardTitle className="text-lg">Méta & Audit</CardTitle></CardHeader>
+            <CardContent className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-muted-foreground">Créé le :</span>
+                <p className="font-mono">{formData.createdAt}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Dernière mise à jour :</span>
+                <p className="font-mono">{formData.updatedAt}</p>
+              </div>
+              <div className="flex items-center space-x-2 pt-4">
+                <Checkbox id="onboarding" checked={formData.onboardingComplete} disabled />
+                <label htmlFor="onboarding" className="text-xs font-bold uppercase">Onboarding Complété</label>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
