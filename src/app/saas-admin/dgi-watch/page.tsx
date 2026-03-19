@@ -50,11 +50,17 @@ export default function DgiWatchAdmin() {
     if (!db) return
     setIsProcessing(true)
     try {
+      toast({ title: "Synchronisation...", description: "Interrogation du site de la DGI en cours." });
+      
       // 1. ÉTAPE : RÉCUPÉRATION DES TITRES (SCRAPPING)
       const news = await scrapeDgiNews()
       
       if (news.length === 0) {
-        toast({ variant: "destructive", title: "Aucune donnée", description: "Le site de la DGI n'a renvoyé aucun résultat." });
+        toast({ 
+          variant: "destructive", 
+          title: "Aucun résultat", 
+          description: "La DGI n'a publié aucun nouvel article ou le site est inaccessible. Réessayez dans quelques minutes." 
+        });
         setIsProcessing(false);
         return;
       }
@@ -68,10 +74,9 @@ export default function DgiWatchAdmin() {
         }, { merge: true })
       }
 
-      toast({ title: "Synchronisation réussie", description: `${news.length} parutions détectées. Lancement de l'analyse IA...` })
+      toast({ title: "Titres récupérés", description: `${news.length} parutions détectées. Analyse IA lancée...` })
 
       // 2. ÉTAPE : ANALYSE IA (ENRICHSSEMENT)
-      // On traite un par un pour ne pas surcharger Gemini
       for (const item of news) {
         try {
           const analysis = await analyzeDgiPublication({ 
@@ -90,10 +95,10 @@ export default function DgiWatchAdmin() {
         }
       }
 
-      toast({ title: "Mise à jour terminée", description: "Toutes les parutions ont été analysées par l'IA." })
+      toast({ title: "Mise à jour terminée", description: "La veille DGI a été actualisée." })
     } catch (e) {
       console.error(e)
-      toast({ variant: "destructive", title: "Erreur lors de la synchronisation" })
+      toast({ variant: "destructive", title: "Erreur Sync", description: "Vérifiez votre connexion ou l'état du site DGI." })
     } finally {
       setIsProcessing(false)
     }
