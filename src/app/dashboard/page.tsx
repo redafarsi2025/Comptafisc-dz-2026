@@ -18,15 +18,14 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  LineChart,
-  Line
 } from "recharts"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { Button } from "@/components/ui/button"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, query, where, limit } from "firebase/firestore"
 import { 
-  TrendingUp, Wallet, ArrowUpRight, BadgeCheck, AlertCircle, 
+  TrendingUp, ArrowUpRight, BadgeCheck, 
   CheckCircle2, Activity, Sparkles, Landmark, History, ShieldCheck, Zap
 } from "lucide-react"
 import { getIBSRate } from "@/lib/calculations"
