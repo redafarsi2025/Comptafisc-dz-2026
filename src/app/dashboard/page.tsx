@@ -18,8 +18,6 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  AreaChart,
-  Area
 } from "recharts"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -29,7 +27,7 @@ import { collection, query, where, limit } from "firebase/firestore"
 import { 
   TrendingUp, ArrowUpRight, BadgeCheck, 
   CheckCircle2, Activity, Sparkles, Landmark, History, ShieldCheck, Zap, Loader2,
-  ChevronRight, PlayCircle, Info
+  ChevronRight, PlayCircle
 } from "lucide-react"
 import { getIBSRate } from "@/lib/calculations"
 import { useSearchParams, useRouter } from "next/navigation"
@@ -96,7 +94,7 @@ export default function DashboardOverview() {
               description: "Le dossier 'SARL Bensalem Commerce' a été créé avec succès.",
             });
             setIsSeeding(false);
-            setShowTour(true); // Start tutorial after seeding
+            setShowTour(true); 
             router.replace("/dashboard");
           } catch (e) {
             console.error(e);
@@ -120,13 +118,13 @@ export default function DashboardOverview() {
   const { data: invoices } = useCollection(invoicesQuery);
 
   const stats = React.useMemo(() => {
-    if (!invoices) return { ca: 0, tva: 0, count: 0 };
+    if (!invoices || !mounted) return { ca: 0, tva: 0, count: 0 };
     return invoices.reduce((acc, inv) => ({
       ca: acc.ca + (inv.totalAmountExcludingTax || 0),
       tva: acc.tva + (inv.totalTaxAmount || 0),
       count: acc.count + 1
     }), { ca: 0, tva: 0, count: 0 });
-  }, [invoices]);
+  }, [invoices, mounted]);
 
   const ibsRate = React.useMemo(() => {
     if (!currentTenant) return 0.26;
@@ -167,7 +165,7 @@ export default function DashboardOverview() {
     }
   ];
 
-  if (isSeeding) {
+  if (!mounted || isSeeding) {
     return (
       <div className="h-[80vh] flex flex-col items-center justify-center space-y-6">
         <div className="relative">
@@ -175,8 +173,8 @@ export default function DashboardOverview() {
           <Sparkles className="absolute inset-0 m-auto h-8 w-8 text-accent animate-pulse" />
         </div>
         <div className="text-center space-y-2">
-          <h2 className="text-2xl font-bold text-primary">Préparation de votre dossier démo...</h2>
-          <p className="text-muted-foreground animate-pulse">Injection des factures, salariés et écritures PCN.</p>
+          <h2 className="text-2xl font-bold text-primary">Initialisation...</h2>
+          <p className="text-muted-foreground">Préparation de votre environnement sécurisé.</p>
         </div>
       </div>
     );

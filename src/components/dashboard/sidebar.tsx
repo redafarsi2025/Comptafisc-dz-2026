@@ -27,17 +27,15 @@ import {
   MessagesSquare,
   Repeat,
   Landmark,
-  ShieldAlert,
   BookOpen,
   CalendarDays,
   Eye,
   GraduationCap,
   FileBadge,
   TrendingDown,
-  BrainCircuit,
-  PieChart,
   Plus,
-  Scale
+  Scale,
+  ShieldAlert
 } from "lucide-react"
 
 import {
@@ -45,13 +43,11 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
-  SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar
 } from "@/components/ui/sidebar"
 import {
   DropdownMenu,
@@ -124,9 +120,11 @@ export function DashboardSidebar() {
   const { user, isUserLoading } = useUser()
   const db = useFirestore()
   const auth = useAuth()
+  const [mounted, setMounted] = React.useState(false)
   const [currentTenantId, setCurrentTenantId] = React.useState<string | null>(null)
 
   React.useEffect(() => {
+    setMounted(true)
     if (!isUserLoading && !user && auth) {
       initiateAnonymousSignIn(auth);
     }
@@ -173,6 +171,16 @@ export function DashboardSidebar() {
       </SidebarMenu>
     </SidebarGroup>
   )
+
+  if (!mounted) {
+    return (
+      <Sidebar variant="sidebar" collapsible="icon" className="border-r border-sidebar-border/50">
+        <SidebarHeader className="bg-sidebar p-4" />
+        <SidebarContent className="px-2" />
+        <SidebarFooter className="border-t border-sidebar-border/50 p-4" />
+      </Sidebar>
+    )
+  }
 
   return (
     <Sidebar variant="sidebar" collapsible="icon" className="border-r border-sidebar-border/50">
