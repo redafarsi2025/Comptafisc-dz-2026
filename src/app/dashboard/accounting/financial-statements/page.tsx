@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -15,6 +16,11 @@ import autoTable from 'jspdf-autotable'
 export default function FinancialStatements() {
   const db = useFirestore()
   const { user } = useUser()
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -33,7 +39,6 @@ export default function FinancialStatements() {
   }, [db, currentTenant, user]);
   const { data: entries, isLoading } = useCollection(entriesQuery);
 
-  // Agrégation des données financières par classe SCF
   const financialData = React.useMemo(() => {
     const totals: Record<string, { debit: number; credit: number }> = {};
     if (!entries) return null;
@@ -48,23 +53,10 @@ export default function FinancialStatements() {
       });
     });
 
-    // Groupement par catégories SCF
     const categories = {
-      actif: {
-        immobilisations: 0, // Classe 2
-        stocks: 0,         // Classe 3
-        creances: 0,       // Classe 4 (débiteur)
-        tresorerie: 0,     // Classe 5 (débiteur)
-      },
-      passif: {
-        capitaux: 0,       // Classe 1
-        dettes: 0,         // Classe 4 (créditeur)
-        decouverts: 0,     // Classe 5 (créditeur)
-      },
-      resultat: {
-        produits: 0,       // Classe 7
-        charges: 0,        // Classe 6
-      }
+      actif: { immobilisations: 0, stocks: 0, creances: 0, tresorerie: 0 },
+      passif: { capitaux: 0, dettes: 0, decouverts: 0 },
+      resultat: { produits: 0, charges: 0 }
     };
 
     Object.entries(totals).forEach(([code, balances]) => {
@@ -89,6 +81,8 @@ export default function FinancialStatements() {
     return categories;
   }, [entries]);
 
+  const formatValue = (val: number) => mounted ? val.toLocaleString() : "..."
+
   const netResult = (financialData?.resultat.produits || 0) - (financialData?.resultat.charges || 0);
   const totalActif = (financialData?.actif.immobilisations || 0) + (financialData?.actif.stocks || 0) + (financialData?.actif.creances || 0) + (financialData?.actif.tresorerie || 0);
   const totalPassifExclResult = (financialData?.passif.capitaux || 0) + (financialData?.passif.dettes || 0) + (financialData?.passif.decouverts || 0);
@@ -100,7 +94,6 @@ export default function FinancialStatements() {
     doc.setFontSize(10);
     doc.text(`Bilan et TCR au ${new Date().toLocaleDateString()}`, 14, 30);
 
-    // Bilan Actif
     doc.setFontSize(14);
     doc.text("BILAN - ACTIF", 14, 45);
     autoTable(doc, {
@@ -117,7 +110,6 @@ export default function FinancialStatements() {
       headStyles: { fillColor: [59, 130, 246] }
     });
 
-    // Bilan Passif
     const nextY = (doc as any).lastAutoTable.finalY + 15;
     doc.text("BILAN - PASSIF", 14, nextY);
     autoTable(doc, {
@@ -160,7 +152,7 @@ export default function FinancialStatements() {
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-xs uppercase font-bold opacity-80">Résultat Net Période</p>
-                <h2 className="text-3xl font-bold">{netResult.toLocaleString()} DA</h2>
+                <h2 className="text-3xl font-bold">{formatValue(netResult)} DA</h2>
               </div>
               <TrendingUp className="h-8 w-8 opacity-20" />
             </div>
@@ -172,14 +164,14 @@ export default function FinancialStatements() {
         <Card className="shadow-sm border-l-4 border-l-blue-500">
           <CardContent className="pt-6">
             <p className="text-xs uppercase font-bold text-muted-foreground">Total Bilan (Actif)</p>
-            <h2 className="text-3xl font-bold text-blue-600">{totalActif.toLocaleString()} DA</h2>
+            <h2 className="text-3xl font-bold text-blue-600">{formatValue(totalActif)} DA</h2>
             <p className="text-[10px] text-muted-foreground mt-2 italic">Équilibre financier vérifié.</p>
           </CardContent>
         </Card>
         <Card className="shadow-sm border-l-4 border-l-accent">
           <CardContent className="pt-6">
             <p className="text-xs uppercase font-bold text-muted-foreground">Capitaux Propres</p>
-            <h2 className="text-3xl font-bold text-accent">{financialData?.passif.capitaux.toLocaleString()} DA</h2>
+            <h2 className="text-3xl font-bold text-accent">{formatValue(financialData?.passif.capitaux || 0)} DA</h2>
             <p className="text-[10px] text-muted-foreground mt-2 italic">Solidité financière du dossier.</p>
           </CardContent>
         </Card>
@@ -196,89 +188,91 @@ export default function FinancialStatements() {
         </TabsList>
 
         <TabsContent value="bilan" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* ACTIF */}
-            <Card className="border-t-4 border-t-blue-500 shadow-md">
-              <CardHeader className="bg-blue-50/50">
-                <CardTitle className="text-lg text-blue-800">Bilan - ACTIF</CardTitle>
-                <CardDescription>Emplois des ressources (Ce que l'entreprise possède)</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead>Rubriques</TableHead>
-                      <TableHead className="text-right">Montant Net</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    <TableRow>
-                      <TableCell className="font-medium">Immobilisations (Incorporelles & Corporelles)</TableCell>
-                      <TableCell className="text-right font-mono">{(financialData?.actif.immobilisations || 0).toLocaleString()}</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium">Stocks et En-cours</TableCell>
-                      <TableCell className="text-right font-mono">{(financialData?.actif.stocks || 0).toLocaleString()}</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium">Créances Clients et Tiers</TableCell>
-                      <TableCell className="text-right font-mono">{(financialData?.actif.creances || 0).toLocaleString()}</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium">Disponibilités (Banque & Caisse)</TableCell>
-                      <TableCell className="text-right font-mono">{(financialData?.actif.tresorerie || 0).toLocaleString()}</TableCell>
-                    </TableRow>
-                    <TableRow className="bg-blue-600 text-white hover:bg-blue-700 font-bold">
-                      <TableCell className="uppercase">Total Actif</TableCell>
-                      <TableCell className="text-right text-lg font-mono">{totalActif.toLocaleString()} DA</TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+          {!mounted ? (
+            <div className="text-center py-20 text-muted-foreground italic">Génération des tableaux...</div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <Card className="border-t-4 border-t-blue-500 shadow-md">
+                <CardHeader className="bg-blue-50/50">
+                  <CardTitle className="text-lg text-blue-800">Bilan - ACTIF</CardTitle>
+                  <CardDescription>Emplois des ressources (Ce que l'entreprise possède)</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead>Rubriques</TableHead>
+                        <TableHead className="text-right">Montant Net</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell className="font-medium">Immobilisations (Incorporelles & Corporelles)</TableCell>
+                        <TableCell className="text-right font-mono">{formatValue(financialData?.actif.immobilisations || 0)}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="font-medium">Stocks et En-cours</TableCell>
+                        <TableCell className="text-right font-mono">{formatValue(financialData?.actif.stocks || 0)}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="font-medium">Créances Clients et Tiers</TableCell>
+                        <TableCell className="text-right font-mono">{formatValue(financialData?.actif.creances || 0)}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="font-medium">Disponibilités (Banque & Caisse)</TableCell>
+                        <TableCell className="text-right font-mono">{formatValue(financialData?.actif.tresorerie || 0)}</TableCell>
+                      </TableRow>
+                      <TableRow className="bg-blue-600 text-white hover:bg-blue-700 font-bold">
+                        <TableCell className="uppercase">Total Actif</TableCell>
+                        <TableCell className="text-right text-lg font-mono">{formatValue(totalActif)} DA</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
 
-            {/* PASSIF */}
-            <Card className="border-t-4 border-t-accent shadow-md">
-              <CardHeader className="bg-accent/5">
-                <CardTitle className="text-lg text-accent-foreground">Bilan - PASSIF</CardTitle>
-                <CardDescription>Origine des ressources (Ce que l'entreprise doit)</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead>Rubriques</TableHead>
-                      <TableHead className="text-right">Montant</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    <TableRow>
-                      <TableCell className="font-medium">Capitaux Propres & Réserves</TableCell>
-                      <TableCell className="text-right font-mono">{(financialData?.passif.capitaux || 0).toLocaleString()}</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium">Dettes Fournisseurs & Tiers</TableCell>
-                      <TableCell className="text-right font-mono">{(financialData?.passif.dettes || 0).toLocaleString()}</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium">Découverts Bancaires</TableCell>
-                      <TableCell className="text-right font-mono">{(financialData?.passif.decouverts || 0).toLocaleString()}</TableCell>
-                    </TableRow>
-                    <TableRow className="bg-muted/30 italic">
-                      <TableCell className="font-medium">Résultat de l'exercice (Bénéfice/Perte)</TableCell>
-                      <TableCell className={`text-right font-mono font-bold ${netResult >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
-                        {netResult.toLocaleString()}
-                      </TableCell>
-                    </TableRow>
-                    <TableRow className="bg-accent text-accent-foreground hover:bg-accent/90 font-bold">
-                      <TableCell className="uppercase">Total Passif</TableCell>
-                      <TableCell className="text-right text-lg font-mono">{(totalPassifExclResult + netResult).toLocaleString()} DA</TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </div>
+              <Card className="border-t-4 border-t-accent shadow-md">
+                <CardHeader className="bg-accent/5">
+                  <CardTitle className="text-lg text-accent-foreground">Bilan - PASSIF</CardTitle>
+                  <CardDescription>Origine des ressources (Ce que l'entreprise doit)</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead>Rubriques</TableHead>
+                        <TableHead className="text-right">Montant</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell className="font-medium">Capitaux Propres & Réserves</TableCell>
+                        <TableCell className="text-right font-mono">{formatValue(financialData?.passif.capitaux || 0)}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="font-medium">Dettes Fournisseurs & Tiers</TableCell>
+                        <TableCell className="text-right font-mono">{formatValue(financialData?.passif.dettes || 0)}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell className="font-medium">Découverts Bancaires</TableCell>
+                        <TableCell className="text-right font-mono">{formatValue(financialData?.passif.decouverts || 0)}</TableCell>
+                      </TableRow>
+                      <TableRow className="bg-muted/30 italic">
+                        <TableCell className="font-medium">Résultat de l'exercice (Bénéfice/Perte)</TableCell>
+                        <TableCell className={`text-right font-mono font-bold ${netResult >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                          {formatValue(netResult)}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow className="bg-accent text-accent-foreground hover:bg-accent/90 font-bold">
+                        <TableCell className="uppercase">Total Passif</TableCell>
+                        <TableCell className="text-right text-lg font-mono">{formatValue(totalPassifExclResult + netResult)} DA</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="resultat">
@@ -290,37 +284,41 @@ export default function FinancialStatements() {
               <CardDescription>Analyse de la rentabilité de l'exercice en cours.</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/80">
-                    <TableHead className="w-[400px]">Éléments de Gestion</TableHead>
-                    <TableHead className="text-right">Charges (-)</TableHead>
-                    <TableHead className="text-right">Produits (+)</TableHead>
-                    <TableHead className="text-right">Solde</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow>
-                    <TableCell className="font-medium">Chiffre d'Affaires (Ventes de biens et services)</TableCell>
-                    <TableCell className="text-right font-mono">-</TableCell>
-                    <TableCell className="text-right font-mono">{(financialData?.resultat.produits || 0).toLocaleString()}</TableCell>
-                    <TableCell className="text-right font-mono font-bold">{(financialData?.resultat.produits || 0).toLocaleString()}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">Charges d'Exploitation (Achats, Services, Salaires)</TableCell>
-                    <TableCell className="text-right font-mono">{(financialData?.resultat.charges || 0).toLocaleString()}</TableCell>
-                    <TableCell className="text-right font-mono">-</TableCell>
-                    <TableCell className="text-right font-mono text-destructive">-{ (financialData?.resultat.charges || 0).toLocaleString()}</TableCell>
-                  </TableRow>
-                  <TableRow className="bg-primary/5 border-t-2 font-bold">
-                    <TableCell className="uppercase">Résultat Brut d'Exploitation</TableCell>
-                    <TableCell colSpan={2} className="text-right"></TableCell>
-                    <TableCell className={`text-right text-lg font-mono ${netResult >= 0 ? 'text-primary' : 'text-destructive'}`}>
-                      {netResult.toLocaleString()} DA
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+              {!mounted ? (
+                <div className="text-center py-20 text-muted-foreground italic">Calcul du résultat...</div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/80">
+                      <TableHead className="w-[400px]">Éléments de Gestion</TableHead>
+                      <TableHead className="text-right">Charges (-)</TableHead>
+                      <TableHead className="text-right">Produits (+)</TableHead>
+                      <TableHead className="text-right">Solde</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell className="font-medium">Chiffre d'Affaires (Ventes de biens et services)</TableCell>
+                      <TableCell className="text-right font-mono">-</TableCell>
+                      <TableCell className="text-right font-mono">{formatValue(financialData?.resultat.produits || 0)}</TableCell>
+                      <TableCell className="text-right font-mono font-bold">{formatValue(financialData?.resultat.produits || 0)}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Charges d'Exploitation (Achats, Services, Salaires)</TableCell>
+                      <TableCell className="text-right font-mono">{formatValue(financialData?.resultat.charges || 0)}</TableCell>
+                      <TableCell className="text-right font-mono">-</TableCell>
+                      <TableCell className="text-right font-mono text-destructive">-{formatValue(financialData?.resultat.charges || 0)}</TableCell>
+                    </TableRow>
+                    <TableRow className="bg-primary/5 border-t-2 font-bold">
+                      <TableCell className="uppercase">Résultat Brut d'Exploitation</TableCell>
+                      <TableCell colSpan={2} className="text-right"></TableCell>
+                      <TableCell className={`text-right text-lg font-mono ${netResult >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                        {formatValue(netResult)} DA
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              )}
               <div className="p-6 bg-muted/20 flex items-start gap-4">
                 <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                   <ShieldCheck className="h-6 w-6 text-primary" />

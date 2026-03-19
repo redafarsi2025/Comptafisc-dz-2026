@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -29,6 +30,7 @@ export default function AssetsPage() {
   const { user } = useUser()
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [isSaving, setIsSaving] = React.useState(false)
+  const [mounted, setMounted] = React.useState(false)
   const [newAsset, setNewAsset] = React.useState({
     designation: "",
     category: "215",
@@ -36,6 +38,10 @@ export default function AssetsPage() {
     acquisitionValue: 0,
     amortizationRate: 10,
   })
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // 1. Fetch Tenant
   const tenantsQuery = useMemoFirebase(() => {
@@ -69,7 +75,7 @@ export default function AssetsPage() {
     };
 
     try {
-      await addDocumentNonBlocking(collection(db, "tenants", currentTenant.id, "assets"), assetData);
+      addDocumentNonBlocking(collection(db, "tenants", currentTenant.id, "assets"), assetData);
       toast({ title: "Immobilisation enregistrée", description: `${newAsset.designation} a été ajouté au registre.` });
       setIsDialogOpen(false);
       setNewAsset({ designation: "", category: "215", acquisitionDate: new Date().toISOString().split('T')[0], acquisitionValue: 0, amortizationRate: 10 });
@@ -109,6 +115,8 @@ export default function AssetsPage() {
       };
     }, { value: 0, dotation: 0, cumul: 0, vnc: 0 });
   }, [assets]);
+
+  const formatValue = (val: number) => mounted ? val.toLocaleString() : "..."
 
   return (
     <div className="space-y-6">
@@ -176,25 +184,25 @@ export default function AssetsPage() {
         <Card className="border-l-4 border-l-primary shadow-sm">
           <CardContent className="pt-6">
             <p className="text-[10px] uppercase font-bold text-muted-foreground">Valeur Brute Totale</p>
-            <h2 className="text-2xl font-bold">{totals.value.toLocaleString()} DA</h2>
+            <h2 className="text-2xl font-bold">{formatValue(totals.value)} DA</h2>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-amber-500 shadow-sm">
           <CardContent className="pt-6">
             <p className="text-[10px] uppercase font-bold text-muted-foreground">Dotation de l'exercice</p>
-            <h2 className="text-2xl font-bold text-amber-600">{totals.dotation.toLocaleString()} DA</h2>
+            <h2 className="text-2xl font-bold text-amber-600">{formatValue(totals.dotation)} DA</h2>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-destructive shadow-sm">
           <CardContent className="pt-6">
             <p className="text-[10px] uppercase font-bold text-muted-foreground">Amortissements Cumulés</p>
-            <h2 className="text-2xl font-bold text-destructive">{totals.cumul.toLocaleString()} DA</h2>
+            <h2 className="text-2xl font-bold text-destructive">{formatValue(totals.cumul)} DA</h2>
           </CardContent>
         </Card>
         <Card className="bg-emerald-50 border-emerald-200 border-l-4 border-l-emerald-500 shadow-sm">
           <CardContent className="pt-6">
             <p className="text-[10px] uppercase font-bold text-emerald-800">V.N.C Totale (Actif Net)</p>
-            <h2 className="text-2xl font-bold text-emerald-600">{totals.vnc.toLocaleString()} DA</h2>
+            <h2 className="text-2xl font-bold text-emerald-600">{formatValue(totals.vnc)} DA</h2>
           </CardContent>
         </Card>
       </div>
@@ -218,7 +226,7 @@ export default function AssetsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
+              {isLoading || !mounted ? (
                 <TableRow><TableCell colSpan={7} className="text-center py-12">Calcul des dotations en cours...</TableCell></TableRow>
               ) : !assets?.length ? (
                 <TableRow><TableCell colSpan={7} className="text-center py-12 text-muted-foreground italic">Aucune immobilisation enregistrée.</TableCell></TableRow>
@@ -234,10 +242,10 @@ export default function AssetsPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-xs">{new Date(asset.acquisitionDate).toLocaleDateString()}</TableCell>
-                      <TableCell className="text-right font-mono text-xs">{asset.acquisitionValue.toLocaleString()}</TableCell>
+                      <TableCell className="text-right font-mono text-xs">{formatValue(asset.acquisitionValue)}</TableCell>
                       <TableCell className="text-center"><Badge variant="outline" className="text-[10px]">{asset.amortizationRate}%</Badge></TableCell>
-                      <TableCell className="text-right font-mono text-xs text-amber-600">-{calc.annualDotation.toLocaleString()}</TableCell>
-                      <TableCell className="text-right font-mono text-xs font-bold text-primary">{calc.vnc.toLocaleString()}</TableCell>
+                      <TableCell className="text-right font-mono text-xs text-amber-600">-{formatValue(calc.annualDotation)}</TableCell>
+                      <TableCell className="text-right font-mono text-xs font-bold text-primary">{formatValue(calc.vnc)}</TableCell>
                       <TableCell>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100" onClick={() => deleteDocumentNonBlocking(doc(db, "tenants", currentTenant!.id, "assets", asset.id))}>
                           <Trash2 className="h-4 w-4" />
@@ -248,14 +256,14 @@ export default function AssetsPage() {
                 })
               )}
             </TableBody>
-            {assets && assets.length > 0 && (
+            {mounted && assets && assets.length > 0 && (
               <TableFooter className="bg-primary/5">
                 <TableRow className="font-bold text-xs">
                   <TableCell colSpan={2}>TOTAUX DU REGISTRE</TableCell>
-                  <TableCell className="text-right font-mono">{totals.value.toLocaleString()}</TableCell>
+                  <TableCell className="text-right font-mono">{formatValue(totals.value)}</TableCell>
                   <TableCell></TableCell>
-                  <TableCell className="text-right font-mono text-amber-600">-{totals.dotation.toLocaleString()}</TableCell>
-                  <TableCell className="text-right font-mono text-primary">{totals.vnc.toLocaleString()} DA</TableCell>
+                  <TableCell className="text-right font-mono text-amber-600">-{formatValue(totals.dotation)}</TableCell>
+                  <TableCell className="text-right font-mono text-primary">{formatValue(totals.vnc)} DA</TableCell>
                   <TableCell></TableCell>
                 </TableRow>
               </TableFooter>

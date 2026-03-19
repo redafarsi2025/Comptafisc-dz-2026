@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -17,6 +18,11 @@ export default function BalanceGenerale() {
   const db = useFirestore()
   const { user } = useUser()
   const [searchTerm, setSearchTerm] = React.useState("")
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -75,12 +81,14 @@ export default function BalanceGenerale() {
 
   const totals = React.useMemo(() => {
     return filteredBalance.reduce((acc, curr) => ({
-      debitM: acc.debitMovements + curr.debitMovements,
-      creditM: acc.creditMovements + curr.creditMovements,
-      debitB: acc.debitBalance + curr.debitBalance,
-      creditB: acc.creditBalance + curr.creditBalance,
-    }), { debitMovements: 0, creditMovements: 0, debitBalance: 0, creditBalance: 0 });
+      debitM: acc.debitM + curr.debitMovements,
+      creditM: acc.creditM + curr.creditMovements,
+      debitB: acc.debitB + curr.debitBalance,
+      creditB: acc.creditB + curr.creditBalance,
+    }), { debitM: 0, creditM: 0, debitB: 0, creditB: 0 });
   }, [filteredBalance]);
+
+  const formatValue = (val: number) => mounted ? val.toLocaleString() : "..."
 
   const exportPDF = () => {
     const doc = new jsPDF();
@@ -163,29 +171,31 @@ export default function BalanceGenerale() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredBalance.length === 0 ? (
+                {!mounted ? (
+                  <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground italic">Synchronisation des données...</TableCell></TableRow>
+                ) : filteredBalance.length === 0 ? (
                   <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground italic">Aucun mouvement comptable pour la période.</TableCell></TableRow>
                 ) : (
                   filteredBalance.map((row) => (
                     <TableRow key={row.code} className="hover:bg-muted/5 transition-colors group">
                       <TableCell className="font-mono text-xs font-bold text-primary">{row.code}</TableCell>
                       <TableCell className="text-xs">{row.name}</TableCell>
-                      <TableCell className="text-right font-mono text-xs text-blue-700 bg-blue-50/5">{row.debitMovements.toLocaleString()}</TableCell>
-                      <TableCell className="text-right font-mono text-xs text-blue-700 bg-blue-50/5 border-r">{row.creditMovements.toLocaleString()}</TableCell>
-                      <TableCell className="text-right font-mono text-xs text-emerald-700 bg-emerald-50/5 font-bold">{row.debitBalance > 0 ? row.debitBalance.toLocaleString() : "-"}</TableCell>
-                      <TableCell className="text-right font-mono text-xs text-emerald-700 bg-emerald-50/5 font-bold">{row.creditBalance > 0 ? row.creditBalance.toLocaleString() : "-"}</TableCell>
+                      <TableCell className="text-right font-mono text-xs text-blue-700 bg-blue-50/5">{formatValue(row.debitMovements)}</TableCell>
+                      <TableCell className="text-right font-mono text-xs text-blue-700 bg-blue-50/5 border-r">{formatValue(row.creditMovements)}</TableCell>
+                      <TableCell className="text-right font-mono text-xs text-emerald-700 bg-emerald-50/5 font-bold">{row.debitBalance > 0 ? formatValue(row.debitBalance) : "-"}</TableCell>
+                      <TableCell className="text-right font-mono text-xs text-emerald-700 bg-emerald-50/5 font-bold">{row.creditBalance > 0 ? formatValue(row.creditBalance) : "-"}</TableCell>
                     </TableRow>
                   ))
                 )}
               </TableBody>
-              {filteredBalance.length > 0 && (
+              {mounted && filteredBalance.length > 0 && (
                 <TableFooter className="bg-muted/30 border-t-2 font-black text-xs">
                   <TableRow>
                     <TableCell colSpan={2} className="uppercase tracking-widest text-primary">Total Balance</TableCell>
-                    <TableCell className="text-right font-mono text-blue-800">{totals.debitM.toLocaleString()}</TableCell>
-                    <TableCell className="text-right font-mono text-blue-800 border-r">{totals.creditM.toLocaleString()}</TableCell>
-                    <TableCell className="text-right font-mono text-emerald-800">{totals.debitB.toLocaleString()}</TableCell>
-                    <TableCell className="text-right font-mono text-emerald-800">{totals.creditB.toLocaleString()}</TableCell>
+                    <TableCell className="text-right font-mono text-blue-800">{formatValue(totals.debitM)}</TableCell>
+                    <TableCell className="text-right font-mono text-blue-800 border-r">{formatValue(totals.creditM)}</TableCell>
+                    <TableCell className="text-right font-mono text-emerald-800">{formatValue(totals.debitB)}</TableCell>
+                    <TableCell className="text-right font-mono text-emerald-800">{formatValue(totals.creditB)}</TableCell>
                   </TableRow>
                 </TableFooter>
               )}
@@ -209,16 +219,18 @@ export default function BalanceGenerale() {
           <CardContent className="pt-6">
             <div className="flex justify-between items-center mb-4">
               <h4 className="text-xs font-bold uppercase text-primary tracking-tighter">Statut Équilibre</h4>
-              <Badge className="bg-emerald-500">ÉQUILIBRÉ</Badge>
+              <Badge className={Math.abs(totals.debitM - totals.creditM) < 0.01 ? "bg-emerald-500" : "bg-destructive"}>
+                {Math.abs(totals.debitM - totals.creditM) < 0.01 ? "ÉQUILIBRÉ" : "DÉSÉQUILIBRÉ"}
+              </Badge>
             </div>
             <div className="space-y-2">
               <div className="flex justify-between text-[10px]">
                 <span className="text-muted-foreground">Mouvements :</span>
-                <span className="font-bold">{totals.debitM.toLocaleString()} DA / {totals.creditM.toLocaleString()} DA</span>
+                <span className="font-bold">{formatValue(totals.debitM)} DA / {formatValue(totals.creditM)} DA</span>
               </div>
               <div className="flex justify-between text-[10px]">
                 <span className="text-muted-foreground">Soldes :</span>
-                <span className="font-bold">{totals.debitB.toLocaleString()} DA / {totals.creditB.toLocaleString()} DA</span>
+                <span className="font-bold">{formatValue(totals.debitB)} DA / {formatValue(totals.creditB)} DA</span>
               </div>
             </div>
           </CardContent>
