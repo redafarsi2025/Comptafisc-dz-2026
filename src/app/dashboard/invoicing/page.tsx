@@ -264,7 +264,7 @@ export default function InvoicingPage() {
           <Card className="bg-slate-900 text-white border-none shadow-xl">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-bold uppercase text-slate-400">Aperçu du Document</CardTitle>
-            </Header>
+            </CardHeader>
             <CardContent className="space-y-4">
               <div className="h-32 bg-slate-800/50 rounded-lg flex items-center justify-center border border-slate-700 border-dashed">
                 <div className="flex flex-col items-center gap-2 opacity-40">
