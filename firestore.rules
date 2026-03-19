@@ -1,4 +1,3 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -13,15 +12,6 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn() && exists(/databases/$(database)/documents/saas_admins/$(request.auth.uid));
-    }
-
-    // Vérifie si l'utilisateur est membre du dossier (tenant)
-    function isTenantMember(tenantId) {
-      let tenantPath = /databases/$(database)/documents/tenants/$(tenantId);
-      return isSignedIn() && (
-        isAdmin() || 
-        (exists(tenantPath) && get(tenantPath).data.members[request.auth.uid] != null)
-      );
     }
 
     // --- SaaS Admin Rules ---
@@ -41,38 +31,38 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // --- Fiscal Engine Rules ---
-    match /fiscal_laws/{fiscalLawId} {
-      allow get, list: if isSignedIn();
+    // --- Global Fiscal Rules ---
+    match /fiscal_laws/{lawId} {
+      allow read: if isSignedIn();
       allow write: if isAdmin();
     }
-
-    match /fiscal_variable_types/{fiscalVariableTypeId} {
-      allow get, list: if isSignedIn();
-      allow write: if isAdmin(); 
-    }
-
-    match /fiscal_variable_values/{fiscalVariableValueId} {
-      allow get, list: if isSignedIn();
+    match /fiscal_variable_types/{typeId} {
+      allow read: if isSignedIn();
       allow write: if isAdmin();
     }
-
-    // --- DGI Watch Rules ---
+    match /fiscal_variable_values/{valId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
     match /dgi_publications/{pubId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
-    // --- Business Logic Rules ---
+    // --- Tenant Logic Rules ---
     match /tenants/{tenantId} {
-      allow read: if isSignedIn() && (isAdmin() || resource.data.members[request.auth.uid] != null);
+      // Un utilisateur peut lire/écrire un dossier s'il est mentionné dans la map 'members'
+      allow read, update: if isSignedIn() && (isAdmin() || resource.data.members[request.auth.uid] != null);
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && (isAdmin() || resource.data.members[request.auth.uid] != null);
       allow delete: if isAdmin();
 
-      // Accès simplifié aux sous-collections : hérite du statut de membre du dossier
+      // Règle récursive simplifiée pour toutes les sous-collections (journal, invoices, employees, etc.)
       match /{allSubcollections=**} {
-        allow read, write: if isTenantMember(tenantId);
+        // Pour les sous-collections, on vérifie l'accès via le document parent
+        allow read, write: if isSignedIn() && (
+          isAdmin() || 
+          get(/databases/$(database)/documents/tenants/$(tenantId)).data.members[request.auth.uid] != null
+        );
       }
     }
   }
