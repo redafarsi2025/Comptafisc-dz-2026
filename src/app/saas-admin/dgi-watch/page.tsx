@@ -4,24 +4,33 @@
 import * as React from "react"
 import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking } from "@/firebase"
 import { collection, query, orderBy, doc } from "firebase/firestore"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { 
   Eye, RefreshCw, Sparkles, CheckCircle2, Loader2, 
-  FileText, Calendar, Zap, ListChecks, DatabaseZap, History, Clock, ExternalLink, Inbox, BellRing, TrendingUp, AlertTriangle, ShieldAlert
+  FileText, Calendar, Zap, ListChecks, DatabaseZap, History, Clock, ExternalLink, Inbox, BellRing, TrendingUp, AlertTriangle, ShieldAlert, PlusCircle, Edit3, Send
 } from "lucide-react"
 import { scrapeDgiNews } from "@/lib/dgi-watch/scraper"
 import { analyzeDgiPublication } from "@/ai/flows/dgi-analysis-flow"
 import { toast } from "@/hooks/use-toast"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
 
 export default function DgiWatchAdmin() {
   const db = useFirestore()
   const [isProcessing, setIsProcessing] = React.useState(false)
   const [isInjecting, setIsInjecting] = React.useState<string | null>(null)
   const [lastSyncStatus, setLastSyncStatus] = React.useState<'idle' | 'success' | 'empty' | 'error'>('idle')
+  
+  // State for manual entry
+  const [isManualDialogOpen, setIsManualDialogOpen] = React.useState(false)
+  const [isAnalyzingManual, setIsAnalyzingManual] = React.useState(false)
+  const [manualEntry, setManualEntry] = React.useState({ title: "", content: "" })
 
   const publicationsQuery = useMemoFirebase(() => 
     db ? query(collection(db, "dgi_publications"), orderBy("detectedAt", "desc")) : null
@@ -63,7 +72,6 @@ export default function DgiWatchAdmin() {
       }
 
       setLastSyncStatus('success')
-      // Enregistrement immédiat des titres
       for (const item of news) {
         await setDocumentNonBlocking(doc(db, "dgi_publications", item.id), {
           ...item,
@@ -73,7 +81,6 @@ export default function DgiWatchAdmin() {
 
       toast({ title: "Titres récupérés", description: `${news.length} parutions indexées. Analyse IA en cours...` })
 
-      // Analyse IA asynchrone
       for (const item of news) {
         try {
           const analysis = await analyzeDgiPublication({ title: item.title, content: item.title });
@@ -93,6 +100,51 @@ export default function DgiWatchAdmin() {
       setIsProcessing(false)
     }
   }
+
+  const handleManualSubmit = async () => {
+    if (!db || !manualEntry.title || !manualEntry.content) return;
+    setIsAnalyzingManual(true);
+    
+    const docId = `MANUAL_${Date.now()}`;
+    const manualDoc = {
+      id: docId,
+      title: manualEntry.title,
+      url: "Saisie Manuelle",
+      publishedDate: new Date().toISOString().split('T')[0],
+      detectedAt: new Date().toISOString(),
+      category: 'manuel',
+      isApplied: false,
+      analysisCompleted: false,
+      updatedAt: new Date().toISOString()
+    };
+
+    try {
+      // 1. Enregistrer le document
+      await setDocumentNonBlocking(doc(db, "dgi_publications", docId), manualDoc, { merge: true });
+      setIsManualDialogOpen(false);
+      setManualEntry({ title: "", content: "" });
+      toast({ title: "Document enregistré", description: "L'IA commence l'analyse du texte saisi." });
+
+      // 2. Analyser via IA
+      const analysis = await analyzeDgiPublication({ 
+        title: manualEntry.title, 
+        content: manualEntry.content 
+      });
+
+      await setDocumentNonBlocking(doc(db, "dgi_publications", docId), {
+        ...analysis,
+        analysisCompleted: true,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      toast({ title: "Analyse terminée", description: "Le document manuel a été traité avec succès." });
+    } catch (e) {
+      console.error(e);
+      toast({ variant: "destructive", title: "Erreur lors de l'analyse" });
+    } finally {
+      setIsAnalyzingManual(false);
+    }
+  };
 
   const handleInjectVariables = async (pub: any) => {
     if (!db || !pub.extractedVariables?.length) return;
@@ -134,18 +186,72 @@ export default function DgiWatchAdmin() {
           <h1 className="text-3xl font-black text-primary flex items-center gap-3">
             <Eye className="text-accent h-8 w-8" /> Console DGI Watch
           </h1>
-          <p className="text-muted-foreground">Veille automatisée sur mfdgi.gov.dz (Source officielle Algérie).</p>
+          <p className="text-muted-foreground">Veille automatisée sur mfdgi.gov.dz & Ingestion Manuelle intelligente.</p>
         </div>
-        <Button onClick={handleSyncAndAnalyze} disabled={isProcessing} className="bg-primary shadow-xl h-12 px-6">
-          {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-          Vérifier les Nouveautés
-        </Button>
+        <div className="flex gap-2">
+          <Dialog open={isManualDialogOpen} onOpenChange={setIsManualDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="border-accent text-accent hover:bg-accent/5">
+                <PlusCircle className="mr-2 h-4 w-4" /> Saisie Manuelle
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Edit3 className="h-5 w-5 text-primary" /> Analyser un Texte Officiel
+                </DialogTitle>
+                <DialogDescription>
+                  Copiez ici un communiqué, une procédure ou un texte réglementaire pour l'extraire dans le moteur fiscal.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="manual-title">Titre de la parution</Label>
+                  <Input 
+                    id="manual-title" 
+                    placeholder="Ex: Communiqué DGI - Prorogation G12 bis" 
+                    value={manualEntry.title}
+                    onChange={e => setManualEntry({...manualEntry, title: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="manual-content">Contenu textuel complet</Label>
+                  <Textarea 
+                    id="manual-content" 
+                    placeholder="Collez ici le texte à analyser..." 
+                    className="min-h-[250px]"
+                    value={manualEntry.content}
+                    onChange={e => setManualEntry({...manualEntry, content: e.target.value})}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button 
+                  onClick={handleManualSubmit} 
+                  disabled={isAnalyzingManual || !manualEntry.title || !manualEntry.content}
+                  className="w-full bg-primary"
+                >
+                  {isAnalyzingManual ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyse IA en cours...</>
+                  ) : (
+                    <><Send className="mr-2 h-4 w-4" /> Soumettre pour Analyse IA</>
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Button onClick={handleSyncAndAnalyze} disabled={isProcessing} className="bg-primary shadow-xl">
+            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+            Vérifier les Nouveautés
+          </Button>
+        </div>
       </div>
 
       {lastSyncStatus === 'empty' && (
         <Card className="bg-amber-50 border-amber-200 p-4 flex items-center gap-3 text-amber-800">
           <ShieldAlert className="h-5 w-5" />
-          <p className="text-sm font-medium">Le site de la DGI semble inaccessible ou sa structure a changé. Tentative de scan profond activée.</p>
+          <p className="text-sm font-medium">Le site de la DGI semble inaccessible. Utilisez la "Saisie Manuelle" pour intégrer des nouveautés externes.</p>
         </Card>
       )}
 
@@ -209,13 +315,17 @@ export default function DgiWatchAdmin() {
               <div className="flex flex-col items-center gap-4">
                 <CheckCircle2 className="h-12 w-12 text-emerald-500 opacity-20" />
                 <p className="font-bold text-lg">Aucune nouvelle parution à traiter.</p>
-                <Button variant="outline" onClick={handleSyncAndAnalyze}>Relancer la recherche</Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={handleSyncAndAnalyze}>Relancer la recherche</Button>
+                  <Button variant="secondary" onClick={() => setIsManualDialogOpen(true)}>Saisie manuelle</Button>
+                </div>
               </div>
             </Card>
           ) : (
             <div className="space-y-6">
               {pendingItems.map((pub) => {
                 const isRecent = isFromThisMonth(pub.publishedDate);
+                const isManual = pub.category === 'manuel';
                 return (
                   <Card key={pub.id} className={`overflow-hidden border-none shadow-lg ring-1 ${isRecent ? 'ring-blue-200' : 'ring-border'}`}>
                     <CardHeader className={`${isRecent ? 'bg-blue-50/50' : 'bg-muted/30'} border-b py-4`}>
@@ -223,15 +333,20 @@ export default function DgiWatchAdmin() {
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             {isRecent && <Badge className="bg-blue-600 text-white text-[8px]">RÉCENT</Badge>}
+                            {isManual && <Badge className="bg-accent text-primary text-[8px]">MANUEL</Badge>}
                             <Badge variant="outline" className="text-[8px] uppercase">{pub.category}</Badge>
                             <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                              <Calendar className="h-3 w-3" /> Paru le {pub.publishedDate}
+                              <Calendar className="h-3 w-3" /> {isManual ? 'Saisi le' : 'Paru le'} {pub.publishedDate}
                             </span>
                           </div>
                           <CardTitle className="text-lg text-primary">{pub.title}</CardTitle>
                         </div>
                         <Button variant="ghost" size="sm" asChild className="h-8 text-[10px]">
-                          <a href={pub.url} target="_blank" rel="noopener noreferrer">Source <ExternalLink className="ml-1 h-3 w-3" /></a>
+                          {pub.url !== "Saisie Manuelle" ? (
+                            <a href={pub.url} target="_blank" rel="noopener noreferrer">Source <ExternalLink className="ml-1 h-3 w-3" /></a>
+                          ) : (
+                            <span className="flex items-center gap-1 text-muted-foreground">Saisie Manuelle <Edit3 className="h-3 w-3" /></span>
+                          )}
                         </Button>
                       </div>
                     </CardHeader>
@@ -239,7 +354,7 @@ export default function DgiWatchAdmin() {
                       {!pub.analysisCompleted ? (
                         <div className="flex items-center gap-3 p-4 bg-muted/20 rounded-xl border border-dashed">
                           <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                          <p className="text-xs text-muted-foreground italic">L'IA Gemini analyse le contenu de cette publication officielle...</p>
+                          <p className="text-xs text-muted-foreground italic">L'IA Gemini analyse le contenu de cette publication...</p>
                         </div>
                       ) : (
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -289,19 +404,32 @@ export default function DgiWatchAdmin() {
                   <TableRow>
                     <TableHead>Statut</TableHead>
                     <TableHead>Publication</TableHead>
+                    <TableHead>Source</TableHead>
                     <TableHead>Parution</TableHead>
                     <TableHead>Mise à jour SaaS</TableHead>
-                    <TableHead className="text-right">Source</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {publications?.map((pub) => (
                     <TableRow key={pub.id}>
                       <TableCell>{pub.isApplied ? <Badge className="bg-emerald-500 text-white text-[9px]">APPLIQUÉ</Badge> : <Badge variant="outline" className="text-[9px]">EN ATTENTE</Badge>}</TableCell>
-                      <TableCell className="max-w-[300px] font-bold text-xs">{pub.title}</TableCell>
+                      <TableCell className="max-w-[300px] font-bold text-xs">
+                        <div className="flex flex-col">
+                          <span>{pub.title}</span>
+                          {pub.category === 'manuel' && <span className="text-[8px] text-accent font-black">SAISIE MANUELLE</span>}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-[10px] text-muted-foreground uppercase">{pub.category}</TableCell>
                       <TableCell className="text-xs">{pub.publishedDate}</TableCell>
                       <TableCell className="text-[10px]">{pub.appliedAt ? new Date(pub.appliedAt).toLocaleString() : '---'}</TableCell>
-                      <TableCell className="text-right"><Button variant="ghost" size="icon" asChild><a href={pub.url} target="_blank"><ExternalLink className="h-4 w-4" /></a></Button></TableCell>
+                      <TableCell className="text-right">
+                        {pub.url !== "Saisie Manuelle" ? (
+                          <Button variant="ghost" size="icon" asChild><a href={pub.url} target="_blank"><ExternalLink className="h-4 w-4" /></a></Button>
+                        ) : (
+                          <Edit3 className="h-4 w-4 text-muted-foreground mx-auto" />
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
