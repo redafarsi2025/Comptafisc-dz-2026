@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { 
   Eye, RefreshCw, Sparkles, CheckCircle2, Loader2, 
-  ArrowRight, FileText, Calendar, Zap, AlertTriangle, ListChecks, DatabaseZap, History, Clock, ExternalLink, Inbox, BellRing
+  FileText, Calendar, Zap, ListChecks, DatabaseZap, History, Clock, ExternalLink, Inbox, BellRing, TrendingUp
 } from "lucide-react"
 import { scrapeDgiNews } from "@/lib/dgi-watch/scraper"
 import { analyzeDgiPublication } from "@/ai/flows/dgi-analysis-flow"
@@ -29,6 +29,16 @@ export default function DgiWatchAdmin() {
 
   const pendingItems = React.useMemo(() => publications?.filter(p => !p.isApplied) || [], [publications]);
   const resolvedItems = React.useMemo(() => publications?.filter(p => p.isApplied) || [], [publications]);
+
+  // Calcul des nouveautés du mois en cours
+  const currentMonthName = new Intl.DateTimeFormat('fr-FR', { month: 'long' }).format(new Date());
+  const newsThisMonth = React.useMemo(() => {
+    if (!publications) return [];
+    return publications.filter(p => 
+      p.publishedDate.toLowerCase().includes(currentMonthName.toLowerCase()) || 
+      p.publishedDate.includes(new Date().getFullYear().toString())
+    );
+  }, [publications, currentMonthName]);
 
   const handleSyncAndAnalyze = async () => {
     if (!db) return
@@ -130,6 +140,17 @@ export default function DgiWatchAdmin() {
       </div>
 
       <div className="grid md:grid-cols-4 gap-6">
+        <Card className="bg-blue-50 border-blue-200 border-l-4 border-l-blue-500 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-[10px] uppercase font-bold text-blue-800">Parutions en {currentMonthName}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-black text-blue-600 flex items-center gap-2">
+              <TrendingUp className="h-6 w-6" />
+              {newsThisMonth.length}
+            </div>
+          </CardContent>
+        </Card>
         <Card className="bg-amber-50 border-amber-200 border-l-4 border-l-amber-500 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-[10px] uppercase font-bold text-amber-800">À traiter (Inbox)</CardTitle>
@@ -149,21 +170,13 @@ export default function DgiWatchAdmin() {
             <div className="text-3xl font-black">{publications?.length || 0}</div>
           </CardContent>
         </Card>
-        <Card className="border-t-4 border-t-emerald-500 shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] uppercase font-bold text-emerald-800">Mises à jour Appliquées</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-black text-emerald-600">{resolvedItems.length}</div>
-          </CardContent>
-        </Card>
         <Card className="bg-primary text-white border-none shadow-lg">
           <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] uppercase font-bold opacity-80">Statut Moteur 2026</CardTitle>
+            <CardTitle className="text-[10px] uppercase font-bold opacity-80">Moteur Fiscal</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xl font-bold flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5" /> À JOUR
+              <CheckCircle2 className="h-5 w-5" /> CONFORME 2026
             </div>
           </CardContent>
         </Card>
@@ -198,95 +211,98 @@ export default function DgiWatchAdmin() {
             </Card>
           ) : (
             <div className="space-y-6">
-              {pendingItems.map((pub) => (
-                <Card key={pub.id} className="overflow-hidden border-none shadow-lg ring-1 ring-amber-200 bg-amber-50/10">
-                  <CardHeader className="bg-amber-100/30 border-b py-4">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="destructive" className="text-[8px] uppercase animate-pulse">ACTION REQUISE</Badge>
-                          <Badge variant="outline" className="text-[8px] uppercase">{pub.category}</Badge>
-                          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                            <Calendar className="h-3 w-3" /> Paru le {pub.publishedDate}
-                          </span>
-                        </div>
-                        <CardTitle className="text-lg text-primary">{pub.title}</CardTitle>
-                      </div>
-                      <Button variant="ghost" size="sm" asChild className="h-8 text-[10px]">
-                        <a href={pub.url} target="_blank" rel="noopener noreferrer">Source officielle <ExternalLink className="ml-1 h-3 w-3" /></a>
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-6">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                      <div className="space-y-4">
-                        <h4 className="text-[10px] font-bold uppercase text-muted-foreground mb-2 flex items-center gap-1">
-                          <Sparkles className="h-3 w-3 text-accent" /> Analyse IA (Gemini)
-                        </h4>
-                        <p className="text-sm leading-relaxed text-foreground/80 italic">"{pub.summary || 'Analyse en cours...'}"</p>
-                        <div>
-                          <h4 className="text-[10px] font-bold uppercase text-muted-foreground mb-2">Modules SaaS Impactés</h4>
-                          <div className="flex flex-wrap gap-2">
-                            {pub.affectedModules?.map((m: string) => (
-                              <Badge key={m} variant="outline" className="bg-primary/5 text-primary border-primary/20 text-[10px]">{m}</Badge>
-                            ))}
+              {pendingItems.map((pub) => {
+                const isFromCurrentMonth = pub.publishedDate.toLowerCase().includes(currentMonthName.toLowerCase());
+                return (
+                  <Card key={pub.id} className={`overflow-hidden border-none shadow-lg ring-1 ${isFromCurrentMonth ? 'ring-blue-200 bg-blue-50/5' : 'ring-amber-200 bg-amber-50/10'}`}>
+                    <CardHeader className={`${isFromCurrentMonth ? 'bg-blue-100/30' : 'bg-amber-100/30'} border-b py-4`}>
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            {isFromCurrentMonth && <Badge className="bg-blue-600 text-white text-[8px] h-4">RÉCENT ({currentMonthName.toUpperCase()})</Badge>}
+                            <Badge variant="outline" className="text-[8px] uppercase">{pub.category}</Badge>
+                            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                              <Calendar className="h-3 w-3" /> Paru le {pub.publishedDate}
+                            </span>
                           </div>
+                          <CardTitle className="text-lg text-primary">{pub.title}</CardTitle>
                         </div>
+                        <Button variant="ghost" size="sm" asChild className="h-8 text-[10px]">
+                          <a href={pub.url} target="_blank" rel="noopener noreferrer">Source officielle <ExternalLink className="ml-1 h-3 w-3" /></a>
+                        </Button>
                       </div>
-
-                      <div className="space-y-4">
-                        <h4 className="text-[10px] font-bold uppercase text-muted-foreground mb-2 flex items-center gap-1">
-                          <ListChecks className="h-3 w-3 text-primary" /> Points clés extraits
-                        </h4>
-                        <ul className="space-y-2">
-                          {pub.keyPoints?.map((pt: string, idx: number) => (
-                            <li key={idx} className="text-xs flex items-start gap-2">
-                              <span className="h-1.5 w-1.5 rounded-full bg-accent mt-1.5 shrink-0" />
-                              <span>{pt}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      <div className="space-y-4 bg-white p-4 rounded-xl border-2 border-primary/10 shadow-inner">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1">
-                            <DatabaseZap className="h-3 w-3 text-emerald-600" /> Données à Injecter
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div className="space-y-4">
+                          <h4 className="text-[10px] font-bold uppercase text-muted-foreground mb-2 flex items-center gap-1">
+                            <Sparkles className="h-3 w-3 text-accent" /> Analyse IA (Gemini)
                           </h4>
-                          <Button 
-                            size="sm" 
-                            className="h-7 text-[9px] bg-emerald-600 hover:bg-emerald-700 font-bold"
-                            onClick={() => handleInjectVariables(pub)}
-                            disabled={isInjecting === pub.id}
-                          >
-                            {isInjecting === pub.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <DatabaseZap className="h-3 w-3 mr-1" />}
-                            APPROUVER
-                          </Button>
-                        </div>
-                        
-                        {pub.extractedVariables && pub.extractedVariables.length > 0 ? (
-                          <div className="space-y-2">
-                            {pub.extractedVariables.map((v: any, idx: number) => (
-                              <div key={idx} className="flex justify-between items-center p-2 bg-muted/30 rounded border">
-                                <div>
-                                  <p className="text-[9px] font-black text-primary truncate w-32">{v.name}</p>
-                                  <p className="text-[8px] text-muted-foreground">{v.code}</p>
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-xs font-black text-emerald-600">{v.value}</p>
-                                  <p className="text-[8px] text-muted-foreground">Effet: {v.effectiveDate}</p>
-                                </div>
-                              </div>
-                            ))}
+                          <p className="text-sm leading-relaxed text-foreground/80 italic">"{pub.summary || 'Analyse en cours...'}"</p>
+                          <div>
+                            <h4 className="text-[10px] font-bold uppercase text-muted-foreground mb-2">Modules SaaS Impactés</h4>
+                            <div className="flex flex-wrap gap-2">
+                              {pub.affectedModules?.map((m: string) => (
+                                <Badge key={m} variant="outline" className="bg-primary/5 text-primary border-primary/20 text-[10px]">{m}</Badge>
+                              ))}
+                            </div>
                           </div>
-                        ) : (
-                          <div className="text-center py-6 text-muted-foreground italic text-xs">Aucune variable détectée.</div>
-                        )}
+                        </div>
+
+                        <div className="space-y-4">
+                          <h4 className="text-[10px] font-bold uppercase text-muted-foreground mb-2 flex items-center gap-1">
+                            <ListChecks className="h-3 w-3 text-primary" /> Points clés extraits
+                          </h4>
+                          <ul className="space-y-2">
+                            {pub.keyPoints?.map((pt: string, idx: number) => (
+                              <li key={idx} className="text-xs flex items-start gap-2">
+                                <span className="h-1.5 w-1.5 rounded-full bg-accent mt-1.5 shrink-0" />
+                                <span>{pt}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        <div className="space-y-4 bg-white p-4 rounded-xl border-2 border-primary/10 shadow-inner">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1">
+                              <DatabaseZap className="h-3 w-3 text-emerald-600" /> Données à Injecter
+                            </h4>
+                            <Button 
+                              size="sm" 
+                              className="h-7 text-[9px] bg-emerald-600 hover:bg-emerald-700 font-bold"
+                              onClick={() => handleInjectVariables(pub)}
+                              disabled={isInjecting === pub.id}
+                            >
+                              {isInjecting === pub.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <DatabaseZap className="h-3 w-3 mr-1" />}
+                              APPROUVER
+                            </Button>
+                          </div>
+                          
+                          {pub.extractedVariables && pub.extractedVariables.length > 0 ? (
+                            <div className="space-y-2">
+                              {pub.extractedVariables.map((v: any, idx: number) => (
+                                <div key={idx} className="flex justify-between items-center p-2 bg-muted/30 rounded border">
+                                  <div>
+                                    <p className="text-[9px] font-black text-primary truncate w-32">{v.name}</p>
+                                    <p className="text-[8px] text-muted-foreground">{v.code}</p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-xs font-black text-emerald-600">{v.value}</p>
+                                    <p className="text-[8px] text-muted-foreground">Effet: {v.effectiveDate}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-6 text-muted-foreground italic text-xs">Aucune variable détectée.</div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </TabsContent>
