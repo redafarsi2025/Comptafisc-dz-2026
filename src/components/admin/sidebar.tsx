@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -15,7 +14,8 @@ import {
   Briefcase,
   Layers,
   DatabaseZap,
-  Eye
+  Eye,
+  Factory
 } from "lucide-react"
 
 import {
@@ -35,6 +35,7 @@ const adminNavigation = [
   { name: "Pilotage Revenus", href: "/saas-admin", icon: BarChart3 },
   { name: "Moteur Fiscal", href: "/saas-admin/fiscal-engine", icon: DatabaseZap },
   { name: "DGI Watch Console", href: "/saas-admin/dgi-watch", icon: Eye },
+  { name: "Usine à Démos", href: "/saas-admin/demo-factory", icon: Factory },
   { name: "Gestion des Plans", href: "/saas-admin/plans", icon: Layers },
   { name: "Formulaires DGI", href: "/saas-admin/forms", icon: FileEdit },
   { name: "Règles Métier", href: "/saas-admin/rules", icon: ShieldAlert },
