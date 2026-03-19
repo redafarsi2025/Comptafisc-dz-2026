@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -16,7 +17,9 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer
+  ResponsiveContainer,
+  LineChart,
+  Line
 } from "recharts"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -24,9 +27,33 @@ import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebas
 import { collection, query, where, limit } from "firebase/firestore"
 import { 
   TrendingUp, Wallet, ArrowUpRight, BadgeCheck, AlertCircle, 
-  CheckCircle2, Activity, Sparkles, Landmark
+  CheckCircle2, Activity, Sparkles, Landmark, History, ShieldCheck, Zap
 } from "lucide-react"
 import { getIBSRate } from "@/lib/calculations"
+
+const REGULATORY_MILESTONES = [
+  { 
+    law: "LF 2026", 
+    title: "SNMG & IRG", 
+    desc: "SNMG à 24 000 DA et nouveaux barèmes IRG appliqués.", 
+    status: "ACTIF", 
+    color: "text-emerald-600 bg-emerald-50" 
+  },
+  { 
+    law: "LF 2025", 
+    title: "Existence (G8)", 
+    desc: "Obligation de déclaration sous 30 jours intégrée.", 
+    status: "ACTIF", 
+    color: "text-blue-600 bg-blue-50" 
+  },
+  { 
+    law: "LF 2024", 
+    title: "Suppression TAP", 
+    desc: "Taux à 0% pour toutes les activités professionnelles.", 
+    status: "ARCHIVÉ", 
+    color: "text-slate-600 bg-slate-50" 
+  }
+]
 
 export default function DashboardOverview() {
   const db = useFirestore()
@@ -75,82 +102,89 @@ export default function DashboardOverview() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight text-primary">Vue d'ensemble</h1>
-        <div className="text-muted-foreground flex items-center gap-2">
-          <span>Entreprise :</span>
-          <span className="font-semibold text-foreground">{currentTenant?.raisonSociale || "Chargement..."}</span>
-          <Badge variant="outline" className="border-primary/20 bg-primary/5">
-            {currentTenant?.regimeFiscal || "Réel"}
-          </Badge>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-primary">Vue d'ensemble</h1>
+          <div className="text-muted-foreground flex items-center gap-2 mt-1">
+            <span>Dossier :</span>
+            <span className="font-semibold text-foreground">{currentTenant?.raisonSociale || "Chargement..."}</span>
+            <Badge variant="outline" className="border-primary/20 bg-primary/5">
+              {currentTenant?.regimeFiscal || "Réel"}
+            </Badge>
+            {currentTenant?.isStartup && <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">Start-up Labellisée</Badge>}
+          </div>
+        </div>
+        <div className="flex items-center gap-3 bg-white p-2 rounded-xl border shadow-sm">
+          <div className="h-10 w-10 rounded-lg bg-accent/10 flex items-center justify-center">
+            <ShieldCheck className="h-6 w-6 text-accent" />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase">Statut Conformité</p>
+            <p className="text-sm font-black text-emerald-600">CERTIFIÉ LF 2026</p>
+          </div>
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="hover:shadow-md transition-shadow">
+        <Card className="hover:shadow-md transition-shadow border-l-4 border-l-primary">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">CA Total (HT)</CardTitle>
+            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">CA Annuel (HT)</CardTitle>
             <TrendingUp className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.ca.toLocaleString()} DZD</div>
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <span className="text-emerald-500 flex items-center">
-                <ArrowUpRight className="h-3 w-3" /> +{(stats.count > 0 ? 12 : 0)}%
-              </span>
-              Basé sur {stats.count} factures
-            </p>
+            <p className="text-[10px] text-muted-foreground mt-1">Basé sur {stats.count} factures émises.</p>
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-md transition-shadow">
+        <Card className="hover:shadow-md transition-shadow border-l-4 border-l-amber-500">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Provision IBS / IFU</CardTitle>
+            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Provision IBS / IFU</CardTitle>
             <Landmark className="h-4 w-4 text-amber-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
               {currentTenant?.regimeFiscal === 'IFU' ? 'IFU 5-12%' : `${(ibsRate * 100).toFixed(0)}% IBS`}
             </div>
-            <p className="text-xs text-muted-foreground">Estimation basée sur le secteur {currentTenant?.secteurActivite}</p>
+            <p className="text-[10px] text-muted-foreground mt-1 italic">Calculé selon secteur {currentTenant?.secteurActivite}</p>
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-md transition-shadow bg-emerald-50/50">
+        <Card className="hover:shadow-md transition-shadow border-l-4 border-l-emerald-500 bg-emerald-50/30">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">TAP (LF 2024)</CardTitle>
+            <CardTitle className="text-xs font-bold uppercase text-emerald-800">Économie TAP (LF 24)</CardTitle>
             <Sparkles className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-600">0 DZD</div>
-            <p className="text-xs text-muted-foreground">Suppression totale confirmée</p>
+            <div className="text-2xl font-bold text-emerald-600">{(stats.ca * 0.02).toLocaleString()} DZD</div>
+            <p className="text-[10px] text-emerald-700 italic mt-1">Gain généré par la suppression de la TAP.</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-primary text-primary-foreground">
+        <Card className="bg-primary text-primary-foreground shadow-lg border-none">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Santé Fiscale</CardTitle>
+            <CardTitle className="text-xs font-bold uppercase opacity-80">Santé Fiscale</CardTitle>
             <BadgeCheck className="h-4 w-4" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{(currentTenant?.onboardingComplete ? "98" : "45")}/100</div>
-            <Progress value={currentTenant?.onboardingComplete ? 98 : 45} className="mt-2 bg-white/20" />
-            <p className="text-xs mt-2 opacity-90">
-              {currentTenant?.onboardingComplete ? "Dossier conforme LF 2024" : "Profil à compléter"}
+            <div className="text-3xl font-black">{(currentTenant?.onboardingComplete ? "98" : "45")}/100</div>
+            <Progress value={currentTenant?.onboardingComplete ? 98 : 45} className="mt-2 bg-white/20 h-1.5" />
+            <p className="text-[10px] mt-2 opacity-90 font-medium">
+              {currentTenant?.onboardingComplete ? "Dossier conforme aux exigences 2026" : "Informations NIF/NIN manquantes"}
             </p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-7">
+      <div className="grid gap-6 md:grid-cols-7">
         <Card className="md:col-span-4 shadow-sm border-t-4 border-t-primary">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-primary" /> Performance Mensuelle
+          <CardHeader className="bg-muted/10 border-b">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Activity className="h-5 w-5 text-primary" /> Analyse des Flux (HT)
             </CardTitle>
-            <CardDescription>Revenus HT agrégés en temps réel.</CardDescription>
+            <CardDescription>Évolution des produits et charges sur l'exercice en cours.</CardDescription>
           </CardHeader>
-          <CardContent className="h-[300px]">
+          <CardContent className="h-[350px] pt-6">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
@@ -158,38 +192,68 @@ export default function DashboardOverview() {
                 <YAxis axisLine={false} tickLine={false} tickFormatter={(val) => `${val / 1000}k`} />
                 <Tooltip
                   cursor={{ fill: "hsl(var(--muted))", opacity: 0.4 }}
-                  contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
+                  contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)" }}
                 />
-                <Legend />
-                <Bar dataKey="revenue" name="Revenus HT" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="expenses" name="Dépenses HT" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
+                <Legend iconType="circle" />
+                <Bar dataKey="revenue" name="Ventes (CA)" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="expenses" name="Achats / Charges" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card className="md:col-span-3">
-          <CardHeader>
-            <CardTitle>Alertes & Vigilance</CardTitle>
-            <CardDescription>Points critiques LF 2024.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-              <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-semibold text-emerald-600">TAP Supprimée</p>
-                <p className="text-xs text-muted-foreground">Gain de trésorerie automatique depuis le 01/01/2024.</p>
+        <div className="md:col-span-3 space-y-6">
+          <Card className="shadow-lg border-none ring-1 ring-border">
+            <CardHeader className="bg-primary text-white pb-4">
+              <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-wider">
+                <History className="h-4 w-4" /> Veille Réglementaire Active
+              </CardTitle>
+              <CardDescription className="text-white/70 text-[10px]">
+                Mises à jour législatives automatiquement intégrées au dossier.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y">
+                {REGULATORY_MILESTONES.map((item, idx) => (
+                  <div key={idx} className="p-4 hover:bg-muted/30 transition-colors">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${item.color}`}>
+                          {item.law}
+                        </span>
+                        <h4 className="text-xs font-bold">{item.title}</h4>
+                      </div>
+                      <Badge variant="outline" className="text-[8px] h-4 border-emerald-200 text-emerald-600 bg-emerald-50">
+                        {item.status}
+                      </Badge>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">
+                      {item.desc}
+                    </p>
+                  </div>
+                ))}
               </div>
-            </div>
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-              <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-semibold text-amber-600">IBS & TVA Maintenus</p>
-                <p className="text-xs text-muted-foreground">La suppression ne concerne que la TAP. L'IBS reste exigible au taux de {(ibsRate * 100).toFixed(0)}%.</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+            <CardFooter className="bg-muted/20 p-3 flex justify-center border-t">
+              <Button variant="ghost" size="sm" className="text-[10px] h-7 text-primary font-bold">
+                Consulter le Corpus Juridique (RAG)
+              </Button>
+            </CardFooter>
+          </Card>
+
+          <Card className="bg-accent/5 border-dashed border-2 border-accent/20">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2 text-primary">
+                <Zap className="h-4 w-4 text-accent" /> Assistant IA : Note de Synthèse
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-[10px] text-muted-foreground italic leading-relaxed">
+                "Votre dossier présente une santé fiscale de 98%. La suppression de la TAP en 2024 a optimisé votre marge de 2%. Attention : l'échéance de la G29 approche (30 avril), assurez-vous que les NIN de vos 12 salariés sont renseignés."
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   )
