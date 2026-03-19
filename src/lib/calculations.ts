@@ -79,11 +79,6 @@ export function getIBSRate(secteur: string, activiteNAP?: string): number {
   return TAX_RATES.IBS_SERVICES_COMMERCE;
 }
 
-/** Retourne le taux de TAP (0% depuis LF 2024). */
-export function getTAPRate(): number {
-  return TAX_RATES.TAP_DEFAULT;
-}
-
 /** Calcule l'IFU en respectant les minimums légaux et les exonérations. */
 export function calculateIFU(ca: number, rate: number, isAuto: boolean, isExempt: boolean = false): number {
   if (isExempt) return 0;
@@ -92,50 +87,64 @@ export function calculateIFU(ca: number, rate: number, isAuto: boolean, isExempt
   return Math.max(calculated, minTax);
 }
 
-/** Calcule les majorations de retard IFU (Art. 282 nonies). */
-export function calculateLatePenalty(taxAmount: number, monthsDelay: number, isDefinitive: boolean = false): number {
-  if (monthsDelay <= 0) return 0;
-  
-  // Majorations de retard standard
-  let penalty = 0;
-  if (monthsDelay <= 1) penalty = taxAmount * 0.10;
-  else if (monthsDelay <= 2) penalty = taxAmount * 0.20;
-  else penalty = taxAmount * 0.25;
-
-  // Amendes fixes si pas de paiement (uniquement sur G12 bis)
-  if (isDefinitive && taxAmount === 0) {
-    if (monthsDelay <= 1) return 2500;
-    if (monthsDelay <= 2) return 5000;
-    return 10000;
-  }
-
-  return penalty;
-}
-
-/** Calcule l'IRG Salarié - Barème 2026. */
-export function calculateIRG(netImposable: number, isGrandSud: boolean = false, isHandicapped: boolean = false): number {
+/** Calcule l'IRG Salarié - Barème 2026 complet avec abattements lissés. */
+export function calculateIRG(netImposable: number, isGrandSud: boolean = false, isHandicappedOrRetired: boolean = false): number {
+  // Arrondi à la dizaine de dinars inférieure
   const base = Math.floor(netImposable / 10) * 10;
+  
+  // 1. Exonération totale si <= 30 000 DA
   if (base <= 30000) return 0;
 
-  let irgStandard = 0;
-  if (base <= 120000) {
-    irgStandard = (base - 30000) * 0.23;
-  } else if (base <= 360000) {
-    irgStandard = (120000 - 30000) * 0.23 + (base - 120000) * 0.27;
-  } else if (base <= 1440000) {
-    irgStandard = (120000 - 30000) * 0.23 + (360000 - 120000) * 0.27 + (base - 360000) * 0.30;
+  // 2. Calcul selon le barème progressif mensualisé
+  let irgBrut = 0;
+  if (base <= 20000) {
+    irgBrut = 0;
+  } else if (base <= 40000) {
+    irgBrut = (base - 20000) * 0.23;
+  } else if (base <= 80000) {
+    irgBrut = (40000 - 20000) * 0.23 + (base - 40000) * 0.27;
+  } else if (base <= 160000) {
+    irgBrut = (40000 - 20000) * 0.23 + (80000 - 40000) * 0.27 + (base - 80000) * 0.30;
+  } else if (base <= 320000) {
+    irgBrut = (40000 - 20000) * 0.23 + (80000 - 40000) * 0.27 + (160000 - 80000) * 0.30 + (base - 160000) * 0.33;
   } else {
-    irgStandard = (120000 - 30000) * 0.23 + (360000 - 120000) * 0.27 + (1440000 - 360000) * 0.30 + (base - 1440000) * 0.35;
+    irgBrut = (40000 - 20000) * 0.23 + (80000 - 40000) * 0.27 + (160000 - 80000) * 0.30 + (320000 - 160000) * 0.33 + (base - 320000) * 0.35;
   }
 
-  let abattement = irgStandard * 0.4;
-  if (abattement < 1000) abattement = 1000;
-  if (abattement > 1500) abattement = 1500;
+  // 3. Premier abattement de 40% (Min 1000, Max 1500)
+  let abattement1 = irgBrut * 0.4;
+  if (abattement1 < 1000) abattement1 = 1000;
+  if (abattement1 > 1500) abattement1 = 1500;
 
-  let irgFinal = Math.max(0, irgStandard - abattement);
-  if (isGrandSud || isHandicapped) irgFinal *= 0.5;
+  let irgApresAbat1 = Math.max(0, irgBrut - abattement1);
 
-  return Math.round(irgFinal);
+  // 4. Calcul final selon la catégorie et les seuils de lissage
+  let irgFinal = 0;
+
+  if (isHandicappedOrRetired) {
+    // Régime spécifique : Travailleurs handicapés et retraités
+    if (base <= 42500) {
+      // Formule de lissage spécifique : (93/61) * IRG_abat1 - (81213/41)
+      irgFinal = irgApresAbat1 * (93/61) - (81213/41);
+    } else {
+      irgFinal = irgApresAbat1;
+    }
+  } else {
+    // Régime standard : Travailleurs salariés
+    if (base <= 35000) {
+      // Formule de lissage spécifique : (137/51) * IRG_abat1 - (27925/8)
+      irgFinal = irgApresAbat1 * (137/51) - (27925/8);
+    } else {
+      irgFinal = irgApresAbat1;
+    }
+  }
+
+  // 5. Abattement Zone Sud (IZCV) de 50%
+  if (isGrandSud) {
+    irgFinal *= 0.5;
+  }
+
+  return Math.round(Math.max(0, irgFinal));
 }
 
 export function calculateStampDuty(amount: number, isCash: boolean): number {

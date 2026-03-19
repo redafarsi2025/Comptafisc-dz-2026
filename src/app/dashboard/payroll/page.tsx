@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Plus, Users, Calculator, Wallet, Printer, FileDown, Search, Loader2, Info, ReceiptText, MapPin, ShieldCheck, BookOpen, Fingerprint } from "lucide-react"
+import { Plus, Users, Calculator, Wallet, Printer, FileDown, Search, Loader2, Info, ReceiptText, MapPin, ShieldCheck, BookOpen, Fingerprint, HeartPulse } from "lucide-react"
 import { PAYROLL_CONSTANTS, calculateIRG } from "@/lib/calculations"
 import { toast } from "@/hooks/use-toast"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -33,7 +33,8 @@ export default function PayrollPage() {
     cnasNumber: "",
     nin: "",
     isGrandSud: false,
-    isHandicapped: false
+    isHandicapped: false,
+    isRetired: false
   })
 
   React.useEffect(() => {
@@ -66,7 +67,9 @@ export default function PayrollPage() {
     const salairePoste = base + primes;
     const cnasEmployee = salairePoste * PAYROLL_CONSTANTS.CNAS_EMPLOYEE;
     const imposable = salairePoste - cnasEmployee;
-    const irg = calculateIRG(imposable, emp.isGrandSud, emp.isHandicapped);
+    
+    // On utilise le flag isHandicappedOrRetired pour le calcul spécial de l'IRG
+    const irg = calculateIRG(imposable, emp.isGrandSud, emp.isHandicapped || emp.isRetired);
     const net = imposable - irg + panier + transport;
     const cnasEmployer = salairePoste * PAYROLL_CONSTANTS.CNAS_EMPLOYER;
     
@@ -102,7 +105,7 @@ export default function PayrollPage() {
       setNewEmployee({ 
         name: "", position: "", baseSalary: 24000, primesImposables: 0, 
         indemnitePanier: 0, indemniteTransport: 0, cnasNumber: "", nin: "",
-        isGrandSud: false, isHandicapped: false
+        isGrandSud: false, isHandicapped: false, isRetired: false
       });
     } catch (e) {
       console.error(e);
@@ -171,15 +174,15 @@ export default function PayrollPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 bg-muted/30 p-4 rounded-lg">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-muted/30 p-4 rounded-lg">
                   <div className="flex items-center space-x-2">
                     <Checkbox 
                       id="grandSud" 
                       checked={newEmployee.isGrandSud} 
                       onCheckedChange={(c) => setNewEmployee({...newEmployee, isGrandSud: !!c})} 
                     />
-                    <label htmlFor="grandSud" className="text-xs font-medium flex items-center gap-1 cursor-pointer">
-                      <MapPin className="h-3 w-3 text-primary" /> Zone Grand Sud (-50% IRG)
+                    <label htmlFor="grandSud" className="text-[10px] font-bold flex items-center gap-1 cursor-pointer">
+                      <MapPin className="h-3 w-3 text-primary" /> Zone Grand Sud
                     </label>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -188,8 +191,18 @@ export default function PayrollPage() {
                       checked={newEmployee.isHandicapped} 
                       onCheckedChange={(c) => setNewEmployee({...newEmployee, isHandicapped: !!c})} 
                     />
-                    <label htmlFor="handicap" className="text-xs font-medium flex items-center gap-1 cursor-pointer">
-                      <ShieldCheck className="h-3 w-3 text-accent" /> Profil Handicapé (-50% IRG)
+                    <label htmlFor="handicap" className="text-[10px] font-bold flex items-center gap-1 cursor-pointer">
+                      <ShieldCheck className="h-3 w-3 text-accent" /> Handicapé
+                    </label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="retired" 
+                      checked={newEmployee.isRetired} 
+                      onCheckedChange={(c) => setNewEmployee({...newEmployee, isRetired: !!c})} 
+                    />
+                    <label htmlFor="retired" className="text-[10px] font-bold flex items-center gap-1 cursor-pointer">
+                      <HeartPulse className="h-3 w-3 text-emerald-600" /> Retraité
                     </label>
                   </div>
                 </div>
@@ -316,7 +329,8 @@ export default function PayrollPage() {
                             <div className="flex justify-end gap-1">
                               {e.isGrandSud && <Badge variant="outline" className="text-[8px] bg-blue-50 text-blue-700">SUD</Badge>}
                               {e.isHandicapped && <Badge variant="outline" className="text-[8px] bg-amber-50 text-amber-700">HANDI</Badge>}
-                              {!e.isGrandSud && !e.isHandicapped && <span className="text-[10px] text-muted-foreground">-</span>}
+                              {e.isRetired && <Badge variant="outline" className="text-[8px] bg-emerald-50 text-emerald-700">RETR</Badge>}
+                              {!e.isGrandSud && !e.isHandicapped && !e.isRetired && <span className="text-[10px] text-muted-foreground">-</span>}
                             </div>
                           </TableCell>
                           <TableCell className="text-right font-mono text-xs text-destructive">-{formatAmount(calc.cnasEmployee)}</TableCell>
@@ -395,8 +409,9 @@ export default function PayrollPage() {
           <ul className="list-disc pl-4 space-y-1">
             <li>SNMG : Augmenté à 24 000 DA à partir du 1er Janvier 2026.</li>
             <li>Exonération totale de l'IRG pour les salaires imposables ≤ 30 000 DA.</li>
-            <li>Barème 2026 appliqué avec abattement plafonné à 1 500 DA par mois.</li>
-            <li>Réduction de 50% de l'IRG pour les zones Sud (IZCV) et les travailleurs handicapés.</li>
+            <li>Barème 2026 appliqué avec abattement lissé pour les tranches 30k-35k DA.</li>
+            <li>Régime spécial Handicapé/Retraité : Abattement lissé jusqu'à 42 500 DA.</li>
+            <li>Réduction de 50% de l'IRG pour les zones Sud (IZCV).</li>
             <li>Assiette CNAS : Exclusivement sur le Salaire de Poste (Brut - Indemnités de frais).</li>
           </ul>
         </div>
