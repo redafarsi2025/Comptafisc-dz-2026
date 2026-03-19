@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -14,18 +15,15 @@ import {
   Settings,
   ChevronDown,
   Building2,
-  Plus,
   User as UserIcon,
   LogOut,
   Library,
-  BookOpenCheck,
   FileBarChart,
   FileStack,
   ClipboardList,
   CalendarCheck,
   HardHat,
   Contact,
-  Briefcase,
   Layers,
   MessagesSquare,
   Repeat,
@@ -36,7 +34,9 @@ import {
   Eye,
   GraduationCap,
   FileBadge,
-  TrendingDown
+  TrendingDown,
+  BrainCircuit,
+  PieChart
 } from "lucide-react"
 
 import {
@@ -61,40 +61,59 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useUser, useFirestore, useAuth, useCollection, useMemoFirebase, initiateAnonymousSignIn } from "@/firebase"
-import { collection, query, where, doc, setDoc } from "firebase/firestore"
+import { collection, query, where } from "firebase/firestore"
 import { signOut } from "firebase/auth"
-import { toast } from "@/hooks/use-toast"
 
-const navigation = [
+// 1. Pilotage & Décision
+const pilotageNav = [
   { name: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Saisie Comptable", href: "/dashboard/accounting", icon: BookText },
-  { name: "Registre Immos", href: "/dashboard/accounting/assets", icon: TrendingDown },
-  { name: "Facturation", href: "/dashboard/invoicing", icon: Receipt },
-  { name: "Paie & Livre de Paie", href: "/dashboard/payroll", icon: Users },
-  { name: "Déclarations Fisc", href: "/dashboard/declarations", icon: FileText },
-  { name: "Assistant IA", href: "/dashboard/assistant", icon: MessageSquareMore },
-  { name: "Capture OCR", href: "/dashboard/ocr", icon: Camera },
 ]
 
-const socialNavigation = [
-  { name: "Livre de Paie", href: "/dashboard/payroll/ledger", icon: BookOpen },
-  { name: "Bordereau DAC", href: "/dashboard/payroll/dac", icon: CalendarCheck },
-  { name: "DAS Annuelle", href: "/dashboard/payroll/das", icon: ClipboardList },
-  { name: "G50 ter (Trimestriel)", href: "/dashboard/declarations/g50ter", icon: CalendarDays },
-  { name: "CACOBATPH", href: "/dashboard/payroll/cacobatph", icon: HardHat },
-  { name: "Taxe Apprentissage", href: "/dashboard/declarations/taxe-apprentissage", icon: GraduationCap },
-]
-
-const cabinetNavigation = [
-  { name: "Dashboard Cabinet", href: "/dashboard/cabinet", icon: Layers },
-  { name: "DGI Watch", href: "/dashboard/cabinet/dgi-watch", icon: Eye },
-  { name: "Collaboration Hub", href: "/dashboard/cabinet/collaboration", icon: MessagesSquare },
-  { name: "G50 Groupées", href: "/dashboard/cabinet/bulk-g50", icon: Repeat },
+// 2. Comptabilité SCF
+const accountingNav = [
+  { name: "Saisie Journal", href: "/dashboard/accounting", icon: BookText },
+  { name: "Grand Livre", href: "/dashboard/accounting/ledger", icon: Library },
+  { name: "États Financiers", href: "/dashboard/accounting/financial-statements", icon: FileBarChart },
+  { name: "Registre des Immos", href: "/dashboard/accounting/assets", icon: TrendingDown },
   { name: "Rapprochement Bancaire", href: "/dashboard/cabinet/bank-recon", icon: Landmark },
 ]
 
-const adminNav = [
+// 3. Activité & Tiers
+const businessNav = [
+  { name: "Facturation Émise", href: "/dashboard/invoicing", icon: Receipt },
+  { name: "Tiers (Clients/Fourn.)", href: "/dashboard/contacts", icon: Contact },
+]
+
+// 4. Ressources Humaines & Paie
+const payrollNav = [
+  { name: "Registre du Personnel", href: "/dashboard/payroll", icon: Users },
+  { name: "Livre de Paie", href: "/dashboard/payroll/ledger", icon: BookOpen },
+  { name: "Bordereau DAC (CNAS)", href: "/dashboard/payroll/dac", icon: CalendarCheck },
+  { name: "DAS Annuelle", href: "/dashboard/payroll/das", icon: ClipboardList },
+  { name: "CACOBATPH (BTP)", href: "/dashboard/payroll/cacobatph", icon: HardHat },
+]
+
+// 5. Fiscalité DGI
+const fiscalNav = [
+  { name: "Déclarations (G50/G12)", href: "/dashboard/declarations", icon: FileText },
+  { name: "G50 ter (Trimestriel)", href: "/dashboard/declarations/g50ter", icon: CalendarDays },
+  { name: "Liasse Fiscale (G4)", href: "/dashboard/declarations/g4", icon: FileStack },
   { name: "Existence (G8)", href: "/dashboard/declarations/g8", icon: FileBadge },
+  { name: "Taxe Apprentissage", href: "/dashboard/declarations/taxe-apprentissage", icon: GraduationCap },
+]
+
+// 6. Centre IA & Veille
+const aiNav = [
+  { name: "Assistant Fiscal IA", href: "/dashboard/assistant", icon: MessageSquareMore },
+  { name: "Capture OCR (Gemini)", href: "/dashboard/ocr", icon: Camera },
+  { name: "DGI Watch (Veille)", href: "/dashboard/cabinet/dgi-watch", icon: Eye },
+]
+
+// 7. Expert Cabinet (Multi-dossiers)
+const cabinetNav = [
+  { name: "Dashboard Cabinet", href: "/dashboard/cabinet", icon: Layers },
+  { name: "Collaboration Hub", href: "/dashboard/cabinet/collaboration", icon: MessagesSquare },
+  { name: "G50 Groupées (Bulk)", href: "/dashboard/cabinet/bulk-g50", icon: Repeat },
 ]
 
 export function DashboardSidebar() {
@@ -133,147 +152,125 @@ export function DashboardSidebar() {
     }
   }
 
+  const NavGroup = ({ label, items }: { label: string, items: any[] }) => (
+    <SidebarGroup>
+      <SidebarGroupLabel className="text-sidebar-foreground/40 uppercase tracking-[0.15em] text-[9px] font-black mt-2">
+        {label}
+      </SidebarGroupLabel>
+      <SidebarMenu>
+        {items.map((item: any) => (
+          <SidebarMenuItem key={item.name}>
+            <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name} className="hover:bg-sidebar-accent group">
+              <Link href={item.href}>
+                <item.icon className={pathname === item.href ? "text-primary" : "text-sidebar-foreground/60 group-hover:text-primary transition-colors"} />
+                <span className="font-medium">{item.name}</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        ))}
+      </SidebarMenu>
+    </SidebarGroup>
+  )
+
   return (
-    <Sidebar variant="sidebar" collapsible="icon">
-      <SidebarHeader className="bg-sidebar">
+    <Sidebar variant="sidebar" collapsible="icon" className="border-r border-sidebar-border/50">
+      <SidebarHeader className="bg-sidebar p-4">
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <SidebarMenuButton size="lg" className="hover:bg-sidebar-accent transition-colors">
-                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                    <Building2 className="size-4" />
+                <SidebarMenuButton size="lg" className="hover:bg-sidebar-accent transition-all duration-200 border border-transparent hover:border-sidebar-border">
+                  <div className="flex aspect-square size-9 items-center justify-center rounded-xl bg-primary text-white shadow-lg shadow-primary/20">
+                    <Building2 className="size-5" />
                   </div>
-                  <div className="flex flex-col gap-0.5 leading-none">
-                    <span className="font-semibold text-sidebar-foreground truncate w-32">
-                      {isTenantsLoading ? "Chargement..." : (currentTenant?.raisonSociale || "Aucun dossier")}
+                  <div className="flex flex-col gap-0.5 leading-none ml-2">
+                    <span className="font-bold text-sm text-sidebar-foreground truncate w-32 uppercase tracking-tighter">
+                      {isTenantsLoading ? "..." : (currentTenant?.raisonSociale || "Sélectionnez un dossier")}
                     </span>
-                    <span className="text-[10px] text-sidebar-foreground/70">
-                      {currentTenant ? `${currentTenant.regimeFiscal}` : "Créer un dossier"}
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                      <span className="text-[10px] font-bold text-sidebar-foreground/50 uppercase">
+                        {currentTenant ? `${currentTenant.regimeFiscal}` : "Expert-comptable"}
+                      </span>
+                    </div>
                   </div>
-                  <ChevronDown className="ml-auto size-4" />
+                  <ChevronDown className="ml-auto size-4 text-sidebar-foreground/30" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64">
+              <DropdownMenuContent align="start" className="w-72 p-2 shadow-2xl rounded-xl">
+                <div className="px-2 py-1.5 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Dossiers actifs</div>
                 {tenants?.map((t) => (
-                  <DropdownMenuItem key={t.id} onClick={() => setCurrentTenantId(t.id)} className="cursor-pointer">
+                  <DropdownMenuItem key={t.id} onClick={() => setCurrentTenantId(t.id)} className="cursor-pointer rounded-lg mb-1">
                     <div className="flex flex-col">
-                      <span className="font-medium">{t.raisonSociale}</span>
-                      <span className="text-[10px] text-muted-foreground">{t.regimeFiscal} - {t.nif}</span>
+                      <span className="font-bold text-xs uppercase">{t.raisonSociale}</span>
+                      <span className="text-[9px] text-muted-foreground font-mono">NIF: {t.nif || 'Non renseigné'}</span>
                     </div>
                   </DropdownMenuItem>
                 ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild className="cursor-pointer font-bold text-primary text-xs">
+                  <Link href="/dashboard/settings"><Plus className="mr-2 h-3 w-3" /> Configurer un nouveau dossier</Link>
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Menu Principal</SidebarGroupLabel>
-          <SidebarMenu>
-            {navigation.map((item) => (
-              <SidebarMenuItem key={item.name}>
-                <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name} className="hover:bg-sidebar-accent">
-                  <Link href={item.href}><item.icon /><span>{item.name}</span></Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
+
+      <SidebarContent className="px-2">
+        <NavGroup label="Pilotage" items={pilotageNav} />
+        <NavGroup label="Comptabilité SCF" items={accountingNav} />
+        <NavGroup label="Activité & Tiers" items={businessNav} />
+        <NavGroup label="RH & Paie" items={payrollNav} />
+        <NavGroup label="Fiscalité DGI" items={fiscalNav} />
+        <NavGroup label="Innovation & Veille" items={aiNav} />
+        
+        {currentTenant?.plan === 'CABINET' && (
+          <NavGroup label="Expert Cabinet" items={cabinetNav} />
+        )}
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Déclarations Sociales</SidebarGroupLabel>
-          <SidebarMenu>
-            {socialNavigation.map((item) => (
-              <SidebarMenuItem key={item.name}>
-                <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name} className="hover:bg-sidebar-accent">
-                  <Link href={item.href}><item.icon /><span>{item.name}</span></Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Portail Cabinet</SidebarGroupLabel>
-          <SidebarMenu>
-            {cabinetNavigation.map((item) => (
-              <SidebarMenuItem key={item.name}>
-                <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name} className="hover:bg-sidebar-accent">
-                  <Link href={item.href}><item.icon /><span>{item.name}</span></Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Démarrage Dossier</SidebarGroupLabel>
-          <SidebarMenu>
-            {adminNav.map((item) => (
-              <SidebarMenuItem key={item.name}>
-                <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name} className="hover:bg-sidebar-accent">
-                  <Link href={item.href}><item.icon /><span>{item.name}</span></Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Système</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-sidebar-foreground/40 uppercase tracking-[0.15em] text-[9px] font-black mt-2">Configuration</SidebarGroupLabel>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname.startsWith("/saas-admin")} tooltip="Admin SaaS" className="text-accent hover:bg-accent/10">
-                <Link href="/saas-admin"><ShieldAlert /><span>Administration SaaS</span></Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase tracking-wider text-[10px] font-bold">Gestion</SidebarGroupLabel>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname === "/dashboard/contacts"} tooltip="Tiers (Clients/Forn.)">
-                <Link href="/dashboard/contacts"><Contact /><span>Tiers (Clients/Fourn.)</span></Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname === "/dashboard/settings"} tooltip="Paramètres Dossier">
+              <SidebarMenuButton asChild isActive={pathname === "/dashboard/settings"} tooltip="Paramètres">
                 <Link href="/dashboard/settings"><Settings /><span>Paramètres Dossier</span></Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={pathname.startsWith("/saas-admin")} className="text-accent hover:bg-accent/5">
+                <Link href="/saas-admin"><ShieldAlert className="text-accent" /><span>Console SaaS Admin</span></Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="border-t border-sidebar-border p-4">
+
+      <SidebarFooter className="border-t border-sidebar-border/50 p-4 bg-sidebar-accent/30">
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <SidebarMenuButton size="lg" className="hover:bg-sidebar-accent">
-                  <Avatar className="h-8 w-8 rounded-lg">
+                <SidebarMenuButton size="lg" className="hover:bg-sidebar-accent group">
+                  <Avatar className="h-9 w-9 rounded-xl border-2 border-white/10 shadow-sm">
                     <AvatarImage src={`https://picsum.photos/seed/${user?.uid || 'user'}/40/40`} />
-                    <AvatarFallback className="rounded-lg">DZ</AvatarFallback>
+                    <AvatarFallback className="rounded-xl bg-primary text-white font-bold">DZ</AvatarFallback>
                   </Avatar>
-                  <div className="flex flex-col gap-0.5 text-left text-sm leading-tight">
-                    <span className="font-semibold text-sidebar-foreground truncate w-32">
-                      {user?.displayName || "Comptable"}
+                  <div className="flex flex-col gap-0.5 text-left text-sm leading-tight ml-2">
+                    <span className="font-bold text-sidebar-foreground truncate w-32">
+                      {user?.displayName || "Mon Compte"}
                     </span>
-                    <span className="text-xs text-sidebar-foreground/70">Expert Cabinet</span>
+                    <span className="text-[10px] font-bold text-sidebar-foreground/40 uppercase tracking-tighter">Expert-Comptable</span>
                   </div>
-                  <ChevronDown className="ml-auto size-4" />
+                  <ChevronDown className="ml-auto size-4 text-sidebar-foreground/30" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
-              <DropdownMenuContent side="top" align="end" className="w-56">
+              <DropdownMenuContent side="top" align="end" className="w-64 p-2 shadow-2xl rounded-xl">
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard/profile" className="flex items-center gap-2 cursor-pointer"><UserIcon className="h-4 w-4" /> Profil</Link>
+                  <Link href="/dashboard/profile" className="flex items-center gap-2 cursor-pointer font-medium text-sm py-2"><UserIcon className="h-4 w-4" /> Mon Profil</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 cursor-pointer text-destructive"><LogOut className="h-4 w-4" /> Déconnexion</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 cursor-pointer text-destructive font-bold text-sm py-2"><LogOut className="h-4 w-4" /> Déconnexion</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>
