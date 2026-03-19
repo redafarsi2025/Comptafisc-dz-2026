@@ -31,25 +31,20 @@ export default function LiasseFiscaleG4() {
   const currentTenant = tenants?.[0];
 
   const entriesQuery = useMemoFirebase(() => {
-    if (!db || !currentTenant || !user) return null;
+    if (!db || !currentTenant) return null;
     return query(
       collection(db, "tenants", currentTenant.id, "journal_entries"),
-      where(`tenantMembers.${user.uid}`, "!=", null),
       orderBy("entryDate", "asc")
     );
-  }, [db, currentTenant, user]);
+  }, [db, currentTenant]);
   const { data: entries, isLoading: isEntriesLoading } = useCollection(entriesQuery);
 
   const assetsQuery = useMemoFirebase(() => {
-    if (!db || !currentTenant || !user) return null;
-    return query(
-      collection(db, "tenants", currentTenant.id, "assets"),
-      where(`tenantMembers.${user.uid}`, "!=", null)
-    );
-  }, [db, currentTenant, user]);
+    if (!db || !currentTenant) return null;
+    return collection(db, "tenants", currentTenant.id, "assets");
+  }, [db, currentTenant]);
   const { data: assets } = useCollection(assetsQuery);
 
-  // Agrégation des données pour la G4
   const g4Data = React.useMemo(() => {
     if (!entries || !mounted) return null;
     const balances: Record<string, { debit: number; credit: number }> = {};
@@ -63,23 +58,16 @@ export default function LiasseFiscaleG4() {
     });
 
     const categories = {
-      actif: {
-        immos_incorp: 0, immos_corp: 0, stocks: 0, clients: 0, tresorerie: 0
-      },
-      passif: {
-        capitaux: 0, resultats: 0, dettes_fi: 0, fournisseurs: 0, dettes_fisc: 0
-      },
-      tcr: {
-        ventes: 0, achats: 0, services: 0, salaires: 0, impots: 0
-      }
+      actif: { immos_incorp: 0, immos_corp: 0, stocks: 0, clients: 0, tresorerie: 0 },
+      passif: { capitaux: 0, resultats: 0, dettes_fi: 0, fournisseurs: 0, dettes_fisc: 0 },
+      tcr: { ventes: 0, achats: 0, services: 0, salaires: 0, impots: 0 }
     };
 
-    // Calcul des soldes nets d'actifs via le registre si possible
     const totalVnc = assets?.reduce((sum, a) => {
-      const rate = a.amortizationRate / 100;
+      const rate = (a.amortizationRate || 0) / 100;
       const years = (new Date().getTime() - new Date(a.acquisitionDate).getTime()) / (1000 * 60 * 60 * 24 * 365.25);
-      const cumul = Math.min(a.acquisitionValue, a.acquisitionValue * rate * years);
-      return sum + (a.acquisitionValue - cumul);
+      const cumul = Math.min(a.acquisitionValue || 0, (a.acquisitionValue || 0) * rate * years);
+      return sum + ((a.acquisitionValue || 0) - cumul);
     }, 0) || 0;
 
     Object.entries(balances).forEach(([code, b]) => {
@@ -89,34 +77,27 @@ export default function LiasseFiscaleG4() {
       else if (code.startsWith('3')) categories.actif.stocks += solde;
       else if (code.startsWith('41')) categories.actif.clients += solde;
       else if (code.startsWith('5')) categories.actif.tresorerie += solde;
-      
       else if (code.startsWith('10')) categories.passif.capitaux += Math.abs(solde);
       else if (code.startsWith('12')) categories.passif.resultats += Math.abs(solde);
       else if (code.startsWith('16')) categories.passif.dettes_fi += Math.abs(solde);
       else if (code.startsWith('40')) categories.passif.fournisseurs += Math.abs(solde);
       else if (code.startsWith('44')) categories.passif.dettes_fisc += Math.abs(solde);
-
       else if (code.startsWith('70')) categories.tcr.ventes += (b.credit - b.debit);
       else if (code.startsWith('60')) categories.tcr.achats += (b.debit - b.credit);
       else if (code.startsWith('61') || code.startsWith('62')) categories.tcr.services += (b.debit - b.credit);
       else if (code.startsWith('63')) categories.tcr.salaires += (b.debit - b.credit);
     });
 
-    // On écrase les immo brutes du journal par les VNC du registre pour le bilan net
-    if (totalVnc > 0) {
-      categories.actif.immos_corp = totalVnc;
-    }
-
+    if (totalVnc > 0) categories.actif.immos_corp = totalVnc;
     return categories;
   }, [entries, assets, mounted]);
 
   const resComptable = (g4Data?.tcr.ventes || 0) - (g4Data?.tcr.achats || 0) - (g4Data?.tcr.services || 0) - (g4Data?.tcr.salaires || 0);
-  const resFiscal = resComptable; 
 
   const calculateAmort = (asset: any) => {
     if (!mounted) return { dotation: 0, cumul: 0, vnc: asset.acquisitionValue };
-    const value = asset.acquisitionValue;
-    const rate = asset.amortizationRate / 100;
+    const value = asset.acquisitionValue || 0;
+    const rate = (asset.amortizationRate || 0) / 100;
     const years = (new Date().getTime() - new Date(asset.acquisitionDate).getTime()) / (1000 * 60 * 60 * 24 * 365.25);
     const dotation = value * rate;
     const cumul = Math.min(value, dotation * years);
@@ -238,7 +219,7 @@ export default function LiasseFiscaleG4() {
                     <TableRow className="text-destructive"><TableCell>- Déductions (Dividendes, abattements...)</TableCell><TableCell className="text-right font-mono">0</TableCell></TableRow>
                     <TableRow className="bg-amber-100 text-amber-900 border-t-2 border-amber-300">
                       <TableCell className="font-bold uppercase">Résultat Fiscal (Base de calcul IBS)</TableCell>
-                      <TableCell className="text-right font-bold text-lg font-mono">{formatAmount(resFiscal)} DA</TableCell>
+                      <TableCell className="text-right font-bold text-lg font-mono">{formatAmount(resComptable)} DA</TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
@@ -248,7 +229,7 @@ export default function LiasseFiscaleG4() {
             <Card className="bg-primary text-primary-foreground shadow-2xl">
               <CardHeader><CardTitle className="text-sm uppercase font-bold opacity-80">IBS À PAYER (Simulation)</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                <div className="text-4xl font-bold">{formatAmount(Math.max(10000, resFiscal * 0.19))} DA</div>
+                <div className="text-4xl font-bold">{formatAmount(Math.max(10000, resComptable * 0.19))} DA</div>
                 <div className="space-y-2 pt-4 border-t border-white/20">
                   <div className="flex justify-between text-xs"><span>Taux applicable :</span><span className="font-bold">19%</span></div>
                   <div className="flex justify-between text-xs"><span>Minimum fiscal :</span><span className="font-bold">10 000 DA</span></div>
@@ -300,23 +281,12 @@ export default function LiasseFiscaleG4() {
                   }) : (
                     <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">Aucun actif enregistré dans le registre.</TableCell></TableRow>
                   )}
-                  {assets && assets.length > 0 && (
-                    <TableRow className="bg-primary/10 font-bold">
-                      <TableCell className="uppercase text-[10px]">TOTAUX DES AMORTISSEMENTS</TableCell>
-                      <TableCell className="text-right font-mono">{formatAmount(assets.reduce((s, a) => s + a.acquisitionValue, 0))}</TableCell>
-                      <TableCell></TableCell>
-                      <TableCell className="text-right font-mono text-destructive">-{formatAmount(assets.reduce((s, a) => s + calculateAmort(a).dotation, 0))}</TableCell>
-                      <TableCell className="text-right font-mono">-{formatAmount(assets.reduce((s, a) => s + calculateAmort(a).cumul, 0))}</TableCell>
-                      <TableCell className="text-right font-mono text-primary">{formatAmount(assets.reduce((s, a) => s + calculateAmort(a).vnc, 0))} DA</TableCell>
-                    </TableRow>
-                  )}
                 </TableBody>
               </Table>
               <div className="p-6 bg-amber-50 border-t flex items-start gap-4">
                 <AlertCircle className="h-5 w-5 text-amber-600 mt-1" />
                 <div className="text-xs text-amber-900 leading-relaxed">
-                  <strong>Note réglementaire :</strong> Ce tableau est généré dynamiquement. La VNC totale de <strong>{formatAmount(assets?.reduce((s, a) => s + calculateAmort(a).vnc, 0) || 0)} DA</strong> doit correspondre au montant porté à l'actif du bilan. 
-                  Toute cession d'actif en cours d'exercice doit être régularisée via le journal d'O.D.
+                  <strong>Note réglementaire :</strong> Ce tableau est généré dynamiquement. La VNC totale doit correspondre au montant porté à l'actif du bilan.
                 </div>
               </div>
             </CardContent>

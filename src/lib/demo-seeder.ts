@@ -8,7 +8,7 @@ import { DEMO_DATASET } from './demo-dataset';
  */
 export async function seedDemoForUser(db: Firestore, userId: string, email: string) {
   const tenantId = `DEMO_${userId.substring(0, 5)}_${Date.now().toString().slice(-4)}`;
-  const enterprise = DEMO_DATASET.enterprises[0]; // Bensalem Commerce par défaut
+  const enterprise = DEMO_DATASET.enterprises[0];
 
   const tenantRef = doc(db, "tenants", tenantId);
   const tenantData = {
@@ -20,12 +20,12 @@ export async function seedDemoForUser(db: Firestore, userId: string, email: stri
   };
 
   try {
-    // 1. Create Tenant (Dossier)
+    // 1. Create Tenant
     await setDoc(tenantRef, tenantData);
 
-    // 2. Add Invoices (Factures)
+    // 2. Add Invoices
     const invoicesRef = collection(db, "tenants", tenantId, "invoices");
-    for (const inv of DEMO_DATASET.invoices) {
+    for (const inv of DEMO_DATASET.factures) {
       await addDoc(invoicesRef, {
         clientName: inv.clientName,
         invoiceNumber: inv.id,
@@ -36,14 +36,15 @@ export async function seedDemoForUser(db: Firestore, userId: string, email: stri
         paymentMethod: "Virement",
         status: 'Issued',
         tenantId,
+        tenantMembers: { [userId]: 'owner' },
         createdAt: new Date().toISOString(),
         createdByUserId: userId
       });
     }
 
-    // 3. Add Journal Entries (Écritures PCN)
+    // 3. Add Journal Entries
     const entriesRef = collection(db, "tenants", tenantId, "journal_entries");
-    for (const entry of DEMO_DATASET.journalEntries) {
+    for (const entry of DEMO_DATASET.ecrituresComptables) {
       await addDoc(entriesRef, {
         entryDate: entry.date,
         description: entry.description,
@@ -57,35 +58,28 @@ export async function seedDemoForUser(db: Firestore, userId: string, email: stri
           credit: l.credit
         })),
         tenantId,
+        tenantMembers: { [userId]: 'owner' },
         createdAt: new Date().toISOString(),
         createdByUserId: userId
       });
     }
 
-    // 4. Add Employees (Salariés avec NIN structuré)
+    // 4. Add Employees
     const employeesRef = collection(db, "tenants", tenantId, "employees");
-    for (const emp of DEMO_DATASET.employees) {
+    for (const emp of DEMO_DATASET.salaries) {
       await addDoc(employeesRef, {
         name: emp.name,
         position: emp.position,
         baseSalary: emp.baseSalary,
         primesImposables: emp.primesImposables,
-        primesNonImposables: emp.primesNonImposables, // Panier/Transport séparés
+        indemnitePanier: emp.indemnitePanier,
+        indemniteTransport: emp.indemniteTransport,
         nin: emp.nin,
         cnasNumber: emp.cnasNumber,
         isGrandSud: emp.isGrandSud,
         isHandicapped: emp.isHandicapped,
         tenantId,
-        createdAt: new Date().toISOString()
-      });
-    }
-
-    // 5. Add G50 Declarations (Historique 2025)
-    const g50Ref = collection(db, "tenants", tenantId, "declarations_g50");
-    for (const g50 of DEMO_DATASET.declarationsG50) {
-      await addDoc(g50Ref, {
-        ...g50,
-        tenantId,
+        tenantMembers: { [userId]: 'owner' },
         createdAt: new Date().toISOString()
       });
     }
