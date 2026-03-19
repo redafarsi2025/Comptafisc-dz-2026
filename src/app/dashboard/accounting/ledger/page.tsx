@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -7,10 +6,12 @@ import { collection, query, where, orderBy, limit } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Library, Printer, FileDown, Search } from "lucide-react"
+import { Library, Printer, FileDown, Search, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { SCF_ACCOUNTS } from "@/lib/scf-accounts"
+import { jsPDF } from "jspdf"
+import autoTable from 'jspdf-autotable'
 
 export default function GrandLivre() {
   const db = useFirestore()
@@ -72,6 +73,50 @@ export default function GrandLivre() {
     ).sort();
   }, [ledgerData, searchAccount]);
 
+  const exportPDF = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text(`Grand Livre - ${currentTenant?.raisonSociale}`, 14, 20);
+    doc.setFontSize(10);
+    doc.text(`Exercice 2026 | NIF: ${currentTenant?.nif || 'N/A'}`, 14, 30);
+
+    let startY = 40;
+
+    filteredAccountCodes.forEach(code => {
+      const acc = ledgerData[code];
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text(`${code} - ${acc.name}`, 14, startY);
+      
+      const body = acc.movements.map((m: any) => [
+        new Date(m.date).toLocaleDateString(),
+        m.ref || "-",
+        m.libelle,
+        m.debit.toLocaleString(),
+        m.credit.toLocaleString()
+      ]);
+
+      autoTable(doc, {
+        startY: startY + 5,
+        head: [['Date', 'Réf.', 'Libellé', 'Débit', 'Crédit']],
+        body: body,
+        foot: [['', '', 'TOTAUX', acc.totalDebit.toLocaleString(), acc.totalCredit.toLocaleString()]],
+        theme: 'striped',
+        margin: { bottom: 20 },
+        headStyles: { fillColor: [12, 85, 204] },
+        footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' }
+      });
+
+      startY = (doc as any).lastAutoTable.finalY + 15;
+      if (startY > 250) {
+        doc.addPage();
+        startY = 20;
+      }
+    });
+
+    doc.save(`GrandLivre_${currentTenant?.raisonSociale}.pdf`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -82,7 +127,7 @@ export default function GrandLivre() {
           <p className="text-muted-foreground text-sm">Ventilation des opérations par compte du SCF (Art. 13).</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm"><Printer className="mr-2 h-4 w-4" /> PDF</Button>
+          <Button variant="outline" size="sm" onClick={exportPDF}><Printer className="mr-2 h-4 w-4" /> PDF</Button>
           <Button variant="outline" size="sm"><FileDown className="mr-2 h-4 w-4" /> Excel</Button>
         </div>
       </div>
@@ -165,7 +210,7 @@ export default function GrandLivre() {
       
       <div className="p-6 border rounded-xl bg-amber-50 border-amber-200 flex items-center gap-4">
         <div className="h-10 w-10 bg-amber-100 rounded-full flex items-center justify-center shrink-0">
-          <Library className="h-6 w-6 text-amber-600" />
+          <CheckCircle2 className="h-6 w-6 text-amber-600" />
         </div>
         <div className="text-sm">
           <p className="font-bold text-amber-900">Note de conformité SCF</p>

@@ -36,7 +36,8 @@ import {
   TrendingDown,
   BrainCircuit,
   PieChart,
-  Plus
+  Plus,
+  Scale
 } from "lucide-react"
 
 import {
@@ -73,6 +74,7 @@ const pilotageNav = [
 const accountingNav = [
   { name: "Saisie Journal", href: "/dashboard/accounting", icon: BookText },
   { name: "Grand Livre", href: "/dashboard/accounting/ledger", icon: Library },
+  { name: "Balance Générale", href: "/dashboard/accounting/balance", icon: Scale },
   { name: "États Financiers", href: "/dashboard/accounting/financial-statements", icon: FileBarChart },
   { name: "Registre des Immos", href: "/dashboard/accounting/assets", icon: TrendingDown },
   { name: "Rapprochement Bancaire", href: "/dashboard/cabinet/bank-recon", icon: Landmark },

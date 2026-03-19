@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -8,8 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { FileBarChart, Printer, FileDown, TrendingUp, Landmark, Calculator, PieChart } from "lucide-react"
+import { FileBarChart, Printer, FileDown, TrendingUp, Landmark, Calculator, PieChart, ShieldCheck } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { jsPDF } from "jspdf"
+import autoTable from 'jspdf-autotable'
 
 export default function FinancialStatements() {
   const db = useFirestore()
@@ -92,6 +93,50 @@ export default function FinancialStatements() {
   const totalActif = (financialData?.actif.immobilisations || 0) + (financialData?.actif.stocks || 0) + (financialData?.actif.creances || 0) + (financialData?.actif.tresorerie || 0);
   const totalPassifExclResult = (financialData?.passif.capitaux || 0) + (financialData?.passif.dettes || 0) + (financialData?.passif.decouverts || 0);
 
+  const exportPDF = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text(`États Financiers - ${currentTenant?.raisonSociale}`, 14, 20);
+    doc.setFontSize(10);
+    doc.text(`Bilan et TCR au ${new Date().toLocaleDateString()}`, 14, 30);
+
+    // Bilan Actif
+    doc.setFontSize(14);
+    doc.text("BILAN - ACTIF", 14, 45);
+    autoTable(doc, {
+      startY: 50,
+      head: [['Rubriques', 'Montant Net']],
+      body: [
+        ['Immobilisations', financialData?.actif.immobilisations.toLocaleString()],
+        ['Stocks', financialData?.actif.stocks.toLocaleString()],
+        ['Créances', financialData?.actif.creances.toLocaleString()],
+        ['Disponibilités', financialData?.actif.tresorerie.toLocaleString()],
+        ['TOTAL ACTIF', totalActif.toLocaleString()]
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [59, 130, 246] }
+    });
+
+    // Bilan Passif
+    const nextY = (doc as any).lastAutoTable.finalY + 15;
+    doc.text("BILAN - PASSIF", 14, nextY);
+    autoTable(doc, {
+      startY: nextY + 5,
+      head: [['Rubriques', 'Montant']],
+      body: [
+        ['Capitaux Propres', financialData?.passif.capitaux.toLocaleString()],
+        ['Dettes', financialData?.passif.dettes.toLocaleString()],
+        ['Découverts', financialData?.passif.decouverts.toLocaleString()],
+        ['Résultat de l\'exercice', netResult.toLocaleString()],
+        ['TOTAL PASSIF', (totalPassifExclResult + netResult).toLocaleString()]
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [26, 188, 156] }
+    });
+
+    doc.save(`Etats_Financiers_${currentTenant?.raisonSociale}.pdf`);
+  };
+
   if (isLoading) return <div className="flex items-center justify-center h-screen"><Calculator className="animate-spin h-8 w-8 text-primary" /></div>
 
   return (
@@ -104,8 +149,8 @@ export default function FinancialStatements() {
           <p className="text-muted-foreground text-sm">Bilan et Compte de Résultat conformes au Système Comptable Financier.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm"><Printer className="mr-2 h-4 w-4" /> Imprimer</Button>
-          <Button variant="outline" size="sm"><FileDown className="mr-2 h-4 w-4" /> Exporter</Button>
+          <Button variant="outline" size="sm" onClick={exportPDF}><Printer className="mr-2 h-4 w-4" /> PDF Professionnel</Button>
+          <Button variant="outline" size="sm"><FileDown className="mr-2 h-4 w-4" /> Exporter Excel</Button>
         </div>
       </div>
 
@@ -183,9 +228,9 @@ export default function FinancialStatements() {
                       <TableCell className="font-medium">Disponibilités (Banque & Caisse)</TableCell>
                       <TableCell className="text-right font-mono">{(financialData?.actif.tresorerie || 0).toLocaleString()}</TableCell>
                     </TableRow>
-                    <TableRow className="bg-blue-600 text-white hover:bg-blue-700">
-                      <TableCell className="font-bold uppercase">Total Actif</TableCell>
-                      <TableCell className="text-right font-bold text-lg font-mono">{totalActif.toLocaleString()} DA</TableCell>
+                    <TableRow className="bg-blue-600 text-white hover:bg-blue-700 font-bold">
+                      <TableCell className="uppercase">Total Actif</TableCell>
+                      <TableCell className="text-right text-lg font-mono">{totalActif.toLocaleString()} DA</TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
@@ -225,9 +270,9 @@ export default function FinancialStatements() {
                         {netResult.toLocaleString()}
                       </TableCell>
                     </TableRow>
-                    <TableRow className="bg-accent text-accent-foreground hover:bg-accent/90">
-                      <TableCell className="font-bold uppercase">Total Passif</TableCell>
-                      <TableCell className="text-right font-bold text-lg font-mono">{(totalPassifExclResult + netResult).toLocaleString()} DA</TableCell>
+                    <TableRow className="bg-accent text-accent-foreground hover:bg-accent/90 font-bold">
+                      <TableCell className="uppercase">Total Passif</TableCell>
+                      <TableCell className="text-right text-lg font-mono">{(totalPassifExclResult + netResult).toLocaleString()} DA</TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
@@ -267,10 +312,10 @@ export default function FinancialStatements() {
                     <TableCell className="text-right font-mono">-</TableCell>
                     <TableCell className="text-right font-mono text-destructive">-{ (financialData?.resultat.charges || 0).toLocaleString()}</TableCell>
                   </TableRow>
-                  <TableRow className="bg-primary/5 border-t-2">
-                    <TableCell className="font-bold uppercase">Résultat Brut d'Exploitation</TableCell>
+                  <TableRow className="bg-primary/5 border-t-2 font-bold">
+                    <TableCell className="uppercase">Résultat Brut d'Exploitation</TableCell>
                     <TableCell colSpan={2} className="text-right"></TableCell>
-                    <TableCell className={`text-right font-bold text-lg font-mono ${netResult >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                    <TableCell className={`text-right text-lg font-mono ${netResult >= 0 ? 'text-primary' : 'text-destructive'}`}>
                       {netResult.toLocaleString()} DA
                     </TableCell>
                   </TableRow>
@@ -278,11 +323,11 @@ export default function FinancialStatements() {
               </Table>
               <div className="p-6 bg-muted/20 flex items-start gap-4">
                 <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <Calculator className="h-6 w-6 text-primary" />
+                  <ShieldCheck className="h-6 w-6 text-primary" />
                 </div>
-                <div className="text-xs text-muted-foreground italic">
-                  Note : Ce compte de résultat est généré à partir des écritures validées du Livre-Journal. 
-                  Il ne prend en compte que les comptes des classes 6 (Charges) et 7 (Produits) conformément au plan comptable national.
+                <div className="text-xs text-muted-foreground italic leading-relaxed">
+                  Ce compte de résultat est généré dynamiquement à partir du Livre-Journal. 
+                  Il respecte la nomenclature SCF et constitue la base de calcul pour votre liasse fiscale annuelle G4.
                 </div>
               </div>
             </CardContent>
