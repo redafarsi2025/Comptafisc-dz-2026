@@ -35,10 +35,11 @@ export default function DgiWatchAdmin() {
       for (const item of news) {
         const pubRef = doc(db, "dgi_publications", item.id)
         
-        // Analyse IA
+        // On demande à l'IA d'analyser le titre et les métadonnées (le scraper récupère le contenu)
+        // Dans une version avancée, on irait fetch le contenu complet de l'URL ici
         const analysis = await analyzeDgiPublication({ 
           title: item.title, 
-          content: item.title 
+          content: item.title // On utilise le titre comme base si le contenu n'est pas encore fetché
         })
 
         await setDocumentNonBlocking(pubRef, {
@@ -51,7 +52,7 @@ export default function DgiWatchAdmin() {
       toast({ title: "Sync & Analyse Terminée", description: "Le catalogue DGI a été mis à jour avec les extractions IA." })
     } catch (e) {
       console.error(e)
-      toast({ variant: "destructive", title: "Erreur Sync" })
+      toast({ variant: "destructive", title: "Erreur lors de la synchronisation" })
     } finally {
       setIsProcessing(false)
     }
@@ -73,27 +74,27 @@ export default function DgiWatchAdmin() {
         sourceUrl: pub.url
       }, { merge: true });
 
-      // 2. Injecter chaque variable
+      // 2. Injecter chaque variable dans le moteur fiscal réel
       for (const v of pub.extractedVariables) {
-        // S'assurer que le type de variable existe
+        // S'assurer que le type de variable existe (ex: TVA_STD)
         await setDocumentNonBlocking(doc(db, "fiscal_variable_types", v.code), {
           id: v.code,
           code: v.code,
           name: v.name,
           unit: v.value.includes('%') ? '%' : 'DA',
           dataType: 'number',
-          description: `Variable auto-détectée: ${v.name}`
+          description: `Variable auto-détectée par IA : ${v.name}`
         }, { merge: true });
 
-        // Créer la valeur
+        // Créer la valeur effective
         const valId = `VAL_${lawId}_${v.code}`;
         await setDocumentNonBlocking(doc(db, "fiscal_variable_values", valId), {
           id: valId,
           fiscalLawId: lawId,
           fiscalVariableTypeId: v.code,
-          value: v.value.replace(/[^0-9.]/g, ''), // Nettoyage simple pour avoir un nombre
+          value: v.value.replace(/[^0-9.]/g, ''), // Nettoyage pour garder le chiffre
           effectiveStartDate: v.effectiveDate || new Date().toISOString().split('T')[0],
-          notes: `Injecté via DGI Watch - Analyse Gemini`
+          notes: `Injecté via DGI Watch - Analyse Gemini 2.5`
         }, { merge: true });
       }
 
@@ -104,12 +105,12 @@ export default function DgiWatchAdmin() {
       }, { merge: true });
 
       toast({ 
-        title: "Injection réussie", 
-        description: `${pub.extractedVariables.length} variables ajoutées au moteur fiscal.` 
+        title: "Moteur fiscal mis à jour", 
+        description: `${pub.extractedVariables.length} variables ont été injectées avec succès.` 
       });
     } catch (e) {
       console.error(e);
-      toast({ variant: "destructive", title: "Erreur d'injection" });
+      toast({ variant: "destructive", title: "Échec de l'injection" });
     } finally {
       setIsInjecting(null);
     }
@@ -122,32 +123,32 @@ export default function DgiWatchAdmin() {
           <h1 className="text-3xl font-black text-primary flex items-center gap-3">
             <Eye className="text-accent h-8 w-8" /> Console DGI Watch
           </h1>
-          <p className="text-muted-foreground">Surveillance réglementaire et extraction de données via Gemini 2.5.</p>
+          <p className="text-muted-foreground">Surveillance réglementaire en temps réel et extraction intelligente de données.</p>
         </div>
         <Button onClick={handleSyncAndAnalyze} disabled={isProcessing} className="bg-primary shadow-xl h-12 px-6">
           {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-          Forcer Sync & Analyse IA
+          Forcer la Synchronisation & Analyse IA
         </Button>
       </div>
 
       <div className="grid md:grid-cols-4 gap-6">
         <Card className="border-t-4 border-t-emerald-500 shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] uppercase font-bold text-muted-foreground">Dernière Sync</CardTitle>
+            <CardTitle className="text-[10px] uppercase font-bold text-muted-foreground">Dernière Synchronisation</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xl font-bold flex items-center gap-2">
               <Calendar className="h-4 w-4 text-emerald-500" />
-              {publications?.[0] ? new Date(publications[0].detectedAt).toLocaleString('fr-DZ') : "Jamais"}
+              {publications?.[0] ? new Date(publications[0].detectedAt).toLocaleString('fr-DZ') : "Aucune"}
             </div>
           </CardContent>
         </Card>
         <Card className="border-t-4 border-t-primary shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] uppercase font-bold text-muted-foreground">Indexées</CardTitle>
+            <CardTitle className="text-[10px] uppercase font-bold text-muted-foreground">Publications Indexées</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl font-bold">{publications?.length || 0} publications</div>
+            <div className="text-xl font-bold">{publications?.length || 0} documents</div>
           </CardContent>
         </Card>
         <Card className="border-t-4 border-t-amber-500 shadow-sm">
@@ -162,7 +163,7 @@ export default function DgiWatchAdmin() {
         </Card>
         <Card className="bg-primary text-white border-none shadow-lg">
           <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] uppercase font-bold opacity-80">Moteur Fiscal</CardTitle>
+            <CardTitle className="text-[10px] uppercase font-bold opacity-80">État du Moteur Fiscal</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xl font-bold flex items-center gap-2">
@@ -174,7 +175,7 @@ export default function DgiWatchAdmin() {
 
       <div className="space-y-4">
         <h3 className="text-lg font-bold flex items-center gap-2">
-          <FileText className="h-5 w-5 text-primary" /> Journal Détaillé des Analyses
+          <FileText className="h-5 w-5 text-primary" /> Journal Détaillé des Analyses Gemini
         </h3>
         
         {isLoading ? (
@@ -191,19 +192,19 @@ export default function DgiWatchAdmin() {
                           pub.impactLevel === 'critique' ? 'destructive' : 
                           pub.impactLevel === 'important' ? 'default' : 'secondary'
                         } className="text-[8px] uppercase">
-                          {pub.impactLevel}
+                          Impact {pub.impactLevel}
                         </Badge>
                         <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                           <Calendar className="h-3 w-3" /> Détecté le {new Date(pub.detectedAt).toLocaleDateString()}
                         </span>
                         {pub.isApplied && (
-                          <Badge className="bg-emerald-500 text-white text-[8px] h-4 ml-2">APPLIQUÉ AU MOTEUR</Badge>
+                          <Badge className="bg-emerald-500 text-white text-[8px] h-4 ml-2">APPLIQUÉ AU SYSTÈME</Badge>
                         )}
                       </div>
                       <CardTitle className="text-lg text-primary">{pub.title}</CardTitle>
                     </div>
                     <Button variant="ghost" size="sm" asChild className="h-8 text-[10px]">
-                      <a href={pub.url} target="_blank" rel="noopener noreferrer">Source <ArrowRight className="ml-1 h-3 w-3" /></a>
+                      <a href={pub.url} target="_blank" rel="noopener noreferrer">Source officielle <ArrowRight className="ml-1 h-3 w-3" /></a>
                     </Button>
                   </div>
                 </CardHeader>
@@ -213,9 +214,9 @@ export default function DgiWatchAdmin() {
                     <div className="space-y-4">
                       <div>
                         <h4 className="text-[10px] font-bold uppercase text-muted-foreground mb-2 flex items-center gap-1">
-                          <Zap className="h-3 w-3 text-accent" /> Résumé Exécutif
+                          <Zap className="h-3 w-3 text-accent" /> Résumé Exécutif IA
                         </h4>
-                        <p className="text-sm leading-relaxed italic text-foreground/80">"{pub.summary || 'Analyse IA en attente...'}"</p>
+                        <p className="text-sm leading-relaxed italic text-foreground/80">"{pub.summary || 'Analyse en cours...'}"</p>
                       </div>
                       <div>
                         <h4 className="text-[10px] font-bold uppercase text-muted-foreground mb-2">Modules SaaS Impactés</h4>
@@ -230,7 +231,7 @@ export default function DgiWatchAdmin() {
                     {/* Colonne 2 : Points Clés */}
                     <div className="space-y-4">
                       <h4 className="text-[10px] font-bold uppercase text-muted-foreground mb-2 flex items-center gap-1">
-                        <ListChecks className="h-3 w-3 text-primary" /> Points de Vigilance IA
+                        <ListChecks className="h-3 w-3 text-primary" /> Points de Vigilance Extraits
                       </h4>
                       <ul className="space-y-2">
                         {pub.keyPoints?.map((pt: string, idx: number) => (
@@ -239,15 +240,15 @@ export default function DgiWatchAdmin() {
                             <span>{pt}</span>
                           </li>
                         ))}
-                        {!pub.keyPoints && <li className="text-xs text-muted-foreground italic">Aucun point extrait.</li>}
+                        {!pub.keyPoints && <li className="text-xs text-muted-foreground italic">Aucun point spécifique extrait.</li>}
                       </ul>
                     </div>
 
-                    {/* Colonne 3 : Variables Extraites */}
-                    <div className="space-y-4 bg-muted/20 p-4 rounded-xl">
+                    {/* Colonne 3 : Variables Extraites (C'est ici qu'on voit l'IA travailler) */}
+                    <div className="space-y-4 bg-muted/20 p-4 rounded-xl border border-dashed border-primary/20">
                       <div className="flex items-center justify-between mb-2">
                         <h4 className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1">
-                          <Zap className="h-3 w-3 text-emerald-600" /> Données Structurées
+                          <DatabaseZap className="h-3 w-3 text-emerald-600" /> Données pour le Moteur
                         </h4>
                         {pub.extractedVariables && pub.extractedVariables.length > 0 && !pub.isApplied && (
                           <Button 
@@ -261,6 +262,7 @@ export default function DgiWatchAdmin() {
                           </Button>
                         )}
                       </div>
+                      
                       {pub.extractedVariables && pub.extractedVariables.length > 0 ? (
                         <div className="space-y-3">
                           {pub.extractedVariables.map((v: any, idx: number) => (
@@ -279,7 +281,7 @@ export default function DgiWatchAdmin() {
                       ) : (
                         <div className="text-center py-6 text-muted-foreground italic text-xs">
                           <AlertTriangle className="h-4 w-4 mx-auto mb-2 opacity-50" />
-                          Aucune variable numérique détectée.
+                          Aucune variable structurée détectée.
                         </div>
                       )}
                     </div>
