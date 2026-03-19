@@ -5,23 +5,19 @@ import * as cheerio from 'cheerio';
 import { createHash } from 'crypto';
 import { PublicationCategory } from './types';
 
-// Retrait du mot-clé 'export' car un fichier "use server" ne peut exporter que des fonctions asynchrones.
-const DGI_URLS = {
-  homepage: 'https://www.mfdgi.gov.dz/fr/',
-  actualites: 'https://www.mfdgi.gov.dz/fr/a-propos/actu-fr/',
-  legislation: 'https://www.mfdgi.gov.dz/fr/legislation-fiscale/loi-des-finances',
-};
+// Constantes internes au fichier "use server" pour éviter l'export d'objets non asynchrones
+const DGI_ACTU_URL = 'https://www.mfdgi.gov.dz/fr/a-propos/actu-fr/';
 
 /**
  * Scrape le site de la DGI pour trouver les dernières publications
  */
 export async function scrapeDgiNews() {
   try {
-    const response = await fetch(DGI_URLS.actualites, {
+    const response = await fetch(DGI_ACTU_URL, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
       },
-      next: { revalidate: 3600 } // Cache d'une heure
+      next: { revalidate: 3600 } 
     });
 
     if (!response.ok) throw new Error('Impossible de contacter le site DGI');
@@ -30,7 +26,6 @@ export async function scrapeDgiNews() {
     const $ = cheerio.load(html);
     const results: any[] = [];
 
-    // Sélecteurs basés sur la structure observée du site DGI
     $('.items-row, .article-list-item, article').each((_, el) => {
       const $el = $(el);
       const titleLink = $el.find('h2 a, h3 a, .title a').first();
@@ -60,6 +55,7 @@ export async function scrapeDgiNews() {
   }
 }
 
+// Fonction utilitaire interne
 function inferCategory(title: string): PublicationCategory {
   const t = title.toLowerCase();
   if (t.includes('loi de finances')) return 'loi_finances';
