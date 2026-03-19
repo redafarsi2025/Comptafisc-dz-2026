@@ -18,6 +18,8 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  AreaChart,
+  Area
 } from "recharts"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -26,12 +28,14 @@ import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebas
 import { collection, query, where, limit } from "firebase/firestore"
 import { 
   TrendingUp, ArrowUpRight, BadgeCheck, 
-  CheckCircle2, Activity, Sparkles, Landmark, History, ShieldCheck, Zap, Loader2
+  CheckCircle2, Activity, Sparkles, Landmark, History, ShieldCheck, Zap, Loader2,
+  ChevronRight, PlayCircle, Info
 } from "lucide-react"
 import { getIBSRate } from "@/lib/calculations"
 import { useSearchParams, useRouter } from "next/navigation"
 import { seedDemoForUser } from "@/lib/demo-seeder"
 import { toast } from "@/hooks/use-toast"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 
 const REGULATORY_MILESTONES = [
   { 
@@ -64,12 +68,14 @@ export default function DashboardOverview() {
   const router = useRouter()
   const [mounted, setMounted] = React.useState(false)
   const [isSeeding, setIsSeeding] = React.useState(false)
+  const [showTour, setShowTour] = React.useState(false)
+  const [tourStep, setTourStep] = React.useState(0)
 
   React.useEffect(() => {
     setMounted(true)
   }, [])
 
-  // 1. Fetch Tenant data for fiscal context
+  // 1. Fetch Tenant data
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null), limit(1));
@@ -87,14 +93,14 @@ export default function DashboardOverview() {
             await seedDemoForUser(db, user.uid, user.email || "");
             toast({
               title: "Démo activée !",
-              description: "Le dossier 'SARL Bensalem Commerce' a été créé avec ses données historiques.",
+              description: "Le dossier 'SARL Bensalem Commerce' a été créé avec succès.",
             });
-            // Clean URL and refresh to show the new tenant
+            setIsSeeding(false);
+            setShowTour(true); // Start tutorial after seeding
             router.replace("/dashboard");
           } catch (e) {
             console.error(e);
             toast({ variant: "destructive", title: "Erreur démo", description: "Impossible de charger les données." });
-          } finally {
             setIsSeeding(false);
           }
         }
@@ -127,7 +133,7 @@ export default function DashboardOverview() {
     return getIBSRate(currentTenant.secteurActivite, currentTenant.activiteNAP);
   }, [currentTenant]);
 
-  const formatAmount = (val: number) => mounted ? val.toLocaleString() : "...";
+  const formatAmount = (val: number) => mounted ? Math.round(val).toLocaleString() : "...";
 
   const monthlyData = [
     { month: "Jan", revenue: stats.ca * 0.1, expenses: stats.ca * 0.05 },
@@ -138,6 +144,29 @@ export default function DashboardOverview() {
     { month: "Jun", revenue: stats.ca, expenses: stats.ca * 0.6 },
   ]
 
+  const TOUR_STEPS = [
+    {
+      title: "Bienvenue dans votre Démo",
+      description: "Nous avons injecté le dossier 'SARL Bensalem Commerce' pour vous. Ce dashboard consolide votre santé fiscale en temps réel.",
+      icon: <Sparkles className="h-10 w-10 text-accent" />
+    },
+    {
+      title: "Santé Fiscale & Conformité",
+      description: "Votre score est de 98/100. Le moteur vérifie automatiquement vos NIF, NIS et l'application des taux LF 2026.",
+      icon: <ShieldCheck className="h-10 w-10 text-emerald-500" />
+    },
+    {
+      title: "Moteur Fiscal Master",
+      description: "Regardez l'économie TAP : le système calcule automatiquement le gain généré par la suppression de cette taxe depuis 2024.",
+      icon: <Zap className="h-10 w-10 text-amber-500" />
+    },
+    {
+      title: "Prêt à explorer ?",
+      description: "Utilisez la barre latérale pour consulter le Grand Livre, générer une G50 ou poser une question à l'Assistant IA.",
+      icon: <PlayCircle className="h-10 w-10 text-primary" />
+    }
+  ];
+
   if (isSeeding) {
     return (
       <div className="h-[80vh] flex flex-col items-center justify-center space-y-6">
@@ -146,8 +175,8 @@ export default function DashboardOverview() {
           <Sparkles className="absolute inset-0 m-auto h-8 w-8 text-accent animate-pulse" />
         </div>
         <div className="text-center space-y-2">
-          <h2 className="text-2xl font-bold text-primary">Initialisation de votre démo...</h2>
-          <p className="text-muted-foreground animate-pulse">Configuration du dossier, des factures et de la paie Bensalem Commerce.</p>
+          <h2 className="text-2xl font-bold text-primary">Préparation de votre dossier démo...</h2>
+          <p className="text-muted-foreground animate-pulse">Injection des factures, salariés et écritures PCN.</p>
         </div>
       </div>
     );
@@ -155,6 +184,32 @@ export default function DashboardOverview() {
 
   return (
     <div className="space-y-6">
+      {/* Tutorial Dialog */}
+      <Dialog open={showTour} onOpenChange={setShowTour}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader className="flex flex-col items-center text-center">
+            <div className="mb-4 p-3 bg-muted rounded-full">
+              {TOUR_STEPS[tourStep].icon}
+            </div>
+            <DialogTitle className="text-xl font-bold text-primary">{TOUR_STEPS[tourStep].title}</DialogTitle>
+            <DialogDescription className="text-sm mt-2 leading-relaxed">
+              {TOUR_STEPS[tourStep].description}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center gap-1 mt-4">
+            {TOUR_STEPS.map((_, i) => (
+              <div key={i} className={`h-1.5 rounded-full transition-all ${i === tourStep ? 'w-8 bg-primary' : 'w-2 bg-muted'}`} />
+            ))}
+          </div>
+          <DialogFooter className="sm:justify-between mt-6">
+            <Button variant="ghost" onClick={() => setShowTour(false)}>Passer</Button>
+            <Button onClick={() => tourStep < TOUR_STEPS.length - 1 ? setTourStep(tourStep + 1) : setShowTour(false)}>
+              {tourStep === TOUR_STEPS.length - 1 ? "C'est parti !" : "Suivant"} <ChevronRight className="ml-2 h-4 w-4" />
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">Vue d'ensemble</h1>
