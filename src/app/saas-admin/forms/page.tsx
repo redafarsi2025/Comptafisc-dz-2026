@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -10,7 +9,7 @@ import {
   Layout, Database, ArrowRight, CheckCircle2,
   FileText, Download, UploadCloud, 
   ChevronLeft, Plus, MousePointer2, Type, Trash2, Image as ImageIcon,
-  Layers, Settings, PlusCircle
+  Layers, Settings, PlusCircle, Sparkles, Loader2, Link as LinkIcon, Wand2
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -18,8 +17,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { toast } from "@/hooks/use-toast"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { analyzeFormLayout } from "@/ai/flows/form-layout-analysis"
 
-// Couleurs officielles DGI Algérie
 const DGI_THEMES = {
   G50: { primary: "bg-[#008751]", text: "text-[#008751]", border: "border-[#008751]", label: "G N° 50 (Mensuel)", color: "#008751" },
   G12: { primary: "bg-[#0055A4]", text: "text-[#0055A4]", border: "border-[#0055A4]", label: "G N° 12 (IFU)", color: "#0055A4" },
@@ -27,79 +26,60 @@ const DGI_THEMES = {
   ANNEXE: { primary: "bg-[#F59E0B]", text: "text-[#F59E0B]", border: "border-[#F59E0B]", label: "Annexe I (Apprentissage)", color: "#F59E0B" }
 }
 
-const INITIAL_TEMPLATES = [
-  { 
-    id: 'g50_v2026', 
-    type: 'G50', 
-    version: '2.4', 
-    name: "Bordereau Avis de Versement (G50)", 
-    status: "Active", 
-    lastUpdate: "2026-01-15", 
-    pages: [
-      {
-        pageNumber: 1,
-        title: "Page Principale - Liquidations",
-        backgroundImage: "https://picsum.photos/seed/g50p1/1200/1600",
-        fields: [
-          { id: "f1", name: "Raison Sociale", x: 150, y: 220, width: 300, type: "text", variable: "TENANT_NAME" },
-          { id: "f2", name: "NIF", x: 600, y: 220, width: 200, type: "text", variable: "TENANT_NIF" },
-          { id: "f3", name: "TVA Ventes (101)", x: 800, y: 450, width: 150, type: "number", variable: "TVA_COLLECTED" },
-        ]
-      }
-    ]
-  },
-  { 
-    id: 'g4_v2026', 
-    type: 'G4', 
-    version: '1.0', 
-    name: "Liasse Fiscale (G N°4)", 
-    status: "Active", 
-    lastUpdate: "2026-02-01", 
-    pages: [
-      { pageNumber: 1, title: "Tableau 1 : Bilan Actif", backgroundImage: "https://picsum.photos/seed/g4p1/1200/1600", fields: [] },
-      { pageNumber: 2, title: "Tableau 2 : Bilan Passif", backgroundImage: "https://picsum.photos/seed/g4p2/1200/1600", fields: [] }
-    ]
-  }
-]
-
 export default function DgiFormsEditor() {
-  const [templates, setTemplates] = React.useState(INITIAL_TEMPLATES)
   const [selectedForm, setSelectedForm] = React.useState<any>(null)
   const [activeTab, setActiveTab] = React.useState("library")
   const [currentPageIdx, setCurrentPageIdx] = React.useState(0)
   const [isEditMode, setIsEditMode] = React.useState(false)
+  const [isAnalyzing, setIsAnalyzing] = React.useState(false)
 
-  const handleSelectForm = (form: any) => {
-    setSelectedForm(JSON.parse(JSON.stringify(form))) // Deep copy
-    setCurrentPageIdx(0)
-    setActiveTab("editor")
-    toast({ title: "Template Chargé", description: `Édition du formulaire ${form.name} en cours.` })
-  }
+  // Smart Import State
+  const [smartImport, setSmartImport] = React.useState({ title: "", url: "" })
 
-  const handleCreateBlankForm = () => {
-    const newForm = {
-      id: `custom_${Date.now()}`,
-      type: 'G50',
-      version: '1.0',
-      name: "Nouveau Formulaire Personnalisé",
-      status: "Draft",
-      lastUpdate: new Date().toISOString().split('T')[0],
-      pages: [
-        {
-          pageNumber: 1,
-          title: "Page 1",
-          backgroundImage: "https://placehold.co/1200x1600?text=Importez+votre+scan+PDF",
-          fields: []
-        }
-      ]
-    };
-    setSelectedForm(newForm);
-    setCurrentPageIdx(0);
-    setActiveTab("editor");
-    toast({ 
-      title: "Nouveau formulaire créé", 
-      description: "Commencez par importer une image de fond dans l'onglet Éditeur." 
-    });
+  const handleSmartImport = async () => {
+    if (!smartImport.url || !smartImport.title) return;
+    setIsAnalyzing(true);
+    
+    try {
+      const analysis = await analyzeFormLayout({ 
+        imageUrl: smartImport.url, 
+        documentTitle: smartImport.title 
+      });
+
+      const newForm = {
+        id: `ai_${Date.now()}`,
+        type: smartImport.title.includes('50') ? 'G50' : 'G4',
+        version: '1.0 (AI)',
+        name: smartImport.title,
+        status: "Draft",
+        lastUpdate: new Date().toISOString().split('T')[0],
+        pages: [
+          {
+            pageNumber: 1,
+            title: "Analyse IA - Page 1",
+            backgroundImage: smartImport.url,
+            fields: analysis.detectedFields.map(f => ({
+              ...f,
+              id: `f_${Math.random().toString(36).substr(2, 9)}`,
+              variable: f.variableSuggestion || ""
+            }))
+          }
+        ]
+      };
+
+      setSelectedForm(newForm);
+      setCurrentPageIdx(0);
+      setActiveTab("editor");
+      toast({ 
+        title: "Analyse IA Terminée", 
+        description: `${analysis.detectedFields.length} champs détectés et positionnés.` 
+      });
+    } catch (e) {
+      console.error(e);
+      toast({ variant: "destructive", title: "Erreur Analyse", description: "Vérifiez l'URL de l'image." });
+    } finally {
+      setIsAnalyzing(false);
+    }
   }
 
   const handleAddField = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -138,71 +118,22 @@ export default function DgiFormsEditor() {
     setSelectedForm(updatedForm)
   }
 
-  const handleAddPage = () => {
-    const updatedForm = { ...selectedForm }
-    const nextNum = updatedForm.pages.length + 1
-    updatedForm.pages.push({
-      pageNumber: nextNum,
-      title: `Nouvelle Page ${nextNum}`,
-      backgroundImage: "https://placehold.co/1200x1600?text=Importez+votre+scan+PDF",
-      fields: []
-    })
-    setSelectedForm(updatedForm)
-    setCurrentPageIdx(updatedForm.pages.length - 1)
-    toast({ title: "Page ajoutée", description: `Page ${nextNum} créée.` })
-  }
-
-  const handleDeletePage = (idx: number) => {
-    if (selectedForm.pages.length <= 1) {
-      toast({ variant: "destructive", title: "Action impossible", description: "Un document doit avoir au moins une page." })
-      return
-    }
-    const updatedForm = { ...selectedForm }
-    updatedForm.pages.splice(idx, 1)
-    // Update numbers
-    updatedForm.pages = updatedForm.pages.map((p: any, i: number) => ({ ...p, pageNumber: i + 1 }))
-    setSelectedForm(updatedForm)
-    setCurrentPageIdx(Math.max(0, idx - 1))
-    toast({ title: "Page supprimée" })
-  }
-
-  const handleUpdatePageImage = (url: string) => {
-    const updatedForm = { ...selectedForm }
-    updatedForm.pages[currentPageIdx].backgroundImage = url
-    setSelectedForm(updatedForm)
-    toast({ title: "Fond mis à jour" })
-  }
-
-  const handleSaveTemplate = () => {
-    setTemplates(prev => {
-      const exists = prev.find(t => t.id === selectedForm.id);
-      if (exists) {
-        return prev.map(t => t.id === selectedForm.id ? selectedForm : t);
-      } else {
-        return [...prev, selectedForm];
-      }
-    })
-    toast({ title: "Template enregistré", description: "Les modifications ont été sauvegardées localement." })
-  }
-
-  const theme = DGI_THEMES[selectedForm?.type as keyof typeof DGI_THEMES] || DGI_THEMES.G50
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-primary flex items-center gap-3">
-            <Layout className="text-accent h-8 w-8" /> Studio de Formulaires DGI
+            <Layout className="text-accent h-8 w-8" /> Ingestion Intelligente DGI
           </h1>
-          <p className="text-muted-foreground font-medium">Éditeur de fonds PDF multi-pages pour documents officiels.</p>
+          <p className="text-muted-foreground font-medium">Analyse et mapping automatique des fonds officiels par IA Vision.</p>
         </div>
         <div className="flex gap-2">
           {selectedForm && (
             <Button variant="outline" className="bg-white shadow-sm" onClick={() => { setActiveTab("library"); setSelectedForm(null); }}>
-              <ChevronLeft className="mr-2 h-4 w-4" /> Catalogue
+              <ChevronLeft className="mr-2 h-4 w-4" /> Retour
             </Button>
           )}
-          <Button className="bg-primary shadow-xl" onClick={handleSaveTemplate} disabled={!selectedForm}>
+          <Button className="bg-primary shadow-xl" disabled={!selectedForm}>
             <Save className="mr-2 h-4 w-4" /> Publier Template
           </Button>
         </div>
@@ -214,53 +145,65 @@ export default function DgiFormsEditor() {
             <Database className="h-4 w-4" /> Catalogue
           </TabsTrigger>
           <TabsTrigger value="editor" className="flex items-center gap-2" disabled={!selectedForm}>
-            <FileEdit className="h-4 w-4" /> Éditeur Canva
+            <Wand2 className="h-4 w-4" /> Éditeur IA
           </TabsTrigger>
           <TabsTrigger value="preview" className="flex items-center gap-2" disabled={!selectedForm}>
-            <Eye className="h-4 w-4" /> Aperçu Complet
+            <Eye className="h-4 w-4" /> Aperçu Réel
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="library">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {templates.map((form) => {
-              const fTheme = DGI_THEMES[form.type as keyof typeof DGI_THEMES] || DGI_THEMES.G50;
-              return (
-                <Card 
-                  key={form.id} 
-                  className={`group cursor-pointer hover:shadow-2xl transition-all duration-300 border-t-4 ${fTheme.border}`}
-                  onClick={() => handleSelectForm(form)}
-                >
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-start mb-2">
-                      <div className={`p-2 rounded-lg ${fTheme.primary} text-white shadow-lg`}>
-                        <FileText className="h-5 w-5" />
-                      </div>
-                      <Badge variant="secondary" className="text-[8px] uppercase font-black">{form.pages.length} PAGES</Badge>
-                    </div>
-                    <CardTitle className="text-base font-bold group-hover:text-primary transition-colors">{form.name}</CardTitle>
-                    <CardDescription className="text-[10px] font-bold uppercase tracking-tighter">Version {form.version}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="pt-4">
-                    <p className="text-[9px] text-muted-foreground flex items-center gap-2">
-                      <CheckCircle2 className={`h-3 w-3 ${fTheme.text}`} /> {form.pages.reduce((acc: number, p: any) => acc + p.fields.length, 0)} champs totaux
-                    </p>
-                  </CardContent>
-                  <CardFooter className="bg-muted/20 p-3 mt-4">
-                    <Button variant="ghost" size="sm" className={`w-full text-[10px] font-black uppercase tracking-widest ${fTheme.text}`}>
-                      Ouvrir l'Éditeur <ArrowRight className="ml-2 h-3 w-3" />
-                    </Button>
-                  </CardFooter>
-                </Card>
-              );
-            })}
-            <Card 
-              className="border-dashed border-2 flex flex-col items-center justify-center p-8 text-center bg-muted/10 hover:bg-muted/20 transition-colors cursor-pointer"
-              onClick={handleCreateBlankForm}
-            >
-              <UploadCloud className="h-10 w-10 text-muted-foreground mb-4 opacity-20" />
-              <CardTitle className="text-sm font-bold text-muted-foreground uppercase">Nouveau Formulaire</CardTitle>
-              <Button variant="outline" size="sm" className="mt-4 text-[10px] font-bold border-dashed">Démarrer à blanc</Button>
+        <TabsContent value="library" className="space-y-8">
+          <Card className="border-primary/20 bg-primary/5 shadow-inner">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2 text-primary">
+                <Sparkles className="h-5 w-5 text-accent" /> Importer un Document Officiel
+              </CardTitle>
+              <CardDescription>Fournissez l'image de fond, l'IA détectera les cases à remplir pour vous.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase">Titre du document</Label>
+                <Input 
+                  placeholder="Ex: G N° 50 - 2026 (Recto)" 
+                  value={smartImport.title} 
+                  onChange={e => setSmartImport({...smartImport, title: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase">URL du Fond (Scan PDF/Image)</Label>
+                <div className="relative">
+                  <LinkIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    className="pl-9" 
+                    placeholder="https://votre-drive.dz/scan.jpg" 
+                    value={smartImport.url}
+                    onChange={e => setSmartImport({...smartImport, url: e.target.value})}
+                  />
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-end border-t bg-white/50 p-4">
+              <Button 
+                onClick={handleSmartImport} 
+                disabled={isAnalyzing || !smartImport.url}
+                className="bg-accent text-primary font-bold shadow-lg"
+              >
+                {isAnalyzing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyse des champs...</> : <><Wand2 className="mr-2 h-4 w-4" /> Analyser & Créer</>}
+              </Button>
+            </CardFooter>
+          </Card>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Simulation de catalogue existant */}
+            <Card className="border-t-4 border-t-emerald-500 hover:shadow-xl transition-all cursor-pointer">
+              <CardHeader className="pb-2">
+                <div className="flex justify-between items-start">
+                  <div className="bg-emerald-500 p-2 rounded-lg text-white shadow-lg"><FileText className="h-5 w-5" /></div>
+                  <Badge className="bg-emerald-100 text-emerald-700">ACTIF</Badge>
+                </div>
+                <CardTitle className="text-base mt-4">G N° 50 - Standard</CardTitle>
+                <CardDescription>Dernière révision : Janv 2026</CardDescription>
+              </CardHeader>
             </Card>
           </div>
         </TabsContent>
@@ -268,129 +211,39 @@ export default function DgiFormsEditor() {
         <TabsContent value="editor">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
             <div className="lg:col-span-1 space-y-6">
-              {/* Navigation & Pages */}
               <Card className="shadow-lg border-t-4 border-t-primary">
-                <CardHeader className="pb-2">
+                <CardHeader className="bg-muted/30 pb-2">
                   <CardTitle className="text-xs font-bold flex items-center gap-2 uppercase">
-                    <Layers className="h-4 w-4 text-primary" /> Structure Document
+                    <Layers className="h-4 w-4 text-primary" /> Structure Détectée
                   </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 pt-2">
-                  <div className="space-y-2">
-                    {selectedForm?.pages.map((p: any, i: number) => (
-                      <div key={i} className="flex gap-1">
-                        <Button 
-                          variant={currentPageIdx === i ? "default" : "ghost"} 
-                          size="sm" 
-                          className="flex-1 justify-start text-[10px] h-8"
-                          onClick={() => setCurrentPageIdx(i)}
-                        >
-                          Page {p.pageNumber} : {p.title}
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeletePage(i)}>
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                    <Button variant="outline" size="sm" className="w-full border-dashed h-8 text-[10px]" onClick={handleAddPage}>
-                      <Plus className="mr-1 h-3 w-3" /> Ajouter une page
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Page Settings */}
-              <Card className="shadow-lg border-t-4 border-t-accent">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-bold flex items-center gap-2 uppercase">
-                    <Settings className="h-4 w-4 text-accent" /> Fond de la page {currentPageIdx + 1}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 pt-2">
-                  <div className="space-y-2">
-                    <Label className="text-[10px] uppercase font-bold">Image du Scan PDF (URL)</Label>
-                    <Input 
-                      value={selectedForm?.pages[currentPageIdx].backgroundImage || ""} 
-                      onChange={(e) => handleUpdatePageImage(e.target.value)}
-                      placeholder="Collez l'URL de l'image du scan..."
-                      className="h-8 text-[10px]"
-                    />
-                    <p className="text-[9px] text-muted-foreground italic">Conseil : Utilisez un scan 300 DPI pour plus de précision.</p>
-                  </div>
-                  <div className="space-y-2 pt-2 border-t">
-                    <Label className="text-[10px] uppercase font-bold">Titre de la page</Label>
-                    <Input 
-                      value={selectedForm?.pages[currentPageIdx].title || ""} 
-                      onChange={(e) => {
-                        const updated = {...selectedForm};
-                        updated.pages[currentPageIdx].title = e.target.value;
-                        setSelectedForm(updated);
-                      }}
-                      className="h-8 text-[10px]"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Edit Mode Toggle */}
-              <Card className="shadow-md bg-muted/20">
-                <CardContent className="pt-6 space-y-4">
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-white border shadow-inner">
-                    <div className="flex items-center gap-2">
-                      <MousePointer2 className={`h-4 w-4 ${isEditMode ? 'text-primary' : 'text-muted-foreground'}`} />
-                      <span className="text-[10px] font-bold uppercase">Mode Placement</span>
-                    </div>
-                    <Button 
-                      size="sm" 
-                      variant={isEditMode ? "default" : "outline"} 
-                      className="h-7 px-3 text-[10px]"
-                      onClick={() => setIsEditMode(!isEditMode)}
-                    >
-                      {isEditMode ? "ACTIF" : "OFF"}
-                    </Button>
-                  </div>
-                  <p className="text-[9px] text-muted-foreground italic leading-relaxed text-center">
-                    Cliquez sur le document pour ajouter une zone de texte.
-                  </p>
-                </CardContent>
-              </Card>
-
-              {/* Fields List */}
-              <Card className="shadow-lg">
-                <CardHeader className="bg-muted/20 border-b py-2 px-4">
-                  <CardTitle className="text-[10px] font-bold uppercase">Champs de cette page</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <ScrollArea className="h-[300px]">
+                  <ScrollArea className="h-[500px]">
                     <div className="divide-y">
                       {selectedForm?.pages[currentPageIdx].fields.map((field: any) => (
-                        <div key={field.id} className="p-3 space-y-2 hover:bg-muted/30 transition-colors group">
+                        <div key={field.id} className="p-4 space-y-3 hover:bg-primary/5 transition-colors">
                           <div className="flex justify-between items-center">
                             <Input 
                               value={field.name} 
                               onChange={(e) => handleUpdateField(field.id, { name: e.target.value })}
-                              className="h-6 text-[10px] font-bold border-none bg-transparent focus-visible:ring-0 p-0"
+                              className="h-7 text-[10px] font-bold border-none bg-transparent focus-visible:ring-0 p-0"
                             />
-                            <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive" onClick={() => handleRemoveField(field.id)}>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleRemoveField(field.id)}>
                               <Trash2 className="h-3 w-3" />
                             </Button>
                           </div>
-                          <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-2">
+                            <Label className="text-[8px] uppercase font-bold text-muted-foreground">Variable liée</Label>
                             <Select value={field.variable} onValueChange={(v) => handleUpdateField(field.id, { variable: v })}>
-                              <SelectTrigger className="h-6 text-[8px]"><SelectValue placeholder="Lier Variable" /></SelectTrigger>
+                              <SelectTrigger className="h-7 text-[9px] bg-white"><SelectValue /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="TENANT_NAME">Raison Sociale</SelectItem>
                                 <SelectItem value="TENANT_NIF">NIF Client</SelectItem>
-                                <SelectItem value="TVA_COLLECTED">TVA Collectée</SelectItem>
-                                <SelectItem value="IBS_NET">IBS Brut</SelectItem>
+                                <SelectItem value="TOTAL_TVA">Total TVA (101)</SelectItem>
+                                <SelectItem value="IRG_AMT">IRG Salaires</SelectItem>
+                                <SelectItem value="TAP_AMT">TAP HT</SelectItem>
                               </SelectContent>
                             </Select>
-                            <Input 
-                              type="number" 
-                              value={field.width} 
-                              onChange={(e) => handleUpdateField(field.id, { width: parseInt(e.target.value) })}
-                              className="h-6 text-[8px]" 
-                            />
                           </div>
                         </div>
                       ))}
@@ -398,12 +251,28 @@ export default function DgiFormsEditor() {
                   </ScrollArea>
                 </CardContent>
               </Card>
+
+              <div className="p-4 bg-accent/10 border border-accent/20 rounded-xl">
+                <div className="flex items-center gap-2 text-primary font-bold text-xs mb-2">
+                  <MousePointer2 className="h-4 w-4" /> Mode Ajustement
+                </div>
+                <p className="text-[10px] text-muted-foreground italic leading-relaxed">
+                  L'IA a placé les champs. Cliquez sur le document pour en ajouter un nouveau ou faites glisser les zones existantes.
+                </p>
+                <Button 
+                  variant={isEditMode ? "default" : "outline"} 
+                  className="w-full mt-4 h-8 text-[10px]"
+                  onClick={() => setIsEditMode(!isEditMode)}
+                >
+                  {isEditMode ? "DÉSACTIVER PLACEMENT" : "ACTIVER PLACEMENT MANUEL"}
+                </Button>
+              </div>
             </div>
 
-            <div className="lg:col-span-3 space-y-4">
-              <div className="bg-slate-300 rounded-xl p-8 overflow-auto flex justify-center min-h-[900px] border-inner shadow-inner relative">
+            <div className="lg:col-span-3">
+              <div className="bg-slate-200 rounded-2xl p-8 overflow-auto flex justify-center min-h-[1000px] border shadow-inner">
                 <div 
-                  className="relative bg-white shadow-2xl transition-all"
+                  className="relative bg-white shadow-2xl transition-all origin-top"
                   style={{ 
                     width: '800px', 
                     height: '1131px', 
@@ -415,21 +284,15 @@ export default function DgiFormsEditor() {
                   {selectedForm?.pages[currentPageIdx].fields.map((field: any) => (
                     <div 
                       key={field.id}
-                      className="absolute border-2 border-primary/50 bg-primary/10 flex items-center justify-center cursor-move group hover:border-primary hover:bg-primary/20 transition-all"
-                      style={{ left: `${field.x}px`, top: `${field.y}px`, width: `${field.width}px`, height: '22px' }}
+                      className={`absolute border-2 flex items-center justify-center cursor-move transition-all ${field.variable ? 'border-emerald-500 bg-emerald-500/10' : 'border-primary/50 bg-primary/10'}`}
+                      style={{ left: `${field.x}px`, top: `${field.y}px`, width: `${field.width}px`, height: '24px' }}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <span className="text-[8px] font-bold text-primary truncate px-1">{field.name}</span>
+                      <span className={`text-[8px] font-black truncate px-1 ${field.variable ? 'text-emerald-700' : 'text-primary'}`}>
+                        {field.name}
+                      </span>
                     </div>
                   ))}
-
-                  {isEditMode && (
-                    <div className="absolute inset-0 bg-primary/5 pointer-events-none flex items-center justify-center">
-                      <div className="bg-primary/80 text-white text-[10px] font-bold px-4 py-2 rounded-full animate-pulse">
-                        CLIQUEZ POUR PLACER UNE ZONE
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
@@ -437,24 +300,23 @@ export default function DgiFormsEditor() {
         </TabsContent>
 
         <TabsContent value="preview">
-          <ScrollArea className="h-[800px] bg-slate-200 p-12 rounded-xl border shadow-inner">
-            <div className="flex flex-col items-center gap-12 pb-20">
-              {selectedForm?.pages.map((page: any, pIdx: number) => (
-                <div key={pIdx} className="relative bg-white shadow-2xl" style={{ width: '800px', height: '1131px', backgroundImage: `url(${page.backgroundImage})`, backgroundSize: 'cover' }}>
-                  <div className="absolute top-4 right-4 bg-primary text-white text-[8px] font-bold px-2 py-1 rounded opacity-50">PAGE {pIdx + 1}</div>
+          <div className="flex justify-center bg-slate-300 p-12 rounded-2xl">
+            <div className="flex flex-col gap-12">
+              {selectedForm?.pages.map((page: any, idx: number) => (
+                <Card key={idx} className="relative bg-white shadow-2xl" style={{ width: '800px', height: '1131px', backgroundImage: `url(${page.backgroundImage})`, backgroundSize: 'cover' }}>
                   {page.fields.map((field: any) => (
                     <div 
                       key={field.id}
-                      className="absolute font-mono text-[10px] text-blue-800 font-bold flex items-center px-1"
-                      style={{ left: `${field.x}px`, top: `${field.y}px`, width: `${field.width}px`, height: '22px' }}
+                      className="absolute font-mono text-[11px] text-blue-900 font-bold flex items-center px-1"
+                      style={{ left: `${field.x}px`, top: `${field.y}px`, width: `${field.width}px`, height: '24px' }}
                     >
-                      {field.variable ? "DONNÉE_SIMULÉE" : ""}
+                      {field.variable ? `[${field.variable}]` : ""}
                     </div>
                   ))}
-                </div>
+                </Card>
               ))}
             </div>
-          </ScrollArea>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
