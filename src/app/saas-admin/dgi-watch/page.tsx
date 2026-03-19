@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { 
   Eye, RefreshCw, Sparkles, CheckCircle2, Loader2, 
-  FileText, Calendar, Zap, ListChecks, DatabaseZap, History, Clock, ExternalLink, Inbox, BellRing, TrendingUp
+  FileText, Calendar, Zap, ListChecks, DatabaseZap, History, Clock, ExternalLink, Inbox, BellRing, TrendingUp, AlertTriangle
 } from "lucide-react"
 import { scrapeDgiNews } from "@/lib/dgi-watch/scraper"
 import { analyzeDgiPublication } from "@/ai/flows/dgi-analysis-flow"
@@ -27,42 +27,70 @@ export default function DgiWatchAdmin() {
   , [db]);
   const { data: publications, isLoading } = useCollection(publicationsQuery);
 
-  const pendingItems = React.useMemo(() => publications?.filter(p => !p.isApplied) || [], [publications]);
-  const resolvedItems = React.useMemo(() => publications?.filter(p => p.isApplied) || [], [publications]);
+  // Helper pour détecter si un item est du mois en cours
+  const isFromThisMonth = (dateStr: string) => {
+    if (!dateStr) return false;
+    const now = new Date();
+    const currentMonthNum = (now.getMonth() + 1).toString().padStart(2, '0');
+    const currentYear = now.getFullYear().toString();
+    const currentMonthFr = new Intl.DateTimeFormat('fr-FR', { month: 'long' }).format(now).toLowerCase();
+    
+    const d = dateStr.toLowerCase();
+    return (d.includes(currentMonthNum) && d.includes(currentYear)) || 
+           (d.includes(currentMonthFr) && d.includes(currentYear)) ||
+           (d.includes(currentYear) && d.includes(currentMonthNum));
+  };
 
-  // Calcul des nouveautés du mois en cours
+  const pendingItems = React.useMemo(() => publications?.filter(p => !p.isApplied) || [], [publications]);
+  const newsThisMonth = React.useMemo(() => publications?.filter(p => isFromThisMonth(p.publishedDate)) || [], [publications]);
+
   const currentMonthName = new Intl.DateTimeFormat('fr-FR', { month: 'long' }).format(new Date());
-  const newsThisMonth = React.useMemo(() => {
-    if (!publications) return [];
-    return publications.filter(p => 
-      p.publishedDate.toLowerCase().includes(currentMonthName.toLowerCase()) || 
-      p.publishedDate.includes(new Date().getFullYear().toString())
-    );
-  }, [publications, currentMonthName]);
 
   const handleSyncAndAnalyze = async () => {
     if (!db) return
     setIsProcessing(true)
     try {
+      // 1. ÉTAPE : RÉCUPÉRATION DES TITRES (SCRAPPING)
       const news = await scrapeDgiNews()
       
+      if (news.length === 0) {
+        toast({ variant: "destructive", title: "Aucune donnée", description: "Le site de la DGI n'a renvoyé aucun résultat." });
+        setIsProcessing(false);
+        return;
+      }
+
+      // Enregistrer les titres immédiatement pour que l'utilisateur voit quelque chose
       for (const item of news) {
         const pubRef = doc(db, "dgi_publications", item.id)
-        
-        // On demande à l'IA d'analyser le titre et les métadonnées
-        const analysis = await analyzeDgiPublication({ 
-          title: item.title, 
-          content: item.title 
-        })
-
         await setDocumentNonBlocking(pubRef, {
           ...item,
-          ...analysis,
           updatedAt: new Date().toISOString()
         }, { merge: true })
       }
 
-      toast({ title: "Sync & Analyse Terminée", description: `${news.length} publications synchronisées.` })
+      toast({ title: "Synchronisation réussie", description: `${news.length} parutions détectées. Lancement de l'analyse IA...` })
+
+      // 2. ÉTAPE : ANALYSE IA (ENRICHSSEMENT)
+      // On traite un par un pour ne pas surcharger Gemini
+      for (const item of news) {
+        try {
+          const analysis = await analyzeDgiPublication({ 
+            title: item.title, 
+            content: item.title 
+          })
+
+          const pubRef = doc(db, "dgi_publications", item.id)
+          await setDocumentNonBlocking(pubRef, {
+            ...analysis,
+            analysisCompleted: true,
+            updatedAt: new Date().toISOString()
+          }, { merge: true })
+        } catch (err) {
+          console.error(`Erreur analyse pour ${item.id}:`, err);
+        }
+      }
+
+      toast({ title: "Mise à jour terminée", description: "Toutes les parutions ont été analysées par l'IA." })
     } catch (e) {
       console.error(e)
       toast({ variant: "destructive", title: "Erreur lors de la synchronisation" })
@@ -72,7 +100,10 @@ export default function DgiWatchAdmin() {
   }
 
   const handleInjectVariables = async (pub: any) => {
-    if (!db || !pub.extractedVariables || pub.extractedVariables.length === 0) return;
+    if (!db || !pub.extractedVariables || pub.extractedVariables.length === 0) {
+      toast({ variant: "destructive", title: "Impossible", description: "Aucune variable structurée à injecter." });
+      return;
+    }
     
     setIsInjecting(pub.id);
     try {
@@ -204,22 +235,23 @@ export default function DgiWatchAdmin() {
                 <CheckCircle2 className="h-12 w-12 text-emerald-500 opacity-20" />
                 <div>
                   <p className="font-bold text-lg">Tout est à jour !</p>
-                  <p className="text-sm">Aucune nouvelle publication DGI en attente de traitement.</p>
+                  <p className="text-sm">Aucune parution DGI en attente.</p>
                 </div>
-                <Button variant="outline" onClick={handleSyncAndAnalyze}>Lancer une nouvelle vérification</Button>
+                <Button variant="outline" onClick={handleSyncAndAnalyze}>Recharger les données</Button>
               </div>
             </Card>
           ) : (
             <div className="space-y-6">
               {pendingItems.map((pub) => {
-                const isFromCurrentMonth = pub.publishedDate.toLowerCase().includes(currentMonthName.toLowerCase());
+                const isRecent = isFromThisMonth(pub.publishedDate);
+                const hasAnalysis = !!pub.summary;
                 return (
-                  <Card key={pub.id} className={`overflow-hidden border-none shadow-lg ring-1 ${isFromCurrentMonth ? 'ring-blue-200 bg-blue-50/5' : 'ring-amber-200 bg-amber-50/10'}`}>
-                    <CardHeader className={`${isFromCurrentMonth ? 'bg-blue-100/30' : 'bg-amber-100/30'} border-b py-4`}>
+                  <Card key={pub.id} className={`overflow-hidden border-none shadow-lg ring-1 ${isRecent ? 'ring-blue-200 bg-blue-50/5' : 'ring-amber-200 bg-amber-50/10'}`}>
+                    <CardHeader className={`${isRecent ? 'bg-blue-100/30' : 'bg-amber-100/30'} border-b py-4`}>
                       <div className="flex items-start justify-between">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
-                            {isFromCurrentMonth && <Badge className="bg-blue-600 text-white text-[8px] h-4">RÉCENT ({currentMonthName.toUpperCase()})</Badge>}
+                            {isRecent && <Badge className="bg-blue-600 text-white text-[8px] h-4">RÉCENT</Badge>}
                             <Badge variant="outline" className="text-[8px] uppercase">{pub.category}</Badge>
                             <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                               <Calendar className="h-3 w-3" /> Paru le {pub.publishedDate}
@@ -233,72 +265,79 @@ export default function DgiWatchAdmin() {
                       </div>
                     </CardHeader>
                     <CardContent className="pt-6">
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <div className="space-y-4">
-                          <h4 className="text-[10px] font-bold uppercase text-muted-foreground mb-2 flex items-center gap-1">
-                            <Sparkles className="h-3 w-3 text-accent" /> Analyse IA (Gemini)
-                          </h4>
-                          <p className="text-sm leading-relaxed text-foreground/80 italic">"{pub.summary || 'Analyse en cours...'}"</p>
-                          <div>
-                            <h4 className="text-[10px] font-bold uppercase text-muted-foreground mb-2">Modules SaaS Impactés</h4>
-                            <div className="flex flex-wrap gap-2">
-                              {pub.affectedModules?.map((m: string) => (
-                                <Badge key={m} variant="outline" className="bg-primary/5 text-primary border-primary/20 text-[10px]">{m}</Badge>
-                              ))}
-                            </div>
-                          </div>
+                      {!hasAnalysis ? (
+                        <div className="flex items-center gap-3 p-4 bg-muted/20 rounded-xl border border-dashed">
+                          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                          <p className="text-xs text-muted-foreground italic">L'IA de ComptaFisc-DZ est en train d'analyser le contenu de cette publication...</p>
                         </div>
-
-                        <div className="space-y-4">
-                          <h4 className="text-[10px] font-bold uppercase text-muted-foreground mb-2 flex items-center gap-1">
-                            <ListChecks className="h-3 w-3 text-primary" /> Points clés extraits
-                          </h4>
-                          <ul className="space-y-2">
-                            {pub.keyPoints?.map((pt: string, idx: number) => (
-                              <li key={idx} className="text-xs flex items-start gap-2">
-                                <span className="h-1.5 w-1.5 rounded-full bg-accent mt-1.5 shrink-0" />
-                                <span>{pt}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-
-                        <div className="space-y-4 bg-white p-4 rounded-xl border-2 border-primary/10 shadow-inner">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1">
-                              <DatabaseZap className="h-3 w-3 text-emerald-600" /> Données à Injecter
+                      ) : (
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                          <div className="space-y-4">
+                            <h4 className="text-[10px] font-bold uppercase text-muted-foreground mb-2 flex items-center gap-1">
+                              <Sparkles className="h-3 w-3 text-accent" /> Analyse IA (Gemini)
                             </h4>
-                            <Button 
-                              size="sm" 
-                              className="h-7 text-[9px] bg-emerald-600 hover:bg-emerald-700 font-bold"
-                              onClick={() => handleInjectVariables(pub)}
-                              disabled={isInjecting === pub.id}
-                            >
-                              {isInjecting === pub.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <DatabaseZap className="h-3 w-3 mr-1" />}
-                              APPROUVER
-                            </Button>
-                          </div>
-                          
-                          {pub.extractedVariables && pub.extractedVariables.length > 0 ? (
-                            <div className="space-y-2">
-                              {pub.extractedVariables.map((v: any, idx: number) => (
-                                <div key={idx} className="flex justify-between items-center p-2 bg-muted/30 rounded border">
-                                  <div>
-                                    <p className="text-[9px] font-black text-primary truncate w-32">{v.name}</p>
-                                    <p className="text-[8px] text-muted-foreground">{v.code}</p>
-                                  </div>
-                                  <div className="text-right">
-                                    <p className="text-xs font-black text-emerald-600">{v.value}</p>
-                                    <p className="text-[8px] text-muted-foreground">Effet: {v.effectiveDate}</p>
-                                  </div>
-                                </div>
-                              ))}
+                            <p className="text-sm leading-relaxed text-foreground/80 italic">"{pub.summary}"</p>
+                            <div>
+                              <h4 className="text-[10px] font-bold uppercase text-muted-foreground mb-2">Modules SaaS Impactés</h4>
+                              <div className="flex flex-wrap gap-2">
+                                {pub.affectedModules?.map((m: string) => (
+                                  <Badge key={m} variant="outline" className="bg-primary/5 text-primary border-primary/20 text-[10px]">{m}</Badge>
+                                ))}
+                              </div>
                             </div>
-                          ) : (
-                            <div className="text-center py-6 text-muted-foreground italic text-xs">Aucune variable détectée.</div>
-                          )}
+                          </div>
+
+                          <div className="space-y-4">
+                            <h4 className="text-[10px] font-bold uppercase text-muted-foreground mb-2 flex items-center gap-1">
+                              <ListChecks className="h-3 w-3 text-primary" /> Points clés extraits
+                            </h4>
+                            <ul className="space-y-2">
+                              {pub.keyPoints?.map((pt: string, idx: number) => (
+                                <li key={idx} className="text-xs flex items-start gap-2">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-accent mt-1.5 shrink-0" />
+                                  <span>{pt}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+
+                          <div className="space-y-4 bg-white p-4 rounded-xl border-2 border-primary/10 shadow-inner">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1">
+                                <DatabaseZap className="h-3 w-3 text-emerald-600" /> Données à Injecter
+                              </h4>
+                              <Button 
+                                size="sm" 
+                                className="h-7 text-[9px] bg-emerald-600 hover:bg-emerald-700 font-bold"
+                                onClick={() => handleInjectVariables(pub)}
+                                disabled={isInjecting === pub.id}
+                              >
+                                {isInjecting === pub.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <DatabaseZap className="h-3 w-3 mr-1" />}
+                                APPROUVER
+                              </Button>
+                            </div>
+                            
+                            {pub.extractedVariables && pub.extractedVariables.length > 0 ? (
+                              <div className="space-y-2">
+                                {pub.extractedVariables.map((v: any, idx: number) => (
+                                  <div key={idx} className="flex justify-between items-center p-2 bg-muted/30 rounded border">
+                                    <div>
+                                      <p className="text-[9px] font-black text-primary truncate w-32">{v.name}</p>
+                                      <p className="text-[8px] text-muted-foreground">{v.code}</p>
+                                    </div>
+                                    <div className="text-right">
+                                      <p className="text-xs font-black text-emerald-600">{v.value}</p>
+                                      <p className="text-[8px] text-muted-foreground">Effet: {v.effectiveDate}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-center py-6 text-muted-foreground italic text-xs">Aucune variable numérique détectée.</div>
+                            )}
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </CardContent>
                   </Card>
                 );
@@ -335,13 +374,13 @@ export default function DgiWatchAdmin() {
                         {pub.isApplied ? (
                           <Badge className="bg-emerald-500 text-white border-none text-[9px] font-black uppercase">Appliqué</Badge>
                         ) : (
-                          <Badge variant="outline" className="text-[9px] font-black uppercase text-amber-600 border-amber-200">En attente</Badge>
+                          <Badge variant="outline" className="text-[9px] font-black uppercase text-amber-600 border-amber-200">À traiter</Badge>
                         )}
                       </TableCell>
                       <TableCell className="max-w-[400px]">
                         <div className="flex flex-col">
                           <span className="font-bold text-xs line-clamp-1">{pub.title}</span>
-                          <span className="text-[9px] text-muted-foreground italic truncate">{pub.summary || "Contenu traité par Gemini"}</span>
+                          <span className="text-[9px] text-muted-foreground italic truncate">{pub.summary || "Contenu indexé"}</span>
                         </div>
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">{pub.publishedDate}</TableCell>
