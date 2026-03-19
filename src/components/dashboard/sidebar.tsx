@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -36,7 +35,8 @@ import {
   FileBadge,
   TrendingDown,
   BrainCircuit,
-  PieChart
+  PieChart,
+  Plus
 } from "lucide-react"
 
 import {
