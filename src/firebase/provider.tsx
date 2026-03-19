@@ -162,9 +162,11 @@ export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T | 
   const memoized = useMemo(factory, deps);
   
   if(typeof memoized !== 'object' || memoized === null) return memoized;
-  (memoized as MemoFirebase<T>).__memo = true;
   
-  return memoized;
+  // We avoid directly mutating the object to prevent issues with frozen objects during SSR
+  const wrapped = Object.assign(memoized as any, { __memo: true });
+  
+  return wrapped;
 }
 
 /**

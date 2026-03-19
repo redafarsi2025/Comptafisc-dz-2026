@@ -7,8 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { FileStack, Printer, Calculator, PieChart, ShieldCheck, AlertCircle, TrendingDown } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { FileStack, Printer, Calculator, PieChart, ShieldCheck, AlertCircle, TrendingDown, Loader2 } from "lucide-react"
+import { Badge } from "@/badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function LiasseFiscaleG4() {
@@ -51,7 +51,7 @@ export default function LiasseFiscaleG4() {
 
   // Agrégation des données pour la G4
   const g4Data = React.useMemo(() => {
-    if (!entries) return null;
+    if (!entries || !mounted) return null;
     const balances: Record<string, { debit: number; credit: number }> = {};
     
     entries.forEach(entry => {
@@ -108,12 +108,13 @@ export default function LiasseFiscaleG4() {
     }
 
     return categories;
-  }, [entries, assets]);
+  }, [entries, assets, mounted]);
 
   const resComptable = (g4Data?.tcr.ventes || 0) - (g4Data?.tcr.achats || 0) - (g4Data?.tcr.services || 0) - (g4Data?.tcr.salaires || 0);
   const resFiscal = resComptable; 
 
   const calculateAmort = (asset: any) => {
+    if (!mounted) return { dotation: 0, cumul: 0, vnc: asset.acquisitionValue };
     const value = asset.acquisitionValue;
     const rate = asset.amortizationRate / 100;
     const years = (new Date().getTime() - new Date(asset.acquisitionDate).getTime()) / (1000 * 60 * 60 * 24 * 365.25);
@@ -122,7 +123,7 @@ export default function LiasseFiscaleG4() {
     return { dotation, cumul, vnc: value - cumul };
   };
 
-  if (isEntriesLoading) return <div className="flex items-center justify-center h-screen"><FileStack className="animate-spin h-8 w-8 text-primary" /></div>
+  if (!mounted || isEntriesLoading) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>
 
   return (
     <div className="space-y-6">

@@ -11,7 +11,7 @@ import {
   Plus, Trash2, CheckCircle, Calculator, Loader2, BookOpen, 
   Search, PlusCircle, Zap, ShieldAlert, Sparkles, FileDown 
 } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { Badge } from "@/badge"
 import { useFirestore, useUser, addDocumentNonBlocking, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, query, where, limit, getDocs } from "firebase/firestore"
 import { toast } from "@/hooks/use-toast"
@@ -22,8 +22,9 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 export default function AccountingJournal() {
   const db = useFirestore()
   const { user } = useUser()
+  const [mounted, setMounted] = React.useState(false)
   const [description, setDescription] = React.useState("")
-  const [entryDate, setEntryDate] = React.useState(new Date().toISOString().split('T')[0])
+  const [entryDate, setEntryDate] = React.useState("")
   const [reference, setReference] = React.useState("")
   const [journalType, setJournalType] = React.useState<JournalType>("ACHATS")
   const [isSubmitting, setIsSubmitting] = React.useState(false)
@@ -34,21 +35,27 @@ export default function AccountingJournal() {
   const [isAccountDialogOpen, setIsAccountDialogOpen] = React.useState(false)
   const [newAccountData, setNewAccountData] = React.useState({ code: "", name: "" })
 
+  React.useEffect(() => {
+    setMounted(true)
+    setEntryDate(new Date().toISOString().split('T')[0])
+  }, [])
+
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null), limit(1));
   }, [db, user]);
   const { data: tenants } = useCollection(tenantsQuery);
   const currentTenant = tenants?.[0];
+  const currentTenantId = currentTenant?.id;
 
   // Fetch custom accounts
   const customAccountsQuery = useMemoFirebase(() => {
-    if (!db || !currentTenant || !user) return null;
+    if (!db || !currentTenantId || !user) return null;
     return query(
-      collection(db, "tenants", currentTenant.id, "accounts"),
+      collection(db, "tenants", currentTenantId, "accounts"),
       where(`tenantMembers.${user.uid}`, "!=", null)
     );
-  }, [db, currentTenant, user]);
+  }, [db, currentTenantId, user]);
   const { data: customAccounts } = useCollection(customAccountsQuery);
 
   const allAccounts = React.useMemo(() => {
@@ -77,12 +84,12 @@ export default function AccountingJournal() {
   // Duplicate Check
   React.useEffect(() => {
     const checkDuplicate = async () => {
-      if (!db || !currentTenant || !reference || reference.length < 3) {
+      if (!db || !currentTenantId || !reference || reference.length < 3) {
         setDuplicateWarning(null);
         return;
       }
       const q = query(
-        collection(db, "tenants", currentTenant.id, "journal_entries"),
+        collection(db, "tenants", currentTenantId, "journal_entries"),
         where("documentReference", "==", reference),
         limit(1)
       );
@@ -94,7 +101,7 @@ export default function AccountingJournal() {
       }
     };
     checkDuplicate();
-  }, [db, currentTenant, reference]);
+  }, [db, currentTenantId, reference]);
 
   const totals = React.useMemo(() => {
     return lines.reduce((acc, line) => ({
@@ -135,14 +142,12 @@ export default function AccountingJournal() {
     const counterAccount = isPurchase ? '401' : '411';
 
     const newLines = [...lines];
-    // On ajoute ou met à jour la ligne de TVA
     newLines.push({ 
       accountCode: tvaAccount, 
       accountName: allAccounts.find(a => a.code === tvaAccount)?.name || "TVA", 
       debit: isPurchase ? tva : 0, 
       credit: isPurchase ? 0 : tva 
     });
-    // On ajoute ou met à jour la ligne de tiers (Total TTC)
     newLines.push({ 
       accountCode: counterAccount, 
       accountName: allAccounts.find(a => a.code === counterAccount)?.name || "Tiers", 
@@ -175,13 +180,13 @@ export default function AccountingJournal() {
   }
 
   const handleValidate = async () => {
-    if (!db || !user || !currentTenant || !isBalanced) return
+    if (!db || !user || !currentTenantId || !isBalanced) return
     
     setIsSubmitting(true)
-    const journalEntriesRef = collection(db, "tenants", currentTenant.id, "journal_entries")
+    const journalEntriesRef = collection(db, "tenants", currentTenantId, "journal_entries")
     
     const entryData = {
-      tenantId: currentTenant.id,
+      tenantId: currentTenantId,
       entryDate: new Date(entryDate).toISOString(),
       description,
       documentReference: reference,
@@ -189,7 +194,7 @@ export default function AccountingJournal() {
       status: 'Validated',
       createdAt: new Date().toISOString(),
       createdByUserId: user.uid,
-      tenantMembers: currentTenant.members,
+      tenantMembers: currentTenant!.members,
       lines: lines.map(l => ({ 
         accountCode: l.accountCode, 
         accountName: l.accountName, 
@@ -218,7 +223,7 @@ export default function AccountingJournal() {
   }
 
   const handleCreateAccount = async () => {
-    if (!db || !currentTenant || !newAccountData.code || !newAccountData.name) return;
+    if (!db || !currentTenantId || !newAccountData.code || !newAccountData.name) return;
 
     const rootCode = newAccountData.code.substring(0, 2);
     const rootAccount = SCF_ACCOUNTS.find(a => a.code === rootCode && a.isRoot);
@@ -232,15 +237,15 @@ export default function AccountingJournal() {
       return;
     }
 
-    const accountRef = collection(db, "tenants", currentTenant.id, "accounts");
+    const accountRef = collection(db, "tenants", currentTenantId, "accounts");
     const accountData = {
       code: newAccountData.code,
       name: newAccountData.name,
       rootCode,
       class: rootAccount.class,
-      tenantId: currentTenant.id,
+      tenantId: currentTenantId,
       category: rootAccount.category,
-      tenantMembers: currentTenant.members
+      tenantMembers: currentTenant!.members
     };
 
     try {
@@ -263,6 +268,8 @@ export default function AccountingJournal() {
     });
     return groups;
   }, [allAccounts, searchAccount]);
+
+  if (!mounted) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>
 
   return (
     <div className="space-y-6">
@@ -299,7 +306,7 @@ export default function AccountingJournal() {
           </Dialog>
 
           <Button 
-            disabled={!isBalanced || isSubmitting || !currentTenant} 
+            disabled={!isBalanced || isSubmitting || !currentTenantId} 
             onClick={handleValidate}
             className="bg-emerald-600 hover:bg-emerald-700 shadow-lg"
           >
