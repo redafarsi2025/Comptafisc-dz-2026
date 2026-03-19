@@ -1,18 +1,17 @@
+
 "use client"
 
 import * as React from "react"
-import { useFirestore, useUser, setDocumentNonBlocking } from "@/firebase"
-import { collection, doc } from "firebase/firestore"
+import { useFirestore, useUser, useCollection, useMemoFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase"
+import { collection, doc, query, orderBy } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { 
-  FileEdit, Settings2, Eye, Save, 
-  Layout, Database, ArrowRight, CheckCircle2,
-  FileText, Download, UploadCloud, 
-  ChevronLeft, Plus, MousePointer2, Type, Trash2, Image as ImageIcon,
-  Layers, Settings, PlusCircle, Sparkles, Loader2, Link as LinkIcon, Wand2,
-  AlertCircle, FileUp, Upload
+  Layout, Database, Save, Eye, Wand2, Loader2, 
+  ChevronLeft, Trash2, MousePointer2, FileText, 
+  UploadCloud, AlertCircle, FileUp, Sparkles, Layers,
+  CheckCircle2, Clock, History
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -33,6 +32,12 @@ export default function DgiFormsEditor() {
   const [isAnalyzing, setIsAnalyzing] = React.useState(false)
   const [isPublishing, setIsPublishing] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+
+  // Fetch published templates from Firestore
+  const templatesQuery = useMemoFirebase(() => 
+    db ? query(collection(db, "dgi_templates"), orderBy("updatedAt", "desc")) : null
+  , [db]);
+  const { data: storedTemplates, isLoading: isTemplatesLoading } = useCollection(templatesQuery);
 
   // Smart Import State
   const [smartImport, setSmartImport] = React.useState({ title: "", file: null as File | null })
@@ -57,6 +62,12 @@ export default function DgiFormsEditor() {
       });
 
       const fileDataUri = await base64Promise;
+      
+      // Validation de taille pour Firestore (limite 1Mo par document)
+      if (fileDataUri.length > 1000000) {
+        throw new Error("Le document est trop volumineux pour être stocké directement sur Firestore. Veuillez compresser votre image.");
+      }
+
       const analysis = await analyzeFormLayout({ 
         fileDataUri, 
         documentTitle: smartImport.title 
@@ -75,7 +86,7 @@ export default function DgiFormsEditor() {
           {
             pageNumber: 1,
             title: "Page 1",
-            backgroundImage: fileDataUri, // Stocke le fond pour affichage
+            backgroundImage: fileDataUri,
             isPdf: isPdf,
             fields: analysis.detectedFields.map(f => ({
               ...f,
@@ -91,12 +102,11 @@ export default function DgiFormsEditor() {
       setActiveTab("editor");
       toast({ 
         title: "Analyse IA Terminée", 
-        description: `${analysis.detectedFields.length} champs détectés et mappés automatiquement.` 
+        description: `${analysis.detectedFields.length} champs détectés.` 
       });
     } catch (e: any) {
       console.error(e);
-      setError(e.message || "Erreur lors de l'analyse du document.");
-      toast({ variant: "destructive", title: "Erreur Analyse", description: "Format non supporté." });
+      setError(e.message || "Erreur lors de l'analyse.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -116,19 +126,26 @@ export default function DgiFormsEditor() {
         updatedAt: new Date().toISOString()
       };
 
-      setDocumentNonBlocking(templateRef, publishData, { merge: true });
+      await setDocumentNonBlocking(templateRef, publishData, { merge: true });
       
       toast({ 
-        title: "Template Publié", 
-        description: `Le formulaire "${selectedForm.name}" est désormais disponible pour tous les clients.` 
+        title: "Template Enregistré sur Firestore", 
+        description: `Le formulaire "${selectedForm.name}" est sauvegardé et accessible.` 
       });
       setSelectedForm(publishData);
+      setActiveTab("library");
     } catch (e) {
       console.error(e);
-      toast({ variant: "destructive", title: "Erreur Publication" });
+      toast({ variant: "destructive", title: "Erreur Firestore" });
     } finally {
       setIsPublishing(false);
     }
+  }
+
+  const handleDeleteTemplate = (id: string) => {
+    if (!db) return;
+    deleteDocumentNonBlocking(doc(db, "dgi_templates", id));
+    toast({ title: "Template supprimé" });
   }
 
   const handleUpdateField = (fieldId: string, updates: any) => {
@@ -172,14 +189,14 @@ export default function DgiFormsEditor() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-primary flex items-center gap-3">
-            <Layout className="text-accent h-8 w-8" /> Ingestion Automatique DGI
+            <Layout className="text-accent h-8 w-8" /> Studio de Formulaires DGI
           </h1>
-          <p className="text-muted-foreground font-medium">Analyse visuelle, mapping des variables et publication au catalogue.</p>
+          <p className="text-muted-foreground font-medium">Ingestion automatique, stockage Firestore et publication au catalogue.</p>
         </div>
         <div className="flex gap-2">
           {selectedForm && (
             <Button variant="outline" className="bg-white shadow-sm" onClick={() => { setActiveTab("library"); setSelectedForm(null); }}>
-              <ChevronLeft className="mr-2 h-4 w-4" /> Retour
+              <ChevronLeft className="mr-2 h-4 w-4" /> Retour au Catalogue
             </Button>
           )}
           <Button 
@@ -188,7 +205,7 @@ export default function DgiFormsEditor() {
             onClick={handlePublish}
           >
             {isPublishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-            Publier le Template
+            Enregistrer sur Firestore
           </Button>
         </div>
       </div>
@@ -196,10 +213,10 @@ export default function DgiFormsEditor() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="bg-muted/50 border p-1 mb-6">
           <TabsTrigger value="library" className="flex items-center gap-2">
-            <Database className="h-4 w-4" /> Catalogue
+            <Database className="h-4 w-4" /> Bibliothèque Firestore
           </TabsTrigger>
           <TabsTrigger value="editor" className="flex items-center gap-2" disabled={!selectedForm}>
-            <Wand2 className="h-4 w-4" /> Studio IA
+            <Wand2 className="h-4 w-4" /> Éditeur Canva IA
           </TabsTrigger>
           <TabsTrigger value="preview" className="flex items-center gap-2" disabled={!selectedForm}>
             <Eye className="h-4 w-4" /> Simulation Remplissage
@@ -210,28 +227,28 @@ export default function DgiFormsEditor() {
           <Card className="border-primary/20 bg-primary/5 shadow-inner">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2 text-primary">
-                <Sparkles className="h-5 w-5 text-accent" /> Importer un Document Officiel
+                <Sparkles className="h-5 w-5 text-accent" /> Importer un Document (PDF/JPG)
               </CardTitle>
-              <CardDescription>Uploadez le PDF ou l'Image originale. L'IA Gemini se chargera de positionner les cases et d'affecter les variables.</CardDescription>
+              <CardDescription>L'IA analyse le document, crée les zones et les stocke dans Firestore.</CardDescription>
             </CardHeader>
             <CardContent className="grid md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase">Titre du document (ex: G50 - 2026)</Label>
+                  <Label className="text-xs font-bold uppercase">Titre du document</Label>
                   <Input 
-                    placeholder="Nom du formulaire..." 
+                    placeholder="Ex: G50 - Mars 2026" 
                     value={smartImport.title} 
                     onChange={e => setSmartImport({...smartImport, title: e.target.value})}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase">Fichier source (PDF ou Image)</Label>
+                  <Label className="text-xs font-bold uppercase">Fichier source</Label>
                   <div className="flex items-center justify-center w-full">
                     <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-white hover:bg-muted/50 transition-colors border-primary/20">
                       <div className="flex flex-col items-center justify-center pt-5 pb-6">
                         <UploadCloud className="w-8 h-8 mb-2 text-primary opacity-50" />
                         <p className="text-xs text-muted-foreground">
-                          {smartImport.file ? <span className="font-bold text-primary">{smartImport.file.name}</span> : "Cliquez ou glissez le document ici"}
+                          {smartImport.file ? <span className="font-bold text-primary">{smartImport.file.name}</span> : "Cliquez pour uploader (Max 1Mo)"}
                         </p>
                       </div>
                       <input type="file" className="hidden" accept="application/pdf,image/*" onChange={handleFileChange} />
@@ -240,12 +257,12 @@ export default function DgiFormsEditor() {
                 </div>
               </div>
               <div className="p-6 bg-white/50 rounded-xl border border-dashed flex flex-col items-center justify-center text-center space-y-3">
-                <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center">
-                  <Wand2 className="h-6 w-6 text-accent" />
+                <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center">
+                  <Database className="h-6 w-6 text-emerald-600" />
                 </div>
-                <h4 className="text-sm font-bold">Puissance de l'IA Vision</h4>
+                <h4 className="text-sm font-bold">Stockage Cloud Direct</h4>
                 <p className="text-[10px] text-muted-foreground leading-relaxed">
-                  Notre moteur analyse la géométrie du document officiel pour positionner les champs de texte et les lier aux variables fiscales dynamiques.
+                  Vos templates sont persistés dans Firestore. Les clients du SaaS les verront automatiquement lors de la génération de leurs déclarations.
                 </p>
               </div>
             </CardContent>
@@ -253,7 +270,7 @@ export default function DgiFormsEditor() {
               <div className="px-6 pb-4">
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Erreur d'importation</AlertTitle>
+                  <AlertTitle>Erreur</AlertTitle>
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               </div>
@@ -264,22 +281,40 @@ export default function DgiFormsEditor() {
                 disabled={isAnalyzing || !smartImport.file || !smartImport.title}
                 className="bg-accent text-primary font-bold shadow-lg"
               >
-                {isAnalyzing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyse Vision IA...</> : <><Wand2 className="mr-2 h-4 w-4" /> Analyser & Mapper</>}
+                {isAnalyzing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyse IA...</> : <><Wand2 className="mr-2 h-4 w-4" /> Lancer l'IA Vision</>}
               </Button>
             </CardFooter>
           </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="border-t-4 border-t-emerald-500 hover:shadow-xl transition-all cursor-pointer bg-white">
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-start">
-                  <div className="bg-emerald-500 p-2 rounded-lg text-white shadow-lg"><FileText className="h-5 w-5" /></div>
-                  <Badge className="bg-emerald-100 text-emerald-700">ACTIF</Badge>
-                </div>
-                <CardTitle className="text-base mt-4">G N° 50 - Standard</CardTitle>
-                <CardDescription>Dernière révision : Janv 2026</CardDescription>
-              </CardHeader>
-            </Card>
+          <div className="space-y-4">
+            <h3 className="text-lg font-bold flex items-center gap-2"><History className="h-5 w-5 text-primary" /> Bibliothèque des Formulaires</h3>
+            {isTemplatesLoading ? (
+              <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+            ) : !storedTemplates?.length ? (
+              <Card className="border-dashed py-12 text-center text-muted-foreground">Aucun template stocké dans Firestore.</Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {storedTemplates.map((t) => (
+                  <Card key={t.id} className="hover:shadow-xl transition-all cursor-pointer group border-l-4 border-l-primary bg-white">
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between items-start">
+                        <div className="bg-primary/10 p-2 rounded-lg text-primary"><FileText className="h-5 w-5" /></div>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive opacity-0 group-hover:opacity-100" onClick={() => handleDeleteTemplate(t.id)}><Trash2 className="h-4 w-4" /></Button>
+                          <Badge className="bg-emerald-500 text-white text-[8px]">{t.status}</Badge>
+                        </div>
+                      </div>
+                      <CardTitle className="text-sm mt-4">{t.name}</CardTitle>
+                      <CardDescription className="text-[9px] font-mono">{t.id}</CardDescription>
+                    </CardHeader>
+                    <CardFooter className="pt-0 justify-between">
+                      <span className="text-[10px] text-muted-foreground italic flex items-center gap-1"><Clock className="h-2 w-2" /> {new Date(t.updatedAt).toLocaleDateString()}</span>
+                      <Button variant="ghost" size="sm" className="text-[10px] h-7" onClick={() => { setSelectedForm(t); setActiveTab("editor"); }}>Éditer</Button>
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         </TabsContent>
 
@@ -289,7 +324,7 @@ export default function DgiFormsEditor() {
               <Card className="shadow-lg border-t-4 border-t-primary bg-white">
                 <CardHeader className="bg-muted/30 pb-2">
                   <CardTitle className="text-xs font-bold flex items-center gap-2 uppercase">
-                    <Layers className="h-4 w-4 text-primary" /> Structure Détectée
+                    <Layers className="h-4 w-4 text-primary" /> Champs Détectés
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
@@ -308,7 +343,7 @@ export default function DgiFormsEditor() {
                             </Button>
                           </div>
                           <div className="space-y-2">
-                            <Label className="text-[8px] uppercase font-bold text-muted-foreground">Variable liée (Automatique)</Label>
+                            <Label className="text-[8px] uppercase font-bold text-muted-foreground">Variable liée</Label>
                             <Select value={field.variable} onValueChange={(v) => handleUpdateField(field.id, { variable: v })}>
                               <SelectTrigger className="h-7 text-[9px] bg-white"><SelectValue /></SelectTrigger>
                               <SelectContent>
@@ -318,8 +353,7 @@ export default function DgiFormsEditor() {
                                 <SelectItem value="IRG_AMT">IRG Salaires</SelectItem>
                                 <SelectItem value="TAP_AMT">TAP HT</SelectItem>
                                 <SelectItem value="STAMP_DUTY">Droits de Timbre</SelectItem>
-                                <SelectItem value="TENANT_ADDRESS">Adresse</SelectItem>
-                                <SelectItem value="PERIOD">Période (Mois/Année)</SelectItem>
+                                <SelectItem value="PERIOD">Période</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -332,32 +366,31 @@ export default function DgiFormsEditor() {
 
               <div className="p-4 bg-accent/10 border border-accent/20 rounded-xl">
                 <div className="flex items-center gap-2 text-primary font-bold text-xs mb-2">
-                  <MousePointer2 className="h-4 w-4" /> Ajustement Manuel
+                  <MousePointer2 className="h-4 w-4" /> Ajustement Visuel
                 </div>
                 <p className="text-[10px] text-muted-foreground italic leading-relaxed">
-                  L'IA a pré-positionné les champs. Cliquez sur le document pour en ajouter un nouveau ou ajustez le mapping.
+                  Cliquez sur le document pour ajouter une zone. Les templates sont stockés avec leur fond graphique Base64.
                 </p>
                 <Button 
                   variant={isEditMode ? "default" : "outline"} 
                   className="w-full mt-4 h-8 text-[10px]"
                   onClick={() => setIsEditMode(!isEditMode)}
                 >
-                  {isEditMode ? "TERMINER L'ÉDITION" : "ACTIVER ÉDITION MANUELLE"}
+                  {isEditMode ? "QUITTER ÉDITION" : "ACTIVER PLACEMENT"}
                 </Button>
               </div>
             </div>
 
             <div className="lg:col-span-3">
               <div className="bg-slate-200 rounded-2xl p-8 overflow-auto flex justify-center min-h-[1000px] border shadow-inner">
-                {selectedForm?.pages[currentPageIdx]?.backgroundImage ? (
+                {selectedForm?.pages[currentPageIdx]?.backgroundImage && (
                   <div 
                     className="relative bg-white shadow-2xl transition-all origin-top border"
                     style={{ 
                       width: '800px', 
                       height: '1131px', 
                       backgroundImage: `url(${selectedForm.pages[currentPageIdx].backgroundImage})`, 
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center'
+                      backgroundSize: 'cover'
                     }}
                     onClick={handleAddField}
                   >
@@ -374,16 +407,6 @@ export default function DgiFormsEditor() {
                       </div>
                     ))}
                   </div>
-                ) : (
-                  <Card className="w-[800px] h-[1131px] flex items-center justify-center bg-white border-dashed border-4">
-                    <div className="text-center space-y-4 max-w-md">
-                      <FileUp className="h-16 w-16 mx-auto text-muted-foreground opacity-20" />
-                      <h3 className="text-lg font-bold">Document Chargé</h3>
-                      <p className="text-sm text-muted-foreground">
-                        L'analyse est terminée. Si le fond ne s'affiche pas, vérifiez le format du fichier source.
-                      </p>
-                    </div>
-                  </Card>
                 )}
               </div>
             </div>
@@ -393,11 +416,9 @@ export default function DgiFormsEditor() {
         <TabsContent value="preview">
           <div className="flex flex-col items-center bg-slate-300 p-12 rounded-2xl space-y-12">
             <Alert className="max-w-2xl bg-white border-primary shadow-lg">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <AlertTitle className="font-bold">Mode Simulation</AlertTitle>
-              <AlertDescription>
-                Voici comment le document apparaîtra pour un client avec les données injectées automatiquement.
-              </AlertDescription>
+              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+              <AlertTitle className="font-bold">Rendu Client Final</AlertTitle>
+              <AlertDescription>Voici comment vos clients recevront le document généré depuis Firestore.</AlertDescription>
             </Alert>
             
             {selectedForm?.pages.map((page: any, idx: number) => (
@@ -416,9 +437,7 @@ export default function DgiFormsEditor() {
                   if (field.variable === "TENANT_NAME") value = "SARL BENSALEM COMMERCE";
                   if (field.variable === "TENANT_NIF") value = "001216000123456";
                   if (field.variable === "TOTAL_TVA") value = "245,600.00";
-                  if (field.variable === "IRG_AMT") value = "45,000.00";
-                  if (field.variable === "PERIOD") value = "MARS 2026";
-                  if (field.variable === "TENANT_ADDRESS") value = "Zone Industrielle, Alger";
+                  if (field.variable === "PERIOD") value = "AVRIL 2026";
 
                   return (
                     <div 

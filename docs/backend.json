@@ -1,208 +1,55 @@
+
 {
   "entities": {
     "FiscalLaw": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "FiscalLaw",
       "type": "object",
-      "description": "Represents a specific financial law, budget law, or major fiscal regulation in Algeria. It defines a period during which a set of fiscal variables and procedures are in effect, allowing for historical tracking of regulations.",
+      "description": "Représente une loi de finances ou réglementation fiscale.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the FiscalLaw entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The official name of the financial law or regulation (e.g., \"Loi de Finances 2023\")."
-        },
-        "description": {
-          "type": "string",
-          "description": "A detailed description or summary of the financial law's scope and key provisions."
-        },
-        "effectiveStartDate": {
-          "type": "string",
-          "description": "The date and time when the financial law officially came into effect.",
-          "format": "date-time"
-        },
-        "effectiveEndDate": {
-          "type": "string",
-          "description": "The date and time when the financial law was superseded or expired (optional).",
-          "format": "date-time"
-        },
-        "publicationDate": {
-          "type": "string",
-          "description": "The date and time when the financial law was officially published (e.g., in the official gazette).",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "effectiveStartDate",
-        "publicationDate"
-      ]
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "effectiveStartDate": { "type": "string", "format": "date-time" },
+        "publicationDate": { "type": "string", "format": "date-time" }
+      }
     },
-    "FiscalVariableType": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "FiscalVariableType",
+    "DgiTemplate": {
+      "title": "DgiTemplate",
       "type": "object",
-      "description": "Defines a generic type or category for a fiscal parameter, rate, threshold, or calculation rule. This entity acts as a blueprint for specific variable values that change over time and across different laws.",
+      "description": "Template de formulaire officiel DGI avec mapping IA et fond de document.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the FiscalVariableType entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "A human-readable name for the variable type (e.g., \"TVA Standard Rate\", \"IRG Brackets\", \"Stamp Duty Threshold\")."
-        },
-        "code": {
-          "type": "string",
-          "description": "A unique, machine-readable code for the variable type, used for programmatic access (e.g., \"TVA_STANDARD_RATE\", \"IRG_BRACKETS\")."
-        },
-        "unit": {
-          "type": "string",
-          "description": "The unit of measurement for the variable's value (e.g., \"%\", \"DZD\", \"Days\")."
-        },
-        "dataType": {
-          "type": "string",
-          "description": "Indicates the expected data type of the 'value' stored in FiscalVariableValue. 'json' implies a JSON string for complex structures.",
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["G50", "G12", "G4", "ANNEXE"] },
+        "status": { "type": "string", "enum": ["Draft", "Published"] },
+        "pages": {
+          "type": "array",
           "items": {
-            "type": "string"
+            "type": "object",
+            "properties": {
+              "backgroundImage": { "type": "string", "description": "Contenu du document en Base64" },
+              "fields": { "type": "array" }
+            }
           }
-        },
-        "description": {
-          "type": "string",
-          "description": "A detailed explanation of what this fiscal variable type represents and how it's used in calculations."
         }
-      },
-      "required": [
-        "id",
-        "name",
-        "code",
-        "unit",
-        "dataType",
-        "description"
-      ]
-    },
-    "FiscalVariableValue": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "FiscalVariableValue",
-      "type": "object",
-      "description": "Stores the concrete value of a specific fiscal variable type, applicable during a defined period and associated with a particular financial law. This entity enables historical lookups of all rates and parameters for any given fiscal year.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the FiscalVariableValue entity."
-        },
-        "fiscalLawId": {
-          "type": "string",
-          "description": "Reference to the FiscalLaw entity this variable value belongs to. (Relationship: FiscalLaw 1:N FiscalVariableValue)"
-        },
-        "fiscalVariableTypeId": {
-          "type": "string",
-          "description": "Reference to the FiscalVariableType entity that defines the nature of this variable. (Relationship: FiscalVariableType 1:N FiscalVariableValue)"
-        },
-        "value": {
-          "type": "string",
-          "description": "The actual value of the fiscal variable. For complex structures (e.g., IRG brackets, detailed calculation rules), this should be a JSON string, as indicated by the 'dataType' in FiscalVariableType. For simple values, it will be a string, number, or boolean represented as a string type based on the context schema."
-        },
-        "effectiveStartDate": {
-          "type": "string",
-          "description": "The specific date and time from which this variable value becomes active. This allows for finer-grained changes within a law's validity period.",
-          "format": "date-time"
-        },
-        "effectiveEndDate": {
-          "type": "string",
-          "description": "The specific date and time when this variable value ceases to be active (optional). Useful for partial updates or corrections within a law's period.",
-          "format": "date-time"
-        },
-        "notes": {
-          "type": "string",
-          "description": "Any additional notes or specific context regarding this particular variable value."
-        }
-      },
-      "required": [
-        "id",
-        "fiscalLawId",
-        "fiscalVariableTypeId",
-        "value",
-        "effectiveStartDate"
-      ]
+      }
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["password", "anonymous"]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/fiscal_laws/{fiscalLawId}",
-        "definition": {
-          "entityName": "FiscalLaw",
-          "schema": {
-            "$ref": "#/backend/entities/FiscalLaw"
-          },
-          "description": "Stores individual fiscal laws, budget laws, or major fiscal regulations. These are global configurations managed by a SaaS admin. The 'fiscalLawId' is the document ID. Accessible by authenticated users for read, and SaaS admins for read/write.",
-          "params": [
-            {
-              "name": "fiscalLawId",
-              "description": "Unique identifier for a specific FiscalLaw document."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/fiscal_variable_types/{fiscalVariableTypeId}",
-        "definition": {
-          "entityName": "FiscalVariableType",
-          "schema": {
-            "$ref": "#/backend/entities/FiscalVariableType"
-          },
-          "description": "Defines generic categories or types for fiscal parameters (e.g., 'TVA Standard Rate'). These are global blueprints managed by a SaaS admin. The 'fiscalVariableTypeId' is the document ID. Accessible by authenticated users for read, and SaaS admins for read/write.",
-          "params": [
-            {
-              "name": "fiscalVariableTypeId",
-              "description": "Unique identifier for a specific FiscalVariableType document."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/fiscal_variable_values/{fiscalVariableValueId}",
-        "definition": {
-          "entityName": "FiscalVariableValue",
-          "schema": {
-            "$ref": "#/backend/entities/FiscalVariableValue"
-          },
-          "description": "Stores the concrete value of a specific fiscal variable type, linked to a FiscalLaw and applicable during a defined period. Includes denormalized 'fiscalLawId' and 'fiscalVariableTypeId' fields for efficient querying. The 'fiscalVariableValueId' is the document ID. Accessible by authenticated users for read, and SaaS admins for read/write.",
-          "params": [
-            {
-              "name": "fiscalVariableValueId",
-              "description": "Unique identifier for a specific FiscalVariableValue document."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/saas_admins/{userId}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Identifies users with SaaS administrative privileges. The existence of a document here with 'userId' matching 'request.auth.uid' grants admin access to global configuration data. This collection is only accessible by administrators.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique Firebase Authentication UID of the user who is a SaaS administrator."
-            }
-          ]
-        }
-      }
-    ],
-    "reasoning": "The proposed Firestore structure for ComptaFisc-DZ prioritizes secure, scalable, and debuggable management of fiscal laws, variable types, and their values. The core principle for these entities is that they are global configurations managed by a SaaS administrator, read-only for all authenticated client users. \n\n1.  **Authorization Independence (CRITICAL):** For `FiscalLaw`, `FiscalVariableType`, and `FiscalVariableValue`, authorization independence is achieved by: \n    *   **Global Scope:** These entities represent universal fiscal data for Algeria, not data owned by or dependent on a specific user or tenant for its *permissions*. The authorization rule is straightforward: SaaS admins have read/write access, while all other authenticated users (client applications) have read-only access. This eliminates the need for `get()` calls in security rules to check parent documents for authorization attributes (like `ownerId` or `members` map) for these specific data types. \n    *   **Explicit Admin Role:** The `/saas_admins/{userId}` collection explicitly defines who has administrative privileges. Security rules will simply check for the existence of `request.auth.uid` in this collection, making authorization atomic and independent of the fiscal data hierarchy itself.\n    *   **Denormalization:** While `FiscalVariableValue` documents contain `fiscalLawId` and `fiscalVariableTypeId`, these are *data references* for querying and linking, not authorization indicators. The authorization for a `FiscalVariableValue` document does not depend on the specific `FiscalLaw` or `FiscalVariableType` it references; rather, it depends on the user's global role (admin vs. client user). This means no denormalization of *authorization context* is needed within the fiscal data itself, adhering to the principle. \n\n2.  **QAPs (Rules are not Filters):** This structure explicitly supports secure and efficient `list` operations:\n    *   **Structural Segregation:** Each core entity (`FiscalLaw`, `FiscalVariableType`, `FiscalVariableValue`) resides in its own top-level collection. This ensures that all documents within a collection share the same security posture. For instance, all documents in `/fiscal_laws` are globally readable and admin-editable, avoiding the need for rules to filter out private data from public data within the same collection. \n    *   **Explicit Permissions:** Since the data is global and has consistent access patterns (admin R/W, client R), security rules can grant `list` permission unconditionally to authenticated users for read access, and to `saas_admins` for write access. This prevents rules from acting as filters, which is inefficient and insecure. \n    *   **Efficient Lookups:** `FiscalVariableValue` stores `fiscalLawId` and `fiscalVariableTypeId` as direct fields. This allows client-side applications to efficiently query for specific variable values based on law, type, and effective dates using `where()` clauses and indexes (e.g., `db.collection('fiscal_variable_values').where('fiscalLawId', '==', 'someLawId').where('fiscalVariableTypeId', '==', 'someTypeId').where('effectiveStartDate', '<=', now).orderBy('effectiveStartDate', 'desc').limit(1)`). This supports the requirement for retrieving historical rates easily.\n\nIn summary, the design uses clear, segregated collections for global fiscal data, identifies administrators via a dedicated collection for DBAC, and ensures authorization rules are simple and atomic, making the system highly debuggable and performant for both administration and client-side calculations."
+    "/fiscal_laws/{lawId}": {
+      "schema": "#/backend/entities/FiscalLaw",
+      "description": "Lois de finances globales."
+    },
+    "/dgi_templates/{templateId}": {
+      "schema": "#/backend/entities/DgiTemplate",
+      "description": "Templates de formulaires stockés en base."
+    },
+    "/tenants/{tenantId}": {
+      "schema": "object",
+      "description": "Dossiers clients."
+    }
   }
 }

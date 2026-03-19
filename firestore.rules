@@ -1,10 +1,7 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    /**
-     * COMPTA-FISC DZ: SECURITY RULES (Conformité 2026)
-     */
 
     function isSignedIn() {
       return request.auth != null;
@@ -21,29 +18,26 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
-    match /userProfiles/{userId} {
+    match /dgi_templates/{templateId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-    }
-
-    match /plans/{planId} {
-      allow read: if true;
       allow write: if isAdmin();
     }
 
-    // --- Global Fiscal Rules ---
     match /fiscal_laws/{lawId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
+
     match /fiscal_variable_types/{typeId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
+
     match /fiscal_variable_values/{valId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
+
     match /dgi_publications/{pubId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
@@ -51,15 +45,11 @@ service cloud.firestore {
 
     // --- Tenant Logic Rules ---
     match /tenants/{tenantId} {
-      // Un utilisateur peut lire/écrire un dossier s'il est mentionné dans la map 'members'
       allow read, update: if isSignedIn() && (isAdmin() || resource.data.members[request.auth.uid] != null);
       allow create: if isSignedIn();
       allow delete: if isAdmin();
 
-      // Règle récursive pour toutes les sous-collections (journal, invoices, employees, etc.)
       match /{allSubcollections=**} {
-        // Pour les sous-collections, on vérifie l'accès via le dossier parent
-        // L'accès est autorisé si l'utilisateur est membre du dossier (tenantId fixe dans le path)
         allow read, write: if isSignedIn() && (
           isAdmin() || 
           get(/databases/$(database)/documents/tenants/$(tenantId)).data.members[request.auth.uid] != null
