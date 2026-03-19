@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -13,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
+import { useSearchParams } from "next/navigation"
 
 const ASSET_CATEGORIES = [
   { id: '204', name: 'Logiciels & Brevets', rate: 20 },
@@ -27,6 +29,8 @@ const ASSET_CATEGORIES = [
 export default function AssetsPage() {
   const db = useFirestore()
   const { user } = useUser()
+  const searchParams = useSearchParams()
+  const tenantIdFromUrl = searchParams.get('tenantId')
   const [mounted, setMounted] = React.useState(false)
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [isSaving, setIsSaving] = React.useState(false)
@@ -49,16 +53,21 @@ export default function AssetsPage() {
   // 1. Fetch Tenant
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null), limit(1));
+    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
   }, [db, user]);
   const { data: tenants } = useCollection(tenantsQuery);
-  const currentTenant = tenants?.[0];
+  
+  const currentTenant = React.useMemo(() => {
+    if (!tenants) return null;
+    if (tenantIdFromUrl) return tenants.find(t => t.id === tenantIdFromUrl) || tenants[0];
+    return tenants[0];
+  }, [tenants, tenantIdFromUrl]);
 
   // 2. Fetch Assets
   const assetsQuery = useMemoFirebase(() => {
     if (!db || !currentTenant) return null;
     return collection(db, "tenants", currentTenant.id, "assets");
-  }, [db, currentTenant]);
+  }, [db, currentTenant?.id]);
   const { data: assets, isLoading } = useCollection(assetsQuery);
 
   const handleAddAsset = async () => {
@@ -129,7 +138,7 @@ export default function AssetsPage() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-primary shadow-lg"><Plus className="mr-2 h-4 w-4" /> Nouvel Actif</Button>
+            <Button className="bg-primary shadow-lg" disabled={!currentTenant}><Plus className="mr-2 h-4 w-4" /> Nouvel Actif</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>

@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -16,10 +17,13 @@ import { PAYROLL_CONSTANTS, calculateIRG } from "@/lib/calculations"
 import { toast } from "@/hooks/use-toast"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 
 export default function PayrollPage() {
   const db = useFirestore()
   const { user } = useUser()
+  const searchParams = useSearchParams()
+  const tenantIdFromUrl = searchParams.get('tenantId')
   const [mounted, setMounted] = React.useState(false)
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [searchTerm, setSearchTerm] = React.useState("")
@@ -43,19 +47,24 @@ export default function PayrollPage() {
 
   const formatAmount = (val: number) => mounted ? val.toLocaleString() : "..."
 
-  // Fetch active tenant
+  // Fetch all tenants for selection context
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null), limit(1));
+    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
   }, [db, user]);
   const { data: tenants } = useCollection(tenantsQuery);
-  const currentTenant = tenants?.[0];
+  
+  const currentTenant = React.useMemo(() => {
+    if (!tenants) return null;
+    if (tenantIdFromUrl) return tenants.find(t => t.id === tenantIdFromUrl) || tenants[0];
+    return tenants[0];
+  }, [tenants, tenantIdFromUrl]);
 
-  // Fetch employees
+  // Fetch employees for specific tenant
   const employeesQuery = useMemoFirebase(() => {
     if (!db || !currentTenant) return null;
     return collection(db, "tenants", currentTenant.id, "employees");
-  }, [db, currentTenant]);
+  }, [db, currentTenant?.id]);
   const { data: employees, isLoading } = useCollection(employeesQuery);
 
   const calculatePayroll = (emp: any) => {
@@ -68,7 +77,6 @@ export default function PayrollPage() {
     const cnasEmployee = salairePoste * PAYROLL_CONSTANTS.CNAS_EMPLOYEE;
     const imposable = salairePoste - cnasEmployee;
     
-    // On utilise le flag isHandicappedOrRetired pour le calcul spécial de l'IRG
     const irg = calculateIRG(imposable, emp.isGrandSud, emp.isHandicapped || emp.isRetired);
     const net = imposable - irg + panier + transport;
     const cnasEmployer = salairePoste * PAYROLL_CONSTANTS.CNAS_EMPLOYER;
@@ -142,7 +150,7 @@ export default function PayrollPage() {
         <div className="flex gap-2">
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-primary">
+              <Button className="bg-primary" disabled={!currentTenant}>
                 <Plus className="mr-2 h-4 w-4" /> Ajouter un Salarié
               </Button>
             </DialogTrigger>
@@ -239,7 +247,7 @@ export default function PayrollPage() {
             </DialogContent>
           </Dialog>
           <Button variant="outline" asChild>
-            <Link href="/dashboard/payroll/ledger">
+            <Link href={currentTenant ? `/dashboard/payroll/ledger?tenantId=${currentTenant.id}` : "/dashboard/payroll/ledger"}>
               <BookOpen className="h-4 w-4 mr-2" /> Livre de Paie
             </Link>
           </Button>

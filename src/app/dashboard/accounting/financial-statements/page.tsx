@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -11,10 +12,13 @@ import { FileBarChart, Printer, FileDown, TrendingUp, Landmark, Calculator, PieC
 import { Badge } from "@/components/ui/badge"
 import { jsPDF } from "jspdf"
 import autoTable from 'jspdf-autotable'
+import { useSearchParams } from "next/navigation"
 
 export default function FinancialStatements() {
   const db = useFirestore()
   const { user } = useUser()
+  const searchParams = useSearchParams()
+  const tenantIdFromUrl = searchParams.get('tenantId')
   const [mounted, setMounted] = React.useState(false)
 
   React.useEffect(() => {
@@ -23,10 +27,15 @@ export default function FinancialStatements() {
 
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null), limit(1));
+    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
   }, [db, user]);
   const { data: tenants } = useCollection(tenantsQuery);
-  const currentTenant = tenants?.[0];
+  
+  const currentTenant = React.useMemo(() => {
+    if (!tenants) return null;
+    if (tenantIdFromUrl) return tenants.find(t => t.id === tenantIdFromUrl) || tenants[0];
+    return tenants[0];
+  }, [tenants, tenantIdFromUrl]);
 
   const entriesQuery = useMemoFirebase(() => {
     if (!db || !currentTenant) return null;
@@ -34,7 +43,7 @@ export default function FinancialStatements() {
       collection(db, "tenants", currentTenant.id, "journal_entries"),
       orderBy("entryDate", "asc")
     );
-  }, [db, currentTenant]);
+  }, [db, currentTenant?.id]);
   const { data: entries, isLoading } = useCollection(entriesQuery);
 
   const financialData = React.useMemo(() => {

@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -10,10 +11,13 @@ import { BookText, Printer, FileDown, Search, Filter, Loader2 } from "lucide-rea
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { JournalEntry, JournalEntryLine } from "@/lib/scf-accounts"
+import { useSearchParams } from "next/navigation"
 
 export default function LivreJournal() {
   const db = useFirestore()
   const { user } = useUser()
+  const searchParams = useSearchParams()
+  const tenantIdFromUrl = searchParams.get('tenantId')
   const [mounted, setMounted] = React.useState(false)
 
   React.useEffect(() => {
@@ -22,10 +26,15 @@ export default function LivreJournal() {
   
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null), limit(1));
+    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
   }, [db, user]);
   const { data: tenants } = useCollection(tenantsQuery);
-  const currentTenant = tenants?.[0];
+  
+  const currentTenant = React.useMemo(() => {
+    if (!tenants) return null;
+    if (tenantIdFromUrl) return tenants.find(t => t.id === tenantIdFromUrl) || tenants[0];
+    return tenants[0];
+  }, [tenants, tenantIdFromUrl]);
 
   const entriesQuery = useMemoFirebase(() => {
     if (!db || !currentTenant) return null;
@@ -34,7 +43,7 @@ export default function LivreJournal() {
       orderBy("entryDate", "desc"),
       limit(100)
     );
-  }, [db, currentTenant]);
+  }, [db, currentTenant?.id]);
   const { data: entries, isLoading } = useCollection<JournalEntry>(entriesQuery);
 
   const formatAmount = (val: number) => mounted ? val.toLocaleString() : "..."
@@ -74,7 +83,7 @@ export default function LivreJournal() {
             </div>
           </div>
           <CardDescription>
-            Toutes les écritures validées du dossier {currentTenant?.raisonSociale}.
+            Toutes les écritures validées du dossier {currentTenant?.raisonSociale || "Chargement..."}.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
