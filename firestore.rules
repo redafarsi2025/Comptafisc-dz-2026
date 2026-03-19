@@ -15,16 +15,20 @@ service cloud.firestore {
       return isSignedIn() && exists(/databases/$(database)/documents/saas_admins/$(request.auth.uid));
     }
 
+    // Vérifie si l'utilisateur est membre du dossier (tenant)
+    // On utilise get().data.get() pour éviter les erreurs si le champ 'members' est absent
     function isTenantMember(tenantId) {
+      let tenant = get(/databases/$(database)/documents/tenants/$(tenantId));
       return isSignedIn() && (
         isAdmin() || 
-        get(/databases/$(database)/documents/tenants/$(tenantId)).data.members[request.auth.uid] != null
+        (tenant != null && tenant.data.get('members', {})[request.auth.uid] != null)
       );
     }
 
     // --- SaaS Admin Rules ---
     match /saas_admins/{userId} {
-      allow read, create: if isSignedIn();
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow create: if isSignedIn();
       allow update, delete: if isAdmin();
     }
 
@@ -72,13 +76,21 @@ service cloud.firestore {
 
     // --- Business Logic Rules ---
     match /tenants/{tenantId} {
-      allow read: if isSignedIn() && (isAdmin() || resource.data.members[request.auth.uid] != null);
+      // Accès au document du dossier lui-même
+      allow read: if isSignedIn() && (isAdmin() || resource.data.get('members', {})[request.auth.uid] != null);
       allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && (isAdmin() || resource.data.members[request.auth.uid] != null);
+      allow update: if isSignedIn() && (isAdmin() || resource.data.get('members', {})[request.auth.uid] != null);
+      allow delete: if isAdmin();
 
-      // Sub-collections logic (Journal, Invoices, Employees, etc.)
+      // Accès aux sous-collections (Écritures, Factures, Salariés, etc.)
+      // On combine la vérification du parent (get) et la vérification des données dénormalisées (resource.data)
       match /{allSubcollections=**} {
-        allow read, write: if isTenantMember(tenantId);
+        allow read: if isSignedIn() && (
+          isAdmin() || 
+          isTenantMember(tenantId) || 
+          (resource != null && resource.data.get('tenantMembers', {})[request.auth.uid] != null)
+        );
+        allow write: if isTenantMember(tenantId);
       }
     }
   }
