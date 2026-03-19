@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { 
   Gavel, Settings2, CalendarClock, Plus, 
-  Trash2, Info, DatabaseZap, Loader2, Sparkles, RefreshCcw, BrainCircuit, Check, X
+  Trash2, Info, DatabaseZap, Loader2, Sparkles, RefreshCcw, BrainCircuit, Check, X,
+  AlertTriangle, Code2
 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -44,6 +45,12 @@ export default function FiscalEngineAdmin() {
   const [newLaw, setNewLaw] = React.useState({ name: "", effectiveStartDate: "", publicationDate: "", description: "" })
   const [newType, setNewType] = React.useState({ name: "", code: "", unit: "%", dataType: "number", description: "" })
   const [newValue, setNewValue] = React.useState({ fiscalLawId: "", fiscalVariableTypeId: "", value: "", effectiveStartDate: "", notes: "" })
+
+  // Codes connus utilisés dans le code source (G50, Paie, etc.)
+  const KNOWN_CODES = [
+    "IFU_STD_THRESHOLD", "IFU_AUTO_THRESHOLD", "IFU_MIN_STD", "IFU_MIN_AUTO", 
+    "IFU_RATE_PROD", "IFU_RATE_SERV", "SNMG", "TVA_STD", "TVA_RED", "IBS_RATE"
+  ];
 
   const handleCreateLaw = () => {
     if (!db || !newLaw.name) return;
@@ -192,11 +199,17 @@ export default function FiscalEngineAdmin() {
           </CardContent>
           {aiProposals && (
             <div className="px-6 pb-6 space-y-2">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase mb-2">Propositions détectées :</p>
               {aiProposals.map((p, i) => (
                 <div key={i} className="bg-white p-3 rounded-lg border text-xs shadow-sm flex justify-between items-center">
                   <div>
-                    <p className="font-bold text-primary">{p.variableName}</p>
-                    <p className="text-[10px] text-muted-foreground">{p.effectiveStartDate}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-primary">{p.variableName}</p>
+                      {!KNOWN_CODES.includes(p.variableCode) && (
+                        <Badge variant="outline" className="h-4 text-[8px] border-amber-500 text-amber-600 bg-amber-50">NOUVELLE VARIABLE</Badge>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground font-mono">{p.variableCode}</p>
                   </div>
                   <Badge className="font-mono">{p.value}</Badge>
                 </div>
@@ -228,7 +241,16 @@ export default function FiscalEngineAdmin() {
                     <TableBody>
                       {values?.map((v) => (
                         <TableRow key={v.id}>
-                          <TableCell className="font-bold text-xs">{v.fiscalVariableTypeId}</TableCell>
+                          <TableCell className="font-bold text-xs">
+                            <div className="flex flex-col">
+                              <span>{v.fiscalVariableTypeId}</span>
+                              {!KNOWN_CODES.includes(v.fiscalVariableTypeId) && (
+                                <span className="text-[8px] text-amber-600 font-bold uppercase flex items-center gap-1">
+                                  <AlertTriangle className="h-2 w-2" /> Non mappée au code
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell><Badge variant="outline" className="font-mono text-primary bg-primary/5">{v.value}</Badge></TableCell>
                           <TableCell className="text-[10px]">{v.effectiveStartDate}</TableCell>
                           <TableCell className="text-right">
@@ -246,25 +268,43 @@ export default function FiscalEngineAdmin() {
               <Card className="shadow-sm border">
                 <CardContent className="p-0">
                   <Table>
-                    <TableHeader className="bg-muted/30">
+                    <TableHeader className="bg-muted/50">
                       <TableRow>
-                        <TableHead>Nom</TableHead>
-                        <TableHead>Code</TableHead>
+                        <TableHead>Variable (Nom / Code)</TableHead>
+                        <TableHead>État Implémentation</TableHead>
                         <TableHead>Unité</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {types?.map((t) => (
-                        <TableRow key={t.id}>
-                          <TableCell className="text-xs font-medium">{t.name}</TableCell>
-                          <TableCell className="font-mono text-[10px]">{t.code}</TableCell>
-                          <TableCell><Badge variant="secondary" className="text-[10px]">{t.unit}</Badge></TableCell>
-                          <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" className="text-destructive h-7 w-7" onClick={() => handleDelete("fiscal_variable_types", t.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {types?.map((t) => {
+                        const isMapped = KNOWN_CODES.includes(t.code);
+                        return (
+                          <TableRow key={t.id} className={!isMapped ? "bg-amber-50/20" : ""}>
+                            <TableCell className="text-xs">
+                              <div className="flex flex-col">
+                                <span className="font-bold">{t.name}</span>
+                                <span className="font-mono text-[9px] text-muted-foreground">{t.code}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {isMapped ? (
+                                <Badge className="bg-emerald-500 text-white text-[8px]"><Check className="h-2 w-2 mr-1" /> ACTIF DANS LE CODE</Badge>
+                              ) : (
+                                <div className="flex flex-col gap-1">
+                                  <Badge variant="outline" className="border-amber-500 text-amber-600 text-[8px] bg-white"><AlertTriangle className="h-2 w-2 mr-1" /> ORPHELINE (À MAPPER)</Badge>
+                                  <span className="text-[8px] text-muted-foreground italic">Cette variable a été injectée via DGI Watch mais n'est pas encore utilisée par les calculs du SaaS.</span>
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell><Badge variant="secondary" className="text-[10px]">{t.unit}</Badge></TableCell>
+                            <TableCell className="text-right">
+                              <Button variant="ghost" size="icon" className="text-primary h-7 w-7"><Code2 className="h-3.5 w-3.5" /></Button>
+                              <Button variant="ghost" size="icon" className="text-destructive h-7 w-7" onClick={() => handleDelete("fiscal_variable_types", t.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </CardContent>
