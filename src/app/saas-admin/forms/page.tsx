@@ -10,7 +10,7 @@ import {
   FileText, Download, UploadCloud, 
   ChevronLeft, Plus, MousePointer2, Type, Trash2, Image as ImageIcon,
   Layers, Settings, PlusCircle, Sparkles, Loader2, Link as LinkIcon, Wand2,
-  AlertCircle
+  AlertCircle, FileUp, Upload
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -30,18 +30,36 @@ export default function DgiFormsEditor() {
   const [error, setError] = React.useState<string | null>(null)
 
   // Smart Import State
-  const [smartImport, setSmartImport] = React.useState({ title: "", url: "" })
+  const [smartImport, setSmartImport] = React.useState({ title: "", file: null as File | null })
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSmartImport({ ...smartImport, file: e.target.files[0] });
+    }
+  };
 
   const handleSmartImport = async () => {
-    if (!smartImport.url || !smartImport.title) return;
+    if (!smartImport.file || !smartImport.title) return;
     setIsAnalyzing(true);
     setError(null);
     
     try {
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(smartImport.file!);
+      });
+
+      const fileDataUri = await base64Promise;
       const analysis = await analyzeFormLayout({ 
-        imageUrl: smartImport.url, 
+        fileDataUri, 
         documentTitle: smartImport.title 
       });
+
+      // Pour l'affichage en fond dans le Studio, si c'est un PDF, 
+      // on prévient que l'affichage visuel nécessite une image pour le moment
+      const isPdf = smartImport.file.type === 'application/pdf';
 
       const newForm = {
         id: `ai_${Date.now()}`,
@@ -54,7 +72,7 @@ export default function DgiFormsEditor() {
           {
             pageNumber: 1,
             title: "Analyse IA - Page 1",
-            backgroundImage: smartImport.url,
+            backgroundImage: isPdf ? "" : fileDataUri, // Le base64 de l'image sert de fond
             fields: analysis.detectedFields.map(f => ({
               ...f,
               id: `f_${Math.random().toString(36).substr(2, 9)}`,
@@ -73,15 +91,15 @@ export default function DgiFormsEditor() {
       });
     } catch (e: any) {
       console.error(e);
-      setError(e.message || "Erreur lors de l'accès au document.");
-      toast({ variant: "destructive", title: "Erreur Analyse", description: "Vérifiez l'URL de l'image." });
+      setError(e.message || "Erreur lors de l'analyse du document.");
+      toast({ variant: "destructive", title: "Erreur Analyse", description: "Le format de fichier est peut-être corrompu." });
     } finally {
       setIsAnalyzing(false);
     }
   }
 
   const handleAddField = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isEditMode) return
+    if (!isEditMode || !selectedForm) return
     const rect = e.currentTarget.getBoundingClientRect()
     const x = e.clientX - rect.left
     const y = e.clientY - rect.top
@@ -156,29 +174,41 @@ export default function DgiFormsEditor() {
               <CardTitle className="text-lg flex items-center gap-2 text-primary">
                 <Sparkles className="h-5 w-5 text-accent" /> Importer un Document Officiel
               </CardTitle>
-              <CardDescription>Fournissez l'URL de votre scan (Google Drive supporté), l'IA détectera les cases automatiquement.</CardDescription>
+              <CardDescription>Uploadez un PDF ou une Image (JPG/PNG). L'IA détectera les cases automatiquement.</CardDescription>
             </CardHeader>
             <CardContent className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase">Titre du document</Label>
-                <Input 
-                  placeholder="Ex: G N° 50 - 2026 (Recto)" 
-                  value={smartImport.title} 
-                  onChange={e => setSmartImport({...smartImport, title: e.target.value})}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase">Lien Drive ou URL du Scan</Label>
-                <div className="relative">
-                  <LinkIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase">Titre du document</Label>
                   <Input 
-                    className="pl-9" 
-                    placeholder="Collez le lien de partage Drive ici..." 
-                    value={smartImport.url}
-                    onChange={e => setSmartImport({...smartImport, url: e.target.value})}
+                    placeholder="Ex: G N° 50 - 2026 (Recto)" 
+                    value={smartImport.title} 
+                    onChange={e => setSmartImport({...smartImport, title: e.target.value})}
                   />
                 </div>
-                <p className="text-[10px] text-muted-foreground italic">Note: Assurez-vous que le lien Drive est configuré sur "Tous les utilisateurs disposant du lien".</p>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase">Fichier source (PDF ou Image)</Label>
+                  <div className="flex items-center justify-center w-full">
+                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-white hover:bg-muted/50 transition-colors border-primary/20">
+                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                        <UploadCloud className="w-8 h-8 mb-2 text-primary opacity-50" />
+                        <p className="text-xs text-muted-foreground">
+                          {smartImport.file ? <span className="font-bold text-primary">{smartImport.file.name}</span> : "Cliquez ou glissez votre PDF/Image ici"}
+                        </p>
+                      </div>
+                      <input type="file" className="hidden" accept="application/pdf,image/*" onChange={handleFileChange} />
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div className="p-6 bg-white/50 rounded-xl border border-dashed flex flex-col items-center justify-center text-center space-y-3">
+                <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center">
+                  <Wand2 className="h-6 w-6 text-accent" />
+                </div>
+                <h4 className="text-sm font-bold">Puissance de l'IA Vision</h4>
+                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                  Notre moteur analyse la géométrie du document pour positionner les champs de texte au pixel près et les lier aux variables fiscales.
+                </p>
               </div>
             </CardContent>
             {error && (
@@ -193,7 +223,7 @@ export default function DgiFormsEditor() {
             <CardFooter className="flex justify-end border-t bg-white/50 p-4">
               <Button 
                 onClick={handleSmartImport} 
-                disabled={isAnalyzing || !smartImport.url || !smartImport.title}
+                disabled={isAnalyzing || !smartImport.file || !smartImport.title}
                 className="bg-accent text-primary font-bold shadow-lg"
               >
                 {isAnalyzing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyse Vision en cours...</> : <><Wand2 className="mr-2 h-4 w-4" /> Analyser & Créer</>}
@@ -202,7 +232,7 @@ export default function DgiFormsEditor() {
           </Card>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="border-t-4 border-t-emerald-500 hover:shadow-xl transition-all cursor-pointer">
+            <Card className="border-t-4 border-t-emerald-500 hover:shadow-xl transition-all cursor-pointer bg-white">
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-start">
                   <div className="bg-emerald-500 p-2 rounded-lg text-white shadow-lg"><FileText className="h-5 w-5" /></div>
@@ -218,7 +248,7 @@ export default function DgiFormsEditor() {
         <TabsContent value="editor">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
             <div className="lg:col-span-1 space-y-6">
-              <Card className="shadow-lg border-t-4 border-t-primary">
+              <Card className="shadow-lg border-t-4 border-t-primary bg-white">
                 <CardHeader className="bg-muted/30 pb-2">
                   <CardTitle className="text-xs font-bold flex items-center gap-2 uppercase">
                     <Layers className="h-4 w-4 text-primary" /> Structure Détectée
@@ -227,7 +257,7 @@ export default function DgiFormsEditor() {
                 <CardContent className="p-0">
                   <ScrollArea className="h-[500px]">
                     <div className="divide-y">
-                      {selectedForm?.pages[currentPageIdx].fields.map((field: any) => (
+                      {selectedForm?.pages[currentPageIdx]?.fields.map((field: any) => (
                         <div key={field.id} className="p-4 space-y-3 hover:bg-primary/5 transition-colors">
                           <div className="flex justify-between items-center">
                             <Input 
@@ -249,6 +279,7 @@ export default function DgiFormsEditor() {
                                 <SelectItem value="TOTAL_TVA">Total TVA (101)</SelectItem>
                                 <SelectItem value="IRG_AMT">IRG Salaires</SelectItem>
                                 <SelectItem value="TAP_AMT">TAP HT</SelectItem>
+                                <SelectItem value="STAMP_DUTY">Droits de Timbre</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -278,29 +309,41 @@ export default function DgiFormsEditor() {
 
             <div className="lg:col-span-3">
               <div className="bg-slate-200 rounded-2xl p-8 overflow-auto flex justify-center min-h-[1000px] border shadow-inner">
-                <div 
-                  className="relative bg-white shadow-2xl transition-all origin-top"
-                  style={{ 
-                    width: '800px', 
-                    height: '1131px', 
-                    backgroundImage: `url(${selectedForm?.pages[currentPageIdx].backgroundImage})`, 
-                    backgroundSize: 'cover' 
-                  }}
-                  onClick={handleAddField}
-                >
-                  {selectedForm?.pages[currentPageIdx].fields.map((field: any) => (
-                    <div 
-                      key={field.id}
-                      className={`absolute border-2 flex items-center justify-center cursor-move transition-all ${field.variable ? 'border-emerald-500 bg-emerald-500/10' : 'border-primary/50 bg-primary/10'}`}
-                      style={{ left: `${field.x}px`, top: `${field.y}px`, width: `${field.width}px`, height: '24px' }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <span className={`text-[8px] font-black truncate px-1 ${field.variable ? 'text-emerald-700' : 'text-primary'}`}>
-                        {field.name}
-                      </span>
+                {selectedForm?.pages[currentPageIdx]?.backgroundImage ? (
+                  <div 
+                    className="relative bg-white shadow-2xl transition-all origin-top"
+                    style={{ 
+                      width: '800px', 
+                      height: '1131px', 
+                      backgroundImage: `url(${selectedForm.pages[currentPageIdx].backgroundImage})`, 
+                      backgroundSize: 'cover' 
+                    }}
+                    onClick={handleAddField}
+                  >
+                    {selectedForm.pages[currentPageIdx].fields.map((field: any) => (
+                      <div 
+                        key={field.id}
+                        className={`absolute border-2 flex items-center justify-center cursor-move transition-all ${field.variable ? 'border-emerald-500 bg-emerald-500/10' : 'border-primary/50 bg-primary/10'}`}
+                        style={{ left: `${field.x}px`, top: `${field.y}px`, width: `${field.width}px`, height: '24px' }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <span className={`text-[8px] font-black truncate px-1 ${field.variable ? 'text-emerald-700' : 'text-primary'}`}>
+                          {field.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <Card className="w-[800px] h-[1131px] flex items-center justify-center bg-white border-dashed border-4">
+                    <div className="text-center space-y-4 max-w-md">
+                      <FileUp className="h-16 w-16 mx-auto text-muted-foreground opacity-20" />
+                      <h3 className="text-lg font-bold">Document PDF Chargé</h3>
+                      <p className="text-sm text-muted-foreground">
+                        L'IA a terminé l'analyse du PDF. Pour visualiser le fond visuel dans cet éditeur, veuillez uploader une image (JPG/PNG) du formulaire.
+                      </p>
                     </div>
-                  ))}
-                </div>
+                  </Card>
+                )}
               </div>
             </div>
           </div>
@@ -310,7 +353,12 @@ export default function DgiFormsEditor() {
           <div className="flex justify-center bg-slate-300 p-12 rounded-2xl">
             <div className="flex flex-col gap-12">
               {selectedForm?.pages.map((page: any, idx: number) => (
-                <Card key={idx} className="relative bg-white shadow-2xl" style={{ width: '800px', height: '1131px', backgroundImage: `url(${page.backgroundImage})`, backgroundSize: 'cover' }}>
+                <Card key={idx} className="relative bg-white shadow-2xl" style={{ width: '800px', height: '1131px', backgroundImage: page.backgroundImage ? `url(${page.backgroundImage})` : 'none', backgroundSize: 'cover' }}>
+                  {!page.backgroundImage && (
+                    <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
+                      <FileText className="h-64 w-64" />
+                    </div>
+                  )}
                   {page.fields.map((field: any) => (
                     <div 
                       key={field.id}
