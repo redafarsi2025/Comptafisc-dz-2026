@@ -1,6 +1,7 @@
 'use server';
 /**
  * @fileOverview Analyse la mise en page d'un formulaire DGI pour détecter les champs de saisie.
+ * Correction du type MIME pour le support Google Drive.
  */
 
 import { ai } from '@/ai/genkit';
@@ -45,16 +46,22 @@ export async function analyzeFormLayout(input: { imageUrl: string, documentTitle
   
   let base64Image = "";
   try {
-    // On télécharge l'image côté serveur pour éviter les problèmes de CORS et de redirection Drive
     const response = await fetch(directUrl);
     if (!response.ok) throw new Error(`Impossible d'accéder au fichier (Status: ${response.status})`);
     
     const buffer = await response.arrayBuffer();
-    const contentType = response.headers.get('content-type') || 'image/jpeg';
+    
+    // Correction CRITIQUE : Google Drive renvoie souvent 'application/octet-stream'.
+    // Gemini refuse ce type. On force 'image/jpeg' qui est le format standard des scans.
+    let contentType = response.headers.get('content-type');
+    if (!contentType || contentType === 'application/octet-stream' || !contentType.startsWith('image/')) {
+      contentType = 'image/jpeg'; 
+    }
+    
     base64Image = `data:${contentType};base64,${Buffer.from(buffer).toString('base64')}`;
   } catch (e) {
     console.error("Erreur téléchargement image:", e);
-    throw new Error("L'URL fournie est inaccessible. Vérifiez que le document est bien partagé en mode 'Tous les utilisateurs disposant du lien'.");
+    throw new Error("L'URL fournie est inaccessible ou le format n'est pas reconnu. Vérifiez que le document est partagé publiquement.");
   }
 
   const { output } = await ai.generate({
