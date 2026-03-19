@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -46,10 +45,11 @@ export default function FiscalEngineAdmin() {
   const [newType, setNewType] = React.useState({ name: "", code: "", unit: "%", dataType: "number", description: "" })
   const [newValue, setNewValue] = React.useState({ fiscalLawId: "", fiscalVariableTypeId: "", value: "", effectiveStartDate: "", notes: "" })
 
-  // Codes connus utilisés dans le code source (G50, Paie, etc.)
+  // Codes connus utilisés dans le code source (G50, Paie, CASNOS, etc.)
   const KNOWN_CODES = [
     "IFU_STD_THRESHOLD", "IFU_AUTO_THRESHOLD", "IFU_MIN_STD", "IFU_MIN_AUTO", 
-    "IFU_RATE_PROD", "IFU_RATE_SERV", "SNMG", "TVA_STD", "TVA_RED", "IBS_RATE"
+    "IFU_RATE_PROD", "IFU_RATE_SERV", "SNMG", "TVA_STD", "TVA_RED", "IBS_RATE",
+    "CASNOS_RATE", "CASNOS_MIN", "CASNOS_MAX", "CASNOS_PENALTY_FIXED"
   ];
 
   const handleCreateLaw = () => {
@@ -106,7 +106,7 @@ export default function FiscalEngineAdmin() {
       await setDocumentNonBlocking(doc(db, "fiscal_laws", lawId), {
         id: lawId,
         name: "Loi de Finances 2026",
-        description: "Mise à jour complète IFU (8M/5M), Exonérations Startup, Pénalités de retard et SNMG 24k.",
+        description: "Mise à jour complète IFU, CASNOS, Exonérations Startup et SNMG 24k.",
         effectiveStartDate: "2026-01-01",
         publicationDate: "2025-12-30"
       }, { merge: true });
@@ -118,13 +118,9 @@ export default function FiscalEngineAdmin() {
         { code: "IFU_MIN_AUTO", name: "Minimum IFU Auto", unit: "DA", dataType: "number" },
         { code: "IFU_RATE_PROD", name: "Taux IFU Production/Vente", unit: "%", dataType: "number" },
         { code: "IFU_RATE_SERV", name: "Taux IFU Services", unit: "%", dataType: "number" },
-        { code: "IFU_RATE_AUTO", name: "Taux IFU Auto-entrepreneur", unit: "%", dataType: "number" },
-        { code: "IFU_RATE_RECYCLING", name: "Taux IFU Recyclage", unit: "%", dataType: "number" },
-        { code: "IFU_RATE_DIGITAL", name: "Taux IFU Plateformes Numériques", unit: "%", dataType: "number" },
-        { code: "IFU_EXEMPTION_STARTUP_YEARS", name: "Durée Exonération Startup", unit: "Années", dataType: "number" },
-        { code: "IFU_PENALTY_1M", name: "Majoration retard 1 mois", unit: "%", dataType: "number" },
-        { code: "IFU_PENALTY_2M", name: "Majoration retard 2 mois", unit: "%", dataType: "number" },
-        { code: "IFU_PENALTY_GT2M", name: "Majoration retard > 2 mois", unit: "%", dataType: "number" },
+        { code: "CASNOS_RATE", name: "Taux Cotisation CASNOS", unit: "%", dataType: "number" },
+        { code: "CASNOS_MIN", name: "Cotisation CASNOS Minimum", unit: "DA", dataType: "number" },
+        { code: "CASNOS_MAX", name: "Cotisation CASNOS Maximum", unit: "DA", dataType: "number" },
         { code: "SNMG", name: "SNMG", unit: "DA", dataType: "number" },
       ];
 
@@ -139,13 +135,9 @@ export default function FiscalEngineAdmin() {
         { type: "IFU_MIN_AUTO", val: "10000" },
         { type: "IFU_RATE_PROD", val: "0.05" },
         { type: "IFU_RATE_SERV", val: "0.12" },
-        { type: "IFU_RATE_AUTO", val: "0.005" },
-        { type: "IFU_RATE_RECYCLING", val: "0.05" },
-        { type: "IFU_RATE_DIGITAL", val: "0.05" },
-        { type: "IFU_EXEMPTION_STARTUP_YEARS", val: "4" },
-        { type: "IFU_PENALTY_1M", val: "0.10" },
-        { type: "IFU_PENALTY_2M", val: "0.20" },
-        { type: "IFU_PENALTY_GT2M", val: "0.25" },
+        { type: "CASNOS_RATE", val: "0.15" },
+        { type: "CASNOS_MIN", val: "32400" },
+        { type: "CASNOS_MAX", val: "648000" },
         { type: "SNMG", val: "24000" },
       ];
 
@@ -156,7 +148,7 @@ export default function FiscalEngineAdmin() {
           value: v.val, effectiveStartDate: "2026-01-01", notes: "Initialisation complète LF 2026"
         }, { merge: true });
       }
-      toast({ title: "Moteur Fiscal 2026 mis à jour avec les nouveaux paramètres" });
+      toast({ title: "Moteur Fiscal 2026 mis à jour avec les nouveaux paramètres CASNOS" });
     } finally {
       setIsInitializing(false);
     }
@@ -173,7 +165,7 @@ export default function FiscalEngineAdmin() {
         </div>
         <Button variant="outline" size="sm" onClick={handleInitialize2026} disabled={isInitializing} className="border-primary text-primary hover:bg-primary/5">
           {isInitializing ? <RefreshCcw className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-          Ré-initialiser Moteur 2026 (Complet)
+          Ré-initialiser Moteur 2026 (CASNOS inclus)
         </Button>
       </div>
 
@@ -187,7 +179,7 @@ export default function FiscalEngineAdmin() {
           </CardHeader>
           <CardContent className="space-y-4">
             <Textarea 
-              placeholder="Ex: Le seuil IFU est maintenu à 8 millions DA..." 
+              placeholder="Ex: La cotisation CASNOS est fixée à 15% avec un minimum de 32.400 DA..." 
               className="min-h-[150px] bg-white border-accent/20"
               value={aiInput}
               onChange={(e) => setAiInput(e.target.value)}

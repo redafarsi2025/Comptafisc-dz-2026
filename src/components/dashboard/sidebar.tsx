@@ -35,7 +35,8 @@ import {
   TrendingDown,
   Plus,
   Scale,
-  ShieldAlert
+  ShieldAlert,
+  HandCoins
 } from "lucide-react"
 
 import {
@@ -91,10 +92,11 @@ const payrollNav = [
   { name: "CACOBATPH (BTP)", href: "/dashboard/payroll/cacobatph", icon: HardHat },
 ]
 
-// 5. Fiscalité DGI
+// 5. Fiscalité DGI & Sociaux
 const fiscalNav = [
   { name: "Déclarations (G50/G12)", href: "/dashboard/declarations", icon: FileText },
   { name: "G50 ter (Trimestriel)", href: "/dashboard/declarations/g50ter", icon: CalendarDays },
+  { name: "Cotisations CASNOS", href: "/dashboard/declarations/casnos", icon: HandCoins },
   { name: "Liasse Fiscale (G4)", href: "/dashboard/declarations/g4", icon: FileStack },
   { name: "Existence (G8)", href: "/dashboard/declarations/g8", icon: FileBadge },
   { name: "Taxe Apprentissage", href: "/dashboard/declarations/taxe-apprentissage", icon: GraduationCap },
@@ -232,7 +234,7 @@ export function DashboardSidebar() {
         <NavGroup label="Comptabilité SCF" items={accountingNav} />
         <NavGroup label="Activité & Tiers" items={businessNav} />
         <NavGroup label="RH & Paie" items={payrollNav} />
-        <NavGroup label="Fiscalité DGI" items={fiscalNav} />
+        <NavGroup label="Fiscalité & Sociaux" items={fiscalNav} />
         <NavGroup label="Innovation & Veille" items={aiNav} />
         
         {currentTenant?.plan === 'CABINET' && (

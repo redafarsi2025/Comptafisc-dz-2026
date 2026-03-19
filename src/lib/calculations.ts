@@ -36,15 +36,15 @@ export const TAX_RATES = {
   TAXE_FORMATION_CONT: 0.01,    // 1% de la masse salariale
 };
 
-// Activités EXCLUES de l'IFU (Art. 282ter / Art. 22 LF 2025)
-export const IFU_EXCLUDED_ACTIVITIES = [
-  "PROMOTION_IMMOBILIERE", "IMPORTATION", "VENTE_GROS", "CONCESSIONNAIRE",
-  "CLINIQUE_PRIVE", "LABORATOIRE_MEDICAL", "RESTAURATION_HOTELLERIE_CLASSEE",
-  "METAUX_PRECIEUX", "TRAVAUX_PUBLICS_HYDRAULIQUES", "BOISSONS_ALCOOLISEES",
-  "TABAC", "TRAITEUR_CATERING", "LOCATION_SALLES_FETES", "GRANDE_SURFACE",
-  "LOCATION_VEHICULES", "LOCATION_ENGINS", "AGENCE_VOYAGE", "AGENCE_PUBLICITE",
-  "FORMATION_ENSEIGNEMENT", "COURTIER_ASSURANCE"
-];
+export const CASNOS_CONSTANTS = {
+  RATE: 0.15,
+  MIN_AMOUNT: 32400,
+  MAX_AMOUNT: 648000,
+  PENALTY_NON_DECLARATION: 5000,
+  PENALTY_DELAY_RATE: 0.20,
+  LATE_PAYMENT_INITIAL: 0.05,
+  LATE_PAYMENT_MONTHLY: 0.01,
+};
 
 export const PAYROLL_CONSTANTS = {
   CNAS_EMPLOYEE: 0.09,
@@ -55,6 +55,14 @@ export const PAYROLL_CONSTANTS = {
   CACOBATPH_CI_EMPLOYER: 0.00375,
   CACOBATPH_CI_EMPLOYEE: 0.00375,
 };
+
+/** Calcule la cotisation CASNOS annuelle. */
+export function calculateCASNOS(annualBase: number): number {
+  const calculated = annualBase * CASNOS_CONSTANTS.RATE;
+  if (calculated < CASNOS_CONSTANTS.MIN_AMOUNT) return CASNOS_CONSTANTS.MIN_AMOUNT;
+  if (calculated > CASNOS_CONSTANTS.MAX_AMOUNT) return CASNOS_CONSTANTS.MAX_AMOUNT;
+  return Math.round(calculated);
+}
 
 /** Calcule le taux d'IFU selon le secteur et la forme juridique. */
 export function getIFURate(secteur: string, formeJuridique: string, isDigitalPlatform: boolean = false): number {
