@@ -46,37 +46,21 @@ export const DEMO_DATASET = {
       tel: "025 32 11 44",
       plan: "CABINET",
       onboardingComplete: true
-    },
-    {
-      id: "ENT003",
-      raisonSociale: "EURL Informatique & Solutions",
-      formeJuridique: "EURL",
-      secteurActivite: "SERVICES",
-      wilaya: "16", ville: "Alger",
-      adresse: "Bab Ezzouar, Cité USTO, Alger",
-      nif: "001216000456789",
-      nis: "3216500045678",
-      rc: "16/00-0456789B16",
-      capitalSocial: 500000,
-      regimeFiscal: "IFU",
-      debutActivite: "2020-01-20",
-      gerant: "Yasmine Hamdi",
-      email: "yasmine@infosolutions.dz",
-      plan: "ESSENTIEL",
-      onboardingComplete: true
     }
   ],
   employees: [
-    { name: "Zerrouki Kamel", position: "Directeur Général", baseSalary: 180000, primesImposables: 0, cnasNumber: "0001216800123456", nin: "123456789012345678", isGrandSud: false, isHandicapped: false },
-    { name: "Mansouri Farid", position: "Directeur Technique", baseSalary: 120000, primesImposables: 0, cnasNumber: "0001216800234567", nin: "223456789012345678", isGrandSud: false, isHandicapped: false },
-    { name: "Bouzid Samira", position: "Comptable principale", baseSalary: 65000, primesImposables: 5000, cnasNumber: "0001216800345678", nin: "323456789012345678", isGrandSud: false, isHandicapped: false },
-    { name: "Rahmani Djamel", position: "Chef de chantier", baseSalary: 75000, primesImposables: 10000, cnasNumber: "0001216800456789", nin: "423456789012345678", isGrandSud: false, isHandicapped: false },
+    { id: "SAL001", name: "Zerrouki Kamel", position: "Directeur Général", baseSalary: 180000, primesImposables: 0, cnasNumber: "0001216800123456", nin: "123456789012345678", isGrandSud: false, isHandicapped: false },
+    { id: "SAL002", name: "Mansouri Farid", position: "Directeur Technique", baseSalary: 120000, primesImposables: 0, cnasNumber: "0001216800234567", nin: "223456789012345678", isGrandSud: false, isHandicapped: false },
+    { id: "SAL003", name: "Bouzid Samira", position: "Comptable principale", baseSalary: 65000, primesImposables: 5000, cnasNumber: "0001216800345678", nin: "323456789012345678", isGrandSud: false, isHandicapped: false },
+    { id: "SAL004", name: "Rahmani Djamel", position: "Chef de chantier", baseSalary: 75000, primesImposables: 10000, cnasNumber: "0001216800456789", nin: "423456789012345678", isGrandSud: false, isHandicapped: false },
+    { id: "SAL005", name: "Khelil Amina", position: "Assistante RH", baseSalary: 35000, primesImposables: 0, cnasNumber: "0001216800567890", nin: "523456789012345678", isGrandSud: false, isHandicapped: false },
   ],
   invoices: [
     { invoiceNumber: "FAC2025001", clientName: "SPA Grands Travaux Ouest", amountHT: 850000, tvaRate: 19, description: "Fourniture matériaux de bureau", date: "2025-01-08" },
     { invoiceNumber: "FAC2025002", clientName: "SARL Bâtisseurs du Nord", amountHT: 320000, tvaRate: 19, description: "Vente équipements bureautique", date: "2025-01-15" },
     { invoiceNumber: "FAC2025003", clientName: "Admin Bir Mourad Raïs", amountHT: 1200000, tvaRate: 19, description: "Fournitures administratives", date: "2025-02-03" },
     { invoiceNumber: "FAC2025004", clientName: "EURL Pharmacie El Shifa", amountHT: 175000, tvaRate: 9, description: "Mobilier médical", date: "2025-02-18" },
+    { invoiceNumber: "FAC2025005", clientName: "SPA Hôtel El Djazaïr", amountHT: 2300000, tvaRate: 19, description: "Rénovation mobilier", date: "2025-03-07" },
   ],
   journalEntries: [
     {
@@ -99,6 +83,16 @@ export const DEMO_DATASET = {
         { accountCode: "607", accountName: "Achats non stockés", debit: 420000, credit: 0 },
         { accountCode: "4456", accountName: "TVA déductible", debit: 79800, credit: 0 },
         { accountCode: "401", accountName: "Fournisseurs", debit: 0, credit: 499800 },
+      ]
+    },
+    {
+      date: "2025-01-31",
+      description: "Virement client SPA Grands Travaux Ouest",
+      type: "BANQUE",
+      ref: "VIR-BQ-001",
+      lines: [
+        { accountCode: "512", accountName: "Banque BNA", debit: 1011500, credit: 0 },
+        { accountCode: "411", accountName: "Clients", debit: 0, credit: 1011500 },
       ]
     }
   ]
