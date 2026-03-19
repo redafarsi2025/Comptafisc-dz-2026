@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -8,6 +7,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card"
 import {
   BarChart,
