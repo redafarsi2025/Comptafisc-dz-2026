@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -15,7 +16,10 @@ import {
   Layers,
   DatabaseZap,
   Eye,
-  Factory
+  Factory,
+  LifeBuoy,
+  Activity,
+  ShieldCheck
 } from "lucide-react"
 
 import {
@@ -33,15 +37,16 @@ import { cn } from "@/lib/utils"
 
 const adminNavigation = [
   { name: "Pilotage Revenus", href: "/saas-admin", icon: BarChart3 },
+  { name: "Utilisateurs & Abos", href: "/saas-admin/users", icon: Users2 },
   { name: "Moteur Fiscal", href: "/saas-admin/fiscal-engine", icon: DatabaseZap },
   { name: "DGI Watch Console", href: "/saas-admin/dgi-watch", icon: Eye },
-  { name: "Usine à Démos", href: "/saas-admin/demo-factory", icon: Factory },
-  { name: "Gestion des Plans", href: "/saas-admin/plans", icon: Layers },
-  { name: "Formulaires DGI", href: "/saas-admin/forms", icon: FileEdit },
+  { name: "Templates DGI", href: "/saas-admin/forms", icon: FileEdit },
   { name: "Règles Métier", href: "/saas-admin/rules", icon: ShieldAlert },
+  { name: "Support & Tickets", href: "/saas-admin/support", icon: LifeBuoy },
+  { name: "Santé Système", href: "/saas-admin/monitoring", icon: Activity },
+  { name: "Gestion des Plans", href: "/saas-admin/plans", icon: Layers },
+  { name: "Usine à Démos", href: "/saas-admin/demo-factory", icon: Factory },
   { name: "Partenaires", href: "/saas-admin/partners", icon: Briefcase },
-  { name: "Abonnements", href: "/saas-admin/subscriptions", icon: CreditCard },
-  { name: "Utilisateurs SaaS", href: "/saas-admin/users", icon: Users2 },
 ]
 
 export function AdminSidebar() {
@@ -52,11 +57,11 @@ export function AdminSidebar() {
       <SidebarHeader className="p-6 border-b border-slate-100 bg-white">
         <div className="flex items-center gap-3 px-2">
           <div className="bg-primary/10 p-2 rounded-xl border border-primary/20">
-            <Settings className="text-primary h-6 w-6" />
+            <ShieldCheck className="text-primary h-6 w-6" />
           </div>
           <div className="flex flex-col">
-            <span className="font-black text-xl text-slate-900 tracking-tighter leading-none">SaaS Admin</span>
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Console Master</span>
+            <span className="font-black text-xl text-slate-900 tracking-tighter leading-none">Console Admin</span>
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Back-Office ComptaFisc</span>
           </div>
         </div>
       </SidebarHeader>
@@ -107,7 +112,7 @@ export function AdminSidebar() {
                 <div className="bg-white p-1.5 rounded-md border border-slate-200 shadow-sm">
                   <ArrowLeft className="h-4 w-4" />
                 </div>
-                <span className="text-xs uppercase tracking-tight">Retour Client</span>
+                <span className="text-xs uppercase tracking-tight">Quitter Console</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
