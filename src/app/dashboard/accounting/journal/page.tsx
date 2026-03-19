@@ -7,13 +7,19 @@ import { collection, query, where, orderBy, limit } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { BookText, Printer, FileDown, Search, Filter } from "lucide-react"
+import { BookText, Printer, FileDown, Search, Filter, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { JournalEntry, JournalEntryLine } from "@/lib/scf-accounts"
 
 export default function LivreJournal() {
   const db = useFirestore()
   const { user } = useUser()
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
   
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -23,15 +29,19 @@ export default function LivreJournal() {
   const currentTenant = tenants?.[0];
 
   const entriesQuery = useMemoFirebase(() => {
-    if (!db || !currentTenant || !user) return null;
+    if (!db || !currentTenant) return null;
     return query(
       collection(db, "tenants", currentTenant.id, "journal_entries"),
-      where(`tenantMembers.${user.uid}`, "!=", null),
       orderBy("entryDate", "desc"),
       limit(100)
     );
-  }, [db, currentTenant, user]);
-  const { data: entries, isLoading } = useCollection(entriesQuery);
+  }, [db, currentTenant]);
+  const { data: entries, isLoading } = useCollection<JournalEntry>(entriesQuery);
+
+  const formatAmount = (val: number) => mounted ? val.toLocaleString() : "..."
+
+  const totalDebit = entries?.reduce((sum, e) => sum + e.lines.reduce((lsum, l) => lsum + (l.debit || 0), 0), 0) || 0
+  const totalCredit = entries?.reduce((sum, e) => sum + e.lines.reduce((lsum, l) => lsum + (l.credit || 0), 0), 0) || 0
 
   return (
     <div className="space-y-6">
@@ -82,7 +92,7 @@ export default function LivreJournal() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">Chargement des écritures...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground"><Loader2 className="animate-spin inline mr-2 h-4 w-4" />Chargement des écritures...</TableCell></TableRow>
               ) : !entries?.length ? (
                 <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">Aucune écriture enregistrée.</TableCell></TableRow>
               ) : (
@@ -93,7 +103,7 @@ export default function LivreJournal() {
                         PIÈCE: {entry.documentReference || 'N/A'} — {entry.description}
                       </TableCell>
                     </TableRow>
-                    {entry.lines.map((line: any, lidx: number) => (
+                    {entry.lines.map((line: JournalEntryLine, lidx: number) => (
                       <TableRow key={`${entry.id}-${lidx}`} className="hover:bg-muted/10 border-none">
                         <TableCell className="text-xs">{lidx === 0 ? new Date(entry.entryDate).toLocaleDateString() : ""}</TableCell>
                         <TableCell>
@@ -105,8 +115,8 @@ export default function LivreJournal() {
                         </TableCell>
                         <TableCell className="font-mono text-xs">{line.accountCode}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{line.accountName}</TableCell>
-                        <TableCell className="text-right font-mono text-xs">{line.debit > 0 ? line.debit.toLocaleString() : "-"}</TableCell>
-                        <TableCell className="text-right font-mono text-xs">{line.credit > 0 ? line.credit.toLocaleString() : "-"}</TableCell>
+                        <TableCell className="text-right font-mono text-xs">{line.debit > 0 ? formatAmount(line.debit) : "-"}</TableCell>
+                        <TableCell className="text-right font-mono text-xs">{line.credit > 0 ? formatAmount(line.credit) : "-"}</TableCell>
                       </TableRow>
                     ))}
                   </React.Fragment>
@@ -122,7 +132,7 @@ export default function LivreJournal() {
           <CardContent className="pt-6">
             <h4 className="text-xs font-bold uppercase text-blue-800 mb-1">Total Débits Période</h4>
             <p className="text-2xl font-bold text-blue-900">
-              {entries?.reduce((sum, e) => sum + e.lines.reduce((lsum: number, l: any) => lsum + l.debit, 0), 0).toLocaleString()} DA
+              {formatAmount(totalDebit)} DA
             </p>
           </CardContent>
         </Card>
@@ -130,7 +140,7 @@ export default function LivreJournal() {
           <CardContent className="pt-6">
             <h4 className="text-xs font-bold uppercase text-emerald-800 mb-1">Total Crédits Période</h4>
             <p className="text-2xl font-bold text-emerald-900">
-              {entries?.reduce((sum, e) => sum + e.lines.reduce((lsum: number, l: any) => lsum + l.credit, 0), 0).toLocaleString()} DA
+              {formatAmount(totalCredit)} DA
             </p>
           </CardContent>
         </Card>
@@ -138,8 +148,10 @@ export default function LivreJournal() {
           <CardContent className="pt-6">
             <h4 className="text-xs font-bold uppercase text-amber-800 mb-1">Vérification Balance</h4>
             <div className="flex items-center gap-2">
-              <div className="h-3 w-3 rounded-full bg-emerald-500" />
-              <p className="text-sm font-bold text-amber-900 italic">Journal Centralisateur Équilibré</p>
+              <div className={`h-3 w-3 rounded-full ${Math.abs(totalDebit - totalCredit) < 0.01 ? 'bg-emerald-500' : 'bg-destructive'}`} />
+              <p className="text-sm font-bold text-amber-900 italic">
+                {Math.abs(totalDebit - totalCredit) < 0.01 ? 'Journal Centralisateur Équilibré' : 'DÉSÉQUILIBRE DÉTECTÉ'}
+              </p>
             </div>
           </CardContent>
         </Card>

@@ -16,12 +16,11 @@ service cloud.firestore {
     }
 
     // Vérifie si l'utilisateur est membre du dossier (tenant)
-    // On utilise get().data.get() pour éviter les erreurs si le champ 'members' est absent
     function isTenantMember(tenantId) {
-      let tenant = get(/databases/$(database)/documents/tenants/$(tenantId));
+      let tenantPath = /databases/$(database)/documents/tenants/$(tenantId);
       return isSignedIn() && (
         isAdmin() || 
-        (tenant != null && tenant.data.get('members', {})[request.auth.uid] != null)
+        (exists(tenantPath) && get(tenantPath).data.members[request.auth.uid] != null)
       );
     }
 
@@ -64,33 +63,16 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    match /dgi_alerts/{alertId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    match /dgi_scraper_status/{docId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
     // --- Business Logic Rules ---
     match /tenants/{tenantId} {
-      // Accès au document du dossier lui-même
-      allow read: if isSignedIn() && (isAdmin() || resource.data.get('members', {})[request.auth.uid] != null);
+      allow read: if isSignedIn() && (isAdmin() || resource.data.members[request.auth.uid] != null);
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && (isAdmin() || resource.data.get('members', {})[request.auth.uid] != null);
+      allow update: if isSignedIn() && (isAdmin() || resource.data.members[request.auth.uid] != null);
       allow delete: if isAdmin();
 
-      // Accès aux sous-collections (Écritures, Factures, Salariés, etc.)
-      // On combine la vérification du parent (get) et la vérification des données dénormalisées (resource.data)
+      // Accès simplifié aux sous-collections : hérite du statut de membre du dossier
       match /{allSubcollections=**} {
-        allow read: if isSignedIn() && (
-          isAdmin() || 
-          isTenantMember(tenantId) || 
-          (resource != null && resource.data.get('tenantMembers', {})[request.auth.uid] != null)
-        );
-        allow write: if isTenantMember(tenantId);
+        allow read, write: if isTenantMember(tenantId);
       }
     }
   }
