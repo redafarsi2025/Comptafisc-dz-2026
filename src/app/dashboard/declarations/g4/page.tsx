@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { FileStack, Printer, Calculator, PieChart, ShieldCheck, AlertCircle, TrendingDown, Loader2 } from "lucide-react"
-import { Badge } from "@/badge"
+import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function LiasseFiscaleG4() {

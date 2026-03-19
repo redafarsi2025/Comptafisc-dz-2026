@@ -11,7 +11,7 @@ import {
   Plus, Trash2, CheckCircle, Calculator, Loader2, BookOpen, 
   Search, PlusCircle, Zap, ShieldAlert, Sparkles, FileDown 
 } from "lucide-react"
-import { Badge } from "@/badge"
+import { Badge } from "@/components/ui/badge"
 import { useFirestore, useUser, addDocumentNonBlocking, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, query, where, limit, getDocs } from "firebase/firestore"
 import { toast } from "@/hooks/use-toast"
