@@ -49,7 +49,8 @@ export default function FiscalEngineAdmin() {
   const KNOWN_CODES = [
     "IFU_STD_THRESHOLD", "IFU_AUTO_THRESHOLD", "IFU_MIN_STD", "IFU_MIN_AUTO", 
     "IFU_RATE_PROD", "IFU_RATE_SERV", "SNMG", "TVA_STD", "TVA_RED", "IBS_RATE",
-    "CASNOS_RATE", "CASNOS_MIN", "CASNOS_MAX", "CASNOS_PENALTY_FIXED"
+    "CASNOS_RATE", "CASNOS_MIN", "CASNOS_MAX", "CASNOS_PENALTY_FIXED",
+    "IRG_LIMIT_EXEMPT", "IRG_SMOOTH_STD", "IRG_SMOOTH_SPEC"
   ];
 
   const handleCreateLaw = () => {
@@ -106,7 +107,7 @@ export default function FiscalEngineAdmin() {
       await setDocumentNonBlocking(doc(db, "fiscal_laws", lawId), {
         id: lawId,
         name: "Loi de Finances 2026",
-        description: "Mise à jour complète IFU, CASNOS, Exonérations Startup, TVA et SNMG 24k.",
+        description: "Mise à jour complète IRG (Barème & Lissage), CASNOS, Exonérations Startup, TVA et SNMG 24k.",
         effectiveStartDate: "2026-01-01",
         publicationDate: "2025-12-30"
       }, { merge: true });
@@ -126,6 +127,9 @@ export default function FiscalEngineAdmin() {
         { code: "TVA_STD", name: "Taux TVA Standard", unit: "%", dataType: "number" },
         { code: "TVA_RED", name: "Taux TVA Réduit", unit: "%", dataType: "number" },
         { code: "IBS_RATE", name: "Taux IBS Standard (Commerce/Services)", unit: "%", dataType: "number" },
+        { code: "IRG_LIMIT_EXEMPT", name: "Seuil Exonération IRG Salarié", unit: "DA", dataType: "number" },
+        { code: "IRG_SMOOTH_STD", name: "Seuil Lissage IRG (Standard)", unit: "DA", dataType: "number" },
+        { code: "IRG_SMOOTH_SPEC", name: "Seuil Lissage IRG (Handicapé/Retraité)", unit: "DA", dataType: "number" },
       ];
 
       for (const t of varTypes) {
@@ -147,13 +151,16 @@ export default function FiscalEngineAdmin() {
         { type: "TVA_STD", val: "0.19" },
         { type: "TVA_RED", val: "0.09" },
         { type: "IBS_RATE", val: "0.26" },
+        { type: "IRG_LIMIT_EXEMPT", val: "30000" },
+        { type: "IRG_SMOOTH_STD", val: "35000" },
+        { type: "IRG_SMOOTH_SPEC", val: "42500" },
       ];
 
       for (const v of valUpdates) {
         const vid = `VAL_2026_${v.type}`;
         await setDocumentNonBlocking(doc(db, "fiscal_variable_values", vid), {
           id: vid, fiscalLawId: lawId, fiscalVariableTypeId: v.type,
-          value: v.val, effectiveStartDate: "2026-01-01", notes: "Initialisation complète LF 2026 conforme PRD"
+          value: v.val, effectiveStartDate: "2026-01-01", notes: "Initialisation complète LF 2026 conforme CIDTA"
         }, { merge: true });
       }
       toast({ title: "Moteur Fiscal 2026 initialisé avec succès" });
@@ -173,7 +180,7 @@ export default function FiscalEngineAdmin() {
         </div>
         <Button variant="outline" size="sm" onClick={handleInitialize2026} disabled={isInitializing} className="border-primary text-primary hover:bg-primary/5">
           {isInitializing ? <RefreshCcw className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-          Ré-initialiser Moteur 2026 (TVA, IBS, CASNOS...)
+          Ré-initialiser Moteur 2026 (IRG, TVA, CASNOS...)
         </Button>
       </div>
 

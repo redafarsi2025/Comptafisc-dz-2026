@@ -51,6 +51,8 @@ export const PAYROLL_CONSTANTS = {
   CNAS_EMPLOYER: 0.26,
   SNMG: 24000, // Revalorisé 2026
   IRG_THRESHOLD: 30000,
+  IRG_SMOOTHING_STD: 35000,
+  IRG_SMOOTHING_SPEC: 42500,
   CACOBATPH_CP: 0.1221,
   CACOBATPH_CI_EMPLOYER: 0.00375,
   CACOBATPH_CI_EMPLOYEE: 0.00375,
@@ -93,7 +95,7 @@ export function calculateIRG(netImposable: number, isGrandSud: boolean = false, 
   const base = Math.floor(netImposable / 10) * 10;
   
   // 1. Exonération totale si <= 30 000 DA
-  if (base <= 30000) return 0;
+  if (base <= PAYROLL_CONSTANTS.IRG_THRESHOLD) return 0;
 
   // 2. Calcul selon le barème progressif mensualisé
   let irgBrut = 0;
@@ -123,7 +125,7 @@ export function calculateIRG(netImposable: number, isGrandSud: boolean = false, 
 
   if (isHandicappedOrRetired) {
     // Régime spécifique : Travailleurs handicapés et retraités
-    if (base <= 42500) {
+    if (base <= PAYROLL_CONSTANTS.IRG_SMOOTHING_SPEC) {
       // Formule de lissage spécifique : (93/61) * IRG_abat1 - (81213/41)
       irgFinal = irgApresAbat1 * (93/61) - (81213/41);
     } else {
@@ -131,7 +133,7 @@ export function calculateIRG(netImposable: number, isGrandSud: boolean = false, 
     }
   } else {
     // Régime standard : Travailleurs salariés
-    if (base <= 35000) {
+    if (base <= PAYROLL_CONSTANTS.IRG_SMOOTHING_STD) {
       // Formule de lissage spécifique : (137/51) * IRG_abat1 - (27925/8)
       irgFinal = irgApresAbat1 * (137/51) - (27925/8);
     } else {
