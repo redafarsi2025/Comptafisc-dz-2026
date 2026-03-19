@@ -27,11 +27,40 @@ const FormLayoutAnalysisOutputSchema = z.object({
 
 export type FormLayoutAnalysisOutput = z.infer<typeof FormLayoutAnalysisOutputSchema>;
 
+/**
+ * Transforme une URL Google Drive classique en lien de téléchargement direct.
+ */
+function transformDriveUrl(url: string): string {
+  if (url.includes('drive.google.com')) {
+    const match = url.match(/\/d\/(.+?)\/(view|edit|usp=sharing)?/);
+    if (match && match[1]) {
+      return `https://drive.google.com/uc?export=download&id=${match[1]}`;
+    }
+  }
+  return url;
+}
+
 export async function analyzeFormLayout(input: { imageUrl: string, documentTitle: string }): Promise<FormLayoutAnalysisOutput> {
+  const directUrl = transformDriveUrl(input.imageUrl);
+  
+  let base64Image = "";
+  try {
+    // On télécharge l'image côté serveur pour éviter les problèmes de CORS et de redirection Drive
+    const response = await fetch(directUrl);
+    if (!response.ok) throw new Error(`Impossible d'accéder au fichier (Status: ${response.status})`);
+    
+    const buffer = await response.arrayBuffer();
+    const contentType = response.headers.get('content-type') || 'image/jpeg';
+    base64Image = `data:${contentType};base64,${Buffer.from(buffer).toString('base64')}`;
+  } catch (e) {
+    console.error("Erreur téléchargement image:", e);
+    throw new Error("L'URL fournie est inaccessible. Vérifiez que le document est bien partagé en mode 'Tous les utilisateurs disposant du lien'.");
+  }
+
   const { output } = await ai.generate({
     model: 'googleai/gemini-2.5-flash',
     prompt: [
-      { media: { url: input.imageUrl } },
+      { media: { url: base64Image } },
       { text: `Analyse visuellement ce formulaire fiscal algérien : ${input.documentTitle}.
       Identifie toutes les zones de saisie vides (cases, lignes pointillées).
       Pour chaque zone, estime ses coordonnées X (0 à 800) et Y, sa largeur, et suggère un nom de champ.

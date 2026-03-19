@@ -9,7 +9,8 @@ import {
   Layout, Database, ArrowRight, CheckCircle2,
   FileText, Download, UploadCloud, 
   ChevronLeft, Plus, MousePointer2, Type, Trash2, Image as ImageIcon,
-  Layers, Settings, PlusCircle, Sparkles, Loader2, Link as LinkIcon, Wand2
+  Layers, Settings, PlusCircle, Sparkles, Loader2, Link as LinkIcon, Wand2,
+  AlertCircle
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -18,13 +19,7 @@ import { toast } from "@/hooks/use-toast"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { analyzeFormLayout } from "@/ai/flows/form-layout-analysis"
-
-const DGI_THEMES = {
-  G50: { primary: "bg-[#008751]", text: "text-[#008751]", border: "border-[#008751]", label: "G N° 50 (Mensuel)", color: "#008751" },
-  G12: { primary: "bg-[#0055A4]", text: "text-[#0055A4]", border: "border-[#0055A4]", label: "G N° 12 (IFU)", color: "#0055A4" },
-  G4: { primary: "bg-[#8B5CF6]", text: "text-[#8B5CF6]", border: "border-[#8B5CF6]", label: "G N° 4 (IBS)", color: "#8B5CF6" },
-  ANNEXE: { primary: "bg-[#F59E0B]", text: "text-[#F59E0B]", border: "border-[#F59E0B]", label: "Annexe I (Apprentissage)", color: "#F59E0B" }
-}
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function DgiFormsEditor() {
   const [selectedForm, setSelectedForm] = React.useState<any>(null)
@@ -32,6 +27,7 @@ export default function DgiFormsEditor() {
   const [currentPageIdx, setCurrentPageIdx] = React.useState(0)
   const [isEditMode, setIsEditMode] = React.useState(false)
   const [isAnalyzing, setIsAnalyzing] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
 
   // Smart Import State
   const [smartImport, setSmartImport] = React.useState({ title: "", url: "" })
@@ -39,6 +35,7 @@ export default function DgiFormsEditor() {
   const handleSmartImport = async () => {
     if (!smartImport.url || !smartImport.title) return;
     setIsAnalyzing(true);
+    setError(null);
     
     try {
       const analysis = await analyzeFormLayout({ 
@@ -74,8 +71,9 @@ export default function DgiFormsEditor() {
         title: "Analyse IA Terminée", 
         description: `${analysis.detectedFields.length} champs détectés et positionnés.` 
       });
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      setError(e.message || "Erreur lors de l'accès au document.");
       toast({ variant: "destructive", title: "Erreur Analyse", description: "Vérifiez l'URL de l'image." });
     } finally {
       setIsAnalyzing(false);
@@ -158,7 +156,7 @@ export default function DgiFormsEditor() {
               <CardTitle className="text-lg flex items-center gap-2 text-primary">
                 <Sparkles className="h-5 w-5 text-accent" /> Importer un Document Officiel
               </CardTitle>
-              <CardDescription>Fournissez l'image de fond, l'IA détectera les cases à remplir pour vous.</CardDescription>
+              <CardDescription>Fournissez l'URL de votre scan (Google Drive supporté), l'IA détectera les cases automatiquement.</CardDescription>
             </CardHeader>
             <CardContent className="grid md:grid-cols-2 gap-6">
               <div className="space-y-2">
@@ -170,31 +168,40 @@ export default function DgiFormsEditor() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase">URL du Fond (Scan PDF/Image)</Label>
+                <Label className="text-xs font-bold uppercase">Lien Drive ou URL du Scan</Label>
                 <div className="relative">
                   <LinkIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input 
                     className="pl-9" 
-                    placeholder="https://votre-drive.dz/scan.jpg" 
+                    placeholder="Collez le lien de partage Drive ici..." 
                     value={smartImport.url}
                     onChange={e => setSmartImport({...smartImport, url: e.target.value})}
                   />
                 </div>
+                <p className="text-[10px] text-muted-foreground italic">Note: Assurez-vous que le lien Drive est configuré sur "Tous les utilisateurs disposant du lien".</p>
               </div>
             </CardContent>
+            {error && (
+              <div className="px-6 pb-4">
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Erreur d'importation</AlertTitle>
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              </div>
+            )}
             <CardFooter className="flex justify-end border-t bg-white/50 p-4">
               <Button 
                 onClick={handleSmartImport} 
-                disabled={isAnalyzing || !smartImport.url}
+                disabled={isAnalyzing || !smartImport.url || !smartImport.title}
                 className="bg-accent text-primary font-bold shadow-lg"
               >
-                {isAnalyzing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyse des champs...</> : <><Wand2 className="mr-2 h-4 w-4" /> Analyser & Créer</>}
+                {isAnalyzing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyse Vision en cours...</> : <><Wand2 className="mr-2 h-4 w-4" /> Analyser & Créer</>}
               </Button>
             </CardFooter>
           </Card>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Simulation de catalogue existant */}
             <Card className="border-t-4 border-t-emerald-500 hover:shadow-xl transition-all cursor-pointer">
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-start">
@@ -254,17 +261,17 @@ export default function DgiFormsEditor() {
 
               <div className="p-4 bg-accent/10 border border-accent/20 rounded-xl">
                 <div className="flex items-center gap-2 text-primary font-bold text-xs mb-2">
-                  <MousePointer2 className="h-4 w-4" /> Mode Ajustement
+                  <MousePointer2 className="h-4 w-4" /> Ajustement Manuel
                 </div>
                 <p className="text-[10px] text-muted-foreground italic leading-relaxed">
-                  L'IA a placé les champs. Cliquez sur le document pour en ajouter un nouveau ou faites glisser les zones existantes.
+                  L'IA a pré-positionné les champs. Cliquez sur le document pour en ajouter un nouveau si nécessaire.
                 </p>
                 <Button 
                   variant={isEditMode ? "default" : "outline"} 
                   className="w-full mt-4 h-8 text-[10px]"
                   onClick={() => setIsEditMode(!isEditMode)}
                 >
-                  {isEditMode ? "DÉSACTIVER PLACEMENT" : "ACTIVER PLACEMENT MANUEL"}
+                  {isEditMode ? "DÉSACTIVER ÉDITION" : "ACTIVER ÉDITION MANUELLE"}
                 </Button>
               </div>
             </div>
