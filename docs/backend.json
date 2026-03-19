@@ -33,6 +33,35 @@
           }
         }
       }
+    },
+    "SupportTicket": {
+      "title": "SupportTicket",
+      "type": "object",
+      "description": "Ticket de support client pour assistance technique ou fiscale.",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "subject": { "type": "string" },
+        "status": { "type": "string", "enum": ["open", "pending", "closed"] },
+        "priority": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "messages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "senderId": { "type": "string" },
+              "senderName": { "type": "string" },
+              "text": { "type": "string" },
+              "timestamp": { "type": "string", "format": "date-time" },
+              "isAdmin": { "type": "boolean" }
+            }
+          }
+        }
+      }
     }
   },
   "auth": {
@@ -46,6 +75,10 @@
     "/dgi_templates/{templateId}": {
       "schema": "#/backend/entities/DgiTemplate",
       "description": "Templates de formulaires stockés en base."
+    },
+    "/support_tickets/{ticketId}": {
+      "schema": "#/backend/entities/SupportTicket",
+      "description": "Tickets de support centralisés."
     },
     "/tenants/{tenantId}": {
       "schema": "object",

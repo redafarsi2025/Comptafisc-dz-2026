@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -36,7 +37,8 @@ import {
   Plus,
   Scale,
   ShieldAlert,
-  HandCoins
+  HandCoins,
+  LifeBuoy
 } from "lucide-react"
 
 import {
@@ -253,8 +255,13 @@ export function DashboardSidebar() {
         )}
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/40 uppercase tracking-[0.15em] text-[9px] font-black mt-2">Configuration</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-sidebar-foreground/40 uppercase tracking-[0.15em] text-[9px] font-black mt-2">Support & Config</SidebarGroupLabel>
           <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={pathname === "/dashboard/support"} tooltip="Assistance">
+                <Link href={currentTenant ? `/dashboard/support?tenantId=${currentTenant.id}` : "/dashboard/support"}><LifeBuoy /><span>Assistance & Support</span></Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname === "/dashboard/settings"} tooltip="Paramètres">
                 <Link href={currentTenant ? `/dashboard/settings?tenantId=${currentTenant.id}` : "/dashboard/settings"}><Settings /><span>Paramètres Dossier</span></Link>
