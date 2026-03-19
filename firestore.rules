@@ -65,17 +65,18 @@ service cloud.firestore {
 
     // --- Business Logic Rules ---
     match /tenants/{tenantId} {
+      // Un utilisateur peut lire/écrire s'il est membre ou s'il est admin
       allow read, write: if isSignedIn() && (
-        resource == null || 
-        resource.data.members[request.auth.uid] != null ||
-        isAdmin()
+        isAdmin() || 
+        (resource != null && resource.data.members[request.auth.uid] != null) ||
+        (resource == null) // Autoriser la création initiale
       );
 
-      // Sub-collections logic
+      // Sub-collections logic (Journal, Invoices, Employees, etc.)
       match /{allSubcollections=**} {
         allow read, write: if isSignedIn() && (
-          exists(/databases/$(database)/documents/tenants/$(tenantId)) && 
-          (get(/databases/$(database)/documents/tenants/$(tenantId)).data.members[request.auth.uid] != null || isAdmin())
+          isAdmin() ||
+          get(/databases/$(database)/documents/tenants/$(tenantId)).data.members[request.auth.uid] != null
         );
       }
     }

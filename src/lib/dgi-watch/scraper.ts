@@ -5,7 +5,8 @@ import * as cheerio from 'cheerio';
 import { createHash } from 'crypto';
 import { PublicationCategory } from './types';
 
-export const DGI_URLS = {
+// Retrait du mot-clé 'export' car un fichier "use server" ne peut exporter que des fonctions asynchrones.
+const DGI_URLS = {
   homepage: 'https://www.mfdgi.gov.dz/fr/',
   actualites: 'https://www.mfdgi.gov.dz/fr/a-propos/actu-fr/',
   legislation: 'https://www.mfdgi.gov.dz/fr/legislation-fiscale/loi-des-finances',
