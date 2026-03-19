@@ -21,6 +21,7 @@ export default function DeclarationsPage() {
   const db = useFirestore()
   const { user } = useUser()
   const searchParams = useSearchParams()
+  const tenantIdFromUrl = searchParams.get('tenantId')
   const [mounted, setMounted] = React.useState(false)
   const [estimatedProfit, setEstimatedProfit] = React.useState<number>(0)
   const [reinvestedAmount, setReinvestedAmount] = React.useState<number>(0)
@@ -31,7 +32,7 @@ export default function DeclarationsPage() {
 
   const formatAmount = (val: number) => mounted ? val.toLocaleString() : "..."
 
-  // 1. Fetch accessible tenants (Removed limit(1) to support selection)
+  // 1. Fetch accessible tenants
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
@@ -41,10 +42,9 @@ export default function DeclarationsPage() {
   // 2. Resolve current tenant based on URL
   const currentTenant = React.useMemo(() => {
     if (!tenants || tenants.length === 0) return null;
-    const urlId = searchParams.get('tenantId');
-    if (urlId) return tenants.find(t => t.id === urlId) || tenants[0];
+    if (tenantIdFromUrl) return tenants.find(t => t.id === tenantIdFromUrl) || tenants[0];
     return tenants[0];
-  }, [tenants, searchParams]);
+  }, [tenants, tenantIdFromUrl]);
 
   const isIFU = currentTenant?.regimeFiscal === "IFU";
   const isAuto = currentTenant?.formeJuridique === "Auto-entrepreneur";
@@ -97,7 +97,7 @@ export default function DeclarationsPage() {
         <Alert className="bg-amber-50 border-amber-200">
           <Clock className="h-4 w-4 text-amber-600" />
           <AlertTitle className="text-amber-800 font-bold">Mesure IFU 2026</AlertTitle>
-          <AlertDescription className="text-700 text-xs">
+          <AlertDescription className="text-amber-700 text-xs">
             Le délai pour la <strong>G12 bis (Définitive 2025)</strong> est le **1er Mars 2026**. 
             Seuil IFU : {TAX_RATES.IFU_THRESHOLD.toLocaleString()} DA ({TAX_RATES.IFU_AUTO_THRESHOLD.toLocaleString()} DA pour Auto-entrepreneurs).
           </AlertDescription>

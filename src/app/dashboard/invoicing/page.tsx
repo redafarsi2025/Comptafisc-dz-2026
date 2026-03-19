@@ -5,7 +5,7 @@ import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Trash2, FileText, Save, Loader2, Info, ShieldCheck, CheckCircle, QrCode } from "lucide-react"
 import { useFirestore, useUser, addDocumentNonBlocking, useCollection, useMemoFirebase } from "@/firebase"
@@ -23,6 +23,7 @@ export default function InvoicingPage() {
   const db = useFirestore()
   const { user } = useUser()
   const searchParams = useSearchParams()
+  const tenantIdFromUrl = searchParams.get('tenantId')
   const [invoiceNumber, setInvoiceNumber] = React.useState(`FAC-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`)
   const [clientId, setClientId] = React.useState("")
   const [paymentMethod, setPaymentMethod] = React.useState("Virement")
@@ -40,10 +41,9 @@ export default function InvoicingPage() {
   // 2. Select current tenant based on URL
   const currentTenant = React.useMemo(() => {
     if (!tenants || tenants.length === 0) return null;
-    const urlId = searchParams.get('tenantId');
-    if (urlId) return tenants.find(t => t.id === urlId) || tenants[0];
+    if (tenantIdFromUrl) return tenants.find(t => t.id === tenantIdFromUrl) || tenants[0];
     return tenants[0];
-  }, [tenants, searchParams]);
+  }, [tenants, tenantIdFromUrl]);
 
   const isIFU = currentTenant?.regimeFiscal === "IFU";
   const isCabinet = currentTenant?.plan === "CABINET";
@@ -80,7 +80,7 @@ export default function InvoicingPage() {
     
     const invoiceBaseData = {
       tenantId: currentTenant.id,
-      tenantMembers: currentTenant.members, // For query security
+      tenantMembers: currentTenant.members,
       clientId,
       invoiceNumber,
       invoiceDate: new Date().toISOString(),
