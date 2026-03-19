@@ -11,19 +11,21 @@ service cloud.firestore {
       return isSignedIn() && exists(/databases/$(database)/documents/saas_admins/$(request.auth.uid));
     }
 
-    // --- SaaS Admin Rules ---
-    match /saas_admins/{userId} {
-      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin();
+    // --- User Profiles ---
+    match /userProfiles/{userId} {
+      allow read, write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
     }
 
-    match /dgi_templates/{templateId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+    // --- Support Tickets ---
+    match /support_tickets/{ticketId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
     }
 
-    match /fiscal_laws/{lawId} {
+    // --- Plans & Variables ---
+    match /plans/{planId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
@@ -38,9 +40,27 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // --- DGI Watch & Content ---
     match /dgi_publications/{pubId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
+    }
+
+    match /dgi_templates/{templateId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /fiscal_laws/{lawId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // --- SaaS Admin Rules ---
+    match /saas_admins/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
     }
 
     // --- Tenant Logic Rules ---

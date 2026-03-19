@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
-import { FileText, Calculator, Info, Landmark, Sparkles, TrendingDown, CalendarDays, AlertCircle, Clock, ShieldCheck, FileBadge } from "lucide-react"
+import { FileText, Calculator, Info, Landmark, Sparkles, TrendingDown, CalendarDays, AlertCircle, Clock, ShieldCheck, FileBadge, Loader2 } from "lucide-react"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, query, where, limit } from "firebase/firestore"
 import { getTAPRate, getIFURate, getIBSRate, calculateIBS, TAX_RATES, calculateIFU } from "@/lib/calculations"
@@ -31,7 +31,7 @@ export default function DeclarationsPage() {
 
   const formatAmount = (val: number) => mounted ? val.toLocaleString() : "..."
 
-  // 1. Fetch accessible tenants
+  // 1. Fetch accessible tenants (Removed limit(1) to support selection)
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
@@ -97,7 +97,7 @@ export default function DeclarationsPage() {
         <Alert className="bg-amber-50 border-amber-200">
           <Clock className="h-4 w-4 text-amber-600" />
           <AlertTitle className="text-amber-800 font-bold">Mesure IFU 2026</AlertTitle>
-          <AlertDescription className="text-amber-700 text-xs">
+          <AlertDescription className="text-700 text-xs">
             Le délai pour la <strong>G12 bis (Définitive 2025)</strong> est le **1er Mars 2026**. 
             Seuil IFU : {TAX_RATES.IFU_THRESHOLD.toLocaleString()} DA ({TAX_RATES.IFU_AUTO_THRESHOLD.toLocaleString()} DA pour Auto-entrepreneurs).
           </AlertDescription>
@@ -142,7 +142,8 @@ export default function DeclarationsPage() {
                   {formatAmount(projectedIBS)} <span className="text-sm font-normal">DZD</span>
                 </div>
               </CardContent>
-            </>
+            </Card>
+          </>
         )}
         <Card className="border-l-4 border-l-blue-500 shadow-sm">
           <CardHeader className="pb-2">

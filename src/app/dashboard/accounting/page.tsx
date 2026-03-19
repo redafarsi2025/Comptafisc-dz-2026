@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -445,7 +446,7 @@ export default function AccountingJournal() {
             <FileDown className="h-8 w-8" />
             <span>Générer Export FEC Algérien (XML/CSV)</span>
           </Button>
-        </Card>
+        </div>
       </div>
     </div>
   )
