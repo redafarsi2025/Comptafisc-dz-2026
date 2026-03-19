@@ -91,13 +91,13 @@ export function calculateIFU(ca: number, rate: number, isAuto: boolean, isExempt
 
 /** Calcule l'IRG Salarié - Barème 2026 complet avec abattements lissés. */
 export function calculateIRG(netImposable: number, isGrandSud: boolean = false, isHandicappedOrRetired: boolean = false): number {
-  // Arrondi à la dizaine de dinars inférieure
+  // Arrondi à la dizaine de dinars inférieure (Art. 104)
   const base = Math.floor(netImposable / 10) * 10;
   
-  // 1. Exonération totale si <= 30 000 DA
+  // 1. Exonération totale si imposable <= 30 000 DA
   if (base <= PAYROLL_CONSTANTS.IRG_THRESHOLD) return 0;
 
-  // 2. Calcul selon le barème progressif mensualisé
+  // 2. Calcul selon le barème progressif mensualisé (Loi 2022/2026)
   let irgBrut = 0;
   if (base <= 20000) {
     irgBrut = 0;
@@ -120,7 +120,7 @@ export function calculateIRG(netImposable: number, isGrandSud: boolean = false, 
 
   let irgApresAbat1 = Math.max(0, irgBrut - abattement1);
 
-  // 4. Calcul final selon la catégorie et les seuils de lissage
+  // 4. Calcul final selon la catégorie et les seuils de lissage (Art. 104 al. 4)
   let irgFinal = 0;
 
   if (isHandicappedOrRetired) {
@@ -134,14 +134,14 @@ export function calculateIRG(netImposable: number, isGrandSud: boolean = false, 
   } else {
     // Régime standard : Travailleurs salariés
     if (base <= PAYROLL_CONSTANTS.IRG_SMOOTHING_STD) {
-      // Formule de lissage spécifique : (137/51) * IRG_abat1 - (27925/8)
+      // Formule de lissage standard : (137/51) * IRG_abat1 - (27925/8)
       irgFinal = irgApresAbat1 * (137/51) - (27925/8);
     } else {
       irgFinal = irgApresAbat1;
     }
   }
 
-  // 5. Abattement Zone Sud (IZCV) de 50%
+  // 5. Réduction Zone Sud (IZCV) de 50%
   if (isGrandSud) {
     irgFinal *= 0.5;
   }

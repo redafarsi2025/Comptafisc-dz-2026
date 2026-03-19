@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase"
-import { collection, query, orderBy, doc, getDocs, where, limit } from "firebase/firestore"
+import { collection, query, orderBy, doc } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -10,27 +10,25 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { 
   Gavel, Settings2, CalendarClock, Plus, 
-  Trash2, Info, DatabaseZap, Loader2, Sparkles, RefreshCcw, BrainCircuit, Check, X,
+  Trash2, DatabaseZap, Loader2, Sparkles, RefreshCcw, BrainCircuit, Check,
   AlertTriangle, Code2
 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
-import { parseFiscalUpdate, FiscalUpdateOutput } from "@/ai/flows/fiscal-update-parsing"
+import { parseFiscalUpdate } from "@/ai/flows/fiscal-update-parsing"
 
 export default function FiscalEngineAdmin() {
   const db = useFirestore()
   const [isLawDialogOpen, setIsLawDialogOpen] = React.useState(false)
   const [isTypeDialogOpen, setIsTypeDialogOpen] = React.useState(false)
-  const [isValueDialogOpen, setIsValueDialogOpen] = React.useState(false)
   const [isInitializing, setIsInitializing] = React.useState(false)
 
   const [aiInput, setAiInput] = React.useState("")
   const [isAiProcessing, setIsAiProcessing] = React.useState(false)
-  const [aiProposals, setAiProposals] = React.useState<FiscalUpdateOutput['proposals'] | null>(null)
+  const [aiProposals, setAiProposals] = React.useState<any[] | null>(null)
 
   const lawsQuery = useMemoFirebase(() => db ? query(collection(db, "fiscal_laws"), orderBy("publicationDate", "desc")) : null, [db]);
   const { data: laws, isLoading: isLoadingLaws } = useCollection(lawsQuery);
@@ -45,7 +43,6 @@ export default function FiscalEngineAdmin() {
   const [newType, setNewType] = React.useState({ name: "", code: "", unit: "%", dataType: "number", description: "" })
   const [newValue, setNewValue] = React.useState({ fiscalLawId: "", fiscalVariableTypeId: "", value: "", effectiveStartDate: "", notes: "" })
 
-  // Codes connus utilisés dans le code source (G50, Paie, CASNOS, etc.)
   const KNOWN_CODES = [
     "IFU_STD_THRESHOLD", "IFU_AUTO_THRESHOLD", "IFU_MIN_STD", "IFU_MIN_AUTO", 
     "IFU_RATE_PROD", "IFU_RATE_SERV", "SNMG", "TVA_STD", "TVA_RED", "IBS_RATE",
@@ -68,16 +65,6 @@ export default function FiscalEngineAdmin() {
     setDocumentNonBlocking(doc(db, "fiscal_variable_types", typeData.code), { ...typeData, id: typeData.code }, { merge: true });
     setIsTypeDialogOpen(false);
     toast({ title: "Variable enregistrée" });
-  }
-
-  const handleCreateValue = (data?: any) => {
-    if (!db) return;
-    const valData = data || newValue;
-    if (!valData.value) return;
-    const id = crypto.randomUUID();
-    setDocumentNonBlocking(doc(db, "fiscal_variable_values", id), { ...valData, id }, { merge: true });
-    setIsValueDialogOpen(false);
-    toast({ title: "Valeur enregistrée" });
   }
 
   const handleDelete = (col: string, id: string) => {
@@ -163,7 +150,7 @@ export default function FiscalEngineAdmin() {
           value: v.val, effectiveStartDate: "2026-01-01", notes: "Initialisation complète LF 2026 conforme CIDTA"
         }, { merge: true });
       }
-      toast({ title: "Moteur Fiscal 2026 initialisé avec succès" });
+      toast({ title: "Moteur Fiscal 2026 initialisé" });
     } finally {
       setIsInitializing(false);
     }
@@ -179,8 +166,8 @@ export default function FiscalEngineAdmin() {
           <p className="text-muted-foreground text-sm font-medium">Configuration centralisée conforme Loi de Finances 2026.</p>
         </div>
         <Button variant="outline" size="sm" onClick={handleInitialize2026} disabled={isInitializing} className="border-primary text-primary hover:bg-primary/5">
-          {isInitializing ? <RefreshCcw className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-          Ré-initialiser Moteur 2026 (IRG, TVA, CASNOS...)
+          {isInitializing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
+          Ré-initialiser Moteur 2026
         </Button>
       </div>
 
@@ -188,13 +175,13 @@ export default function FiscalEngineAdmin() {
         <Card className="lg:col-span-1 border-t-4 border-t-accent shadow-lg bg-accent/5">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2 text-primary">
-              <BrainCircuit className="h-5 w-5 text-accent" /> Assistant IA d'Ingestion
+              <BrainCircuit className="h-5 w-5 text-accent" /> Ingestion IA
             </CardTitle>
             <CardDescription>Extraire les taux depuis un texte officiel.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Textarea 
-              placeholder="Ex: La cotisation CASNOS est fixée à 15% avec un minimum de 32.400 DA..." 
+              placeholder="Copiez un texte de loi ici..." 
               className="min-h-[150px] bg-white border-accent/20"
               value={aiInput}
               onChange={(e) => setAiInput(e.target.value)}
@@ -206,14 +193,14 @@ export default function FiscalEngineAdmin() {
           </CardContent>
           {aiProposals && (
             <div className="px-6 pb-6 space-y-2">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase mb-2">Propositions détectées :</p>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase mb-2">Propositions :</p>
               {aiProposals.map((p, i) => (
                 <div key={i} className="bg-white p-3 rounded-lg border text-xs shadow-sm flex justify-between items-center">
                   <div>
                     <div className="flex items-center gap-2">
                       <p className="font-bold text-primary">{p.variableName}</p>
                       {!KNOWN_CODES.includes(p.variableCode) && (
-                        <Badge variant="outline" className="h-4 text-[8px] border-amber-500 text-amber-600 bg-amber-50">NOUVELLE VARIABLE</Badge>
+                        <Badge variant="outline" className="h-4 text-[8px] border-amber-500 text-amber-600 bg-amber-50">NOUVEAU</Badge>
                       )}
                     </div>
                     <p className="text-[10px] text-muted-foreground font-mono">{p.variableCode}</p>
@@ -241,7 +228,7 @@ export default function FiscalEngineAdmin() {
                       <TableRow>
                         <TableHead>Variable</TableHead>
                         <TableHead>Valeur</TableHead>
-                        <TableHead>Date d'effet</TableHead>
+                        <TableHead>Effet</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -253,7 +240,7 @@ export default function FiscalEngineAdmin() {
                               <span>{v.fiscalVariableTypeId}</span>
                               {!KNOWN_CODES.includes(v.fiscalVariableTypeId) && (
                                 <span className="text-[8px] text-amber-600 font-bold uppercase flex items-center gap-1">
-                                  <AlertTriangle className="h-2 w-2" /> Non mappée au code
+                                  <AlertTriangle className="h-2 w-2" /> Non mappée
                                 </span>
                               )}
                             </div>
@@ -277,8 +264,8 @@ export default function FiscalEngineAdmin() {
                   <Table>
                     <TableHeader className="bg-muted/50">
                       <TableRow>
-                        <TableHead>Variable (Nom / Code)</TableHead>
-                        <TableHead>État Implémentation</TableHead>
+                        <TableHead>Variable</TableHead>
+                        <TableHead>État</TableHead>
                         <TableHead>Unité</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
@@ -296,17 +283,13 @@ export default function FiscalEngineAdmin() {
                             </TableCell>
                             <TableCell>
                               {isMapped ? (
-                                <Badge className="bg-emerald-500 text-white text-[8px]"><Check className="h-2 w-2 mr-1" /> ACTIF DANS LE CODE</Badge>
+                                <Badge className="bg-emerald-500 text-white text-[8px]"><Check className="h-2 w-2 mr-1" /> ACTIF</Badge>
                               ) : (
-                                <div className="flex flex-col gap-1">
-                                  <Badge variant="outline" className="border-amber-500 text-amber-600 text-[8px] bg-white"><AlertTriangle className="h-2 w-2 mr-1" /> ORPHELINE (À MAPPER)</Badge>
-                                  <span className="text-[8px] text-muted-foreground italic">Cette variable a été injectée via DGI Watch mais n'est pas encore utilisée par les calculs du SaaS.</span>
-                                </div>
+                                <Badge variant="outline" className="border-amber-500 text-amber-600 text-[8px] bg-white"><AlertTriangle className="h-2 w-2 mr-1" /> ORPHELINE</Badge>
                               )}
                             </TableCell>
                             <TableCell><Badge variant="secondary" className="text-[10px]">{t.unit}</Badge></TableCell>
                             <TableCell className="text-right">
-                              <Button variant="ghost" size="icon" className="text-primary h-7 w-7"><Code2 className="h-3.5 w-3.5" /></Button>
                               <Button variant="ghost" size="icon" className="text-destructive h-7 w-7" onClick={() => handleDelete("fiscal_variable_types", t.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
                             </TableCell>
                           </TableRow>
@@ -324,9 +307,8 @@ export default function FiscalEngineAdmin() {
                   <Table>
                     <TableHeader className="bg-muted/30">
                       <TableRow>
-                        <TableHead>Nom de la Loi</TableHead>
+                        <TableHead>Nom</TableHead>
                         <TableHead>Publication</TableHead>
-                        <TableHead>Effet</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -335,7 +317,6 @@ export default function FiscalEngineAdmin() {
                         <TableRow key={l.id}>
                           <TableCell className="font-bold text-xs">{l.name}</TableCell>
                           <TableCell className="text-[10px]">{l.publicationDate}</TableCell>
-                          <TableCell className="text-[10px]">{l.effectiveStartDate}</TableCell>
                           <TableCell className="text-right">
                             <Button variant="ghost" size="icon" className="text-destructive h-7 w-7" onClick={() => handleDelete("fiscal_laws", l.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
                           </TableCell>
