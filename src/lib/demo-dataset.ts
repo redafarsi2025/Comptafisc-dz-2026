@@ -2,21 +2,16 @@
  * @fileOverview Jeu de données de démonstration complet — SaaS Comptabilité & Fiscalité Algérie
  * Toutes les données sont fictives mais réalistes (NIF, NIS, RC, RIB conformes).
  */
+import { WILAYAS } from './wilaya-data';
 
 export const DEMO_DATASET = {
-  wilayas: [
-    { code: "16", nom: "Alger" }, { code: "31", nom: "Oran" },
-    { code: "25", nom: "Constantine" }, { code: "09", nom: "Blida" },
-    { code: "35", nom: "Boumerdès" }, { code: "06", nom: "Béjaïa" },
-    { code: "15", nom: "Tizi Ouzou" }, { code: "19", nom: "Sétif" },
-    { code: "23", nom: "Annaba" }, { code: "05", nom: "Batna" },
-  ],
+  wilayas: WILAYAS,
   enterprises: [
     {
       id: "ENT001",
       raisonSociale: "SARL Bensalem Commerce",
       formeJuridique: "SARL",
-      secteurActivite: "Commerce de détail",
+      secteurActivite: "COMMERCE",
       wilaya: "16", ville: "Alger",
       adresse: "12 Rue Didouche Mourad, Alger Centre",
       nif: "001216000123456",

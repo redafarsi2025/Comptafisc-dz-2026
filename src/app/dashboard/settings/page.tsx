@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch"
 import { useFirestore, useUser, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase"
 import { collection, query, where, limit, doc } from "firebase/firestore"
 import { findActivityByNap, NAP_ACTIVITIES } from "@/lib/nap-data"
+import { WILAYAS } from "@/lib/wilaya-data"
 import { 
   Building2, Save, MapPin, ShieldCheck, Zap, Loader2, Info, Search, Check, Rocket, Landmark, CalendarDays
 } from "lucide-react"
@@ -119,7 +120,7 @@ export default function TenantSettingsPage() {
         </Button>
       </div>
 
-      <Tabs defaultValue="fiscal" className="w-full">
+      <Tabs defaultValue="identification" className="w-full">
         <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 h-auto p-1 bg-muted/50">
           <TabsTrigger value="identification" className="py-2 text-xs">Identification</TabsTrigger>
           <TabsTrigger value="contact" className="py-2 text-xs">Contact</TabsTrigger>
@@ -132,7 +133,7 @@ export default function TenantSettingsPage() {
         <TabsContent value="identification" className="mt-6">
           <Card>
             <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Building2 className="h-5 w-5" />Identification Légale</CardTitle></CardHeader>
-            <CardContent className="grid md:grid-cols-2 gap-4">
+            <CardContent className="grid md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-xs font-bold uppercase">Raison Sociale</label>
                 <Input value={formData.raisonSociale || ""} onChange={(e) => handleUpdate("raisonSociale", e.target.value)} />
@@ -147,6 +148,23 @@ export default function TenantSettingsPage() {
                 </Select>
               </div>
               <div className="space-y-2">
+                <label className="text-xs font-bold uppercase">Wilaya de Siège</label>
+                <Select value={formData.wilaya || ""} onValueChange={(v) => handleUpdate("wilaya", v)}>
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="Sélectionner une wilaya" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WILAYAS.map(w => (
+                      <SelectItem key={w.code} value={w.code}>{w.code} - {w.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase">Ville / Commune</label>
+                <Input value={formData.ville || ""} onChange={(e) => handleUpdate("ville", e.target.value)} placeholder="Ex: Chéraga" />
+              </div>
+              <div className="space-y-2">
                 <label className="text-xs font-bold uppercase">NIF (15 chiffres)</label>
                 <Input value={formData.nif || ""} onChange={(e) => handleUpdate("nif", e.target.value)} maxLength={15} />
               </div>
@@ -158,6 +176,26 @@ export default function TenantSettingsPage() {
                 <Label className="text-xs font-bold uppercase flex items-center gap-1"><CalendarDays className="h-3 w-3" /> Date de début d'activité</Label>
                 <Input type="date" value={formData.debutActivite || ""} onChange={(e) => handleUpdate("debutActivite", e.target.value)} />
                 <p className="text-[10px] text-muted-foreground italic">Crucial pour la Déclaration d'Existence (G8).</p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="contact" className="mt-6">
+          <Card>
+            <CardHeader><CardTitle className="text-lg">Informations de Contact</CardTitle></CardHeader>
+            <CardContent className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase">Email Professionnel</label>
+                <Input type="email" value={formData.email || ""} onChange={(e) => handleUpdate("email", e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase">Téléphone</label>
+                <Input value={formData.tel || ""} onChange={(e) => handleUpdate("tel", e.target.value)} />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-xs font-bold uppercase">Adresse Complète</label>
+                <Input value={formData.adresse || ""} onChange={(e) => handleUpdate("adresse", e.target.value)} />
               </div>
             </CardContent>
           </Card>
