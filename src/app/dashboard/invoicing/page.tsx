@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -16,10 +17,12 @@ import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { generateInvoiceHash } from "@/lib/utils"
+import { useSearchParams } from "next/navigation"
 
 export default function InvoicingPage() {
   const db = useFirestore()
   const { user } = useUser()
+  const searchParams = useSearchParams()
   const [invoiceNumber, setInvoiceNumber] = React.useState(`FAC-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`)
   const [clientId, setClientId] = React.useState("")
   const [paymentMethod, setPaymentMethod] = React.useState("Virement")
@@ -27,22 +30,29 @@ export default function InvoicingPage() {
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [shouldSign, setShouldSign] = React.useState(true)
 
-  // Fetch active tenant
+  // 1. Fetch accessible tenants
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null), limit(1));
+    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
   }, [db, user]);
-  const { data: tenants } = useCollection(tenantsQuery);
-  const currentTenant = tenants?.[0];
+  const { data: tenants, isLoading: isTenantsLoading } = useCollection(tenantsQuery);
+  
+  // 2. Select current tenant based on URL
+  const currentTenant = React.useMemo(() => {
+    if (!tenants || tenants.length === 0) return null;
+    const urlId = searchParams.get('tenantId');
+    if (urlId) return tenants.find(t => t.id === urlId) || tenants[0];
+    return tenants[0];
+  }, [tenants, searchParams]);
 
   const isIFU = currentTenant?.regimeFiscal === "IFU";
   const isCabinet = currentTenant?.plan === "CABINET";
 
-  // Fetch clients for the active tenant
+  // Fetch clients for the ACTIVE tenant
   const clientsQuery = useMemoFirebase(() => {
     if (!db || !currentTenant) return null;
     return collection(db, "tenants", currentTenant.id, "clients");
-  }, [db, currentTenant]);
+  }, [db, currentTenant?.id]);
   const { data: clients } = useCollection(clientsQuery);
 
   const totals = React.useMemo(() => {
@@ -70,6 +80,7 @@ export default function InvoicingPage() {
     
     const invoiceBaseData = {
       tenantId: currentTenant.id,
+      tenantMembers: currentTenant.members, // For query security
       clientId,
       invoiceNumber,
       invoiceDate: new Date().toISOString(),
@@ -118,6 +129,8 @@ export default function InvoicingPage() {
     }
   };
 
+  if (isTenantsLoading) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -157,6 +170,7 @@ export default function InvoicingPage() {
         <Card className="md:col-span-2 shadow-md">
           <CardHeader className="border-b bg-muted/10">
             <CardTitle className="text-lg">Édition de la Pièce Comptable</CardTitle>
+            <CardDescription>Dossier: {currentTenant?.raisonSociale}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
             <div className="grid grid-cols-2 gap-6">

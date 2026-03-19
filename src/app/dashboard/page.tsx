@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -73,15 +74,22 @@ export default function DashboardOverview() {
     setMounted(true)
   }, [])
 
-  // 1. Fetch Tenant data
+  // 1. Fetch ALL Tenants for the user
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null), limit(1));
+    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
   }, [db, user]);
   const { data: tenants, isLoading: isTenantsLoading } = useCollection(tenantsQuery);
-  const currentTenant = tenants?.[0];
+  
+  // 2. Resolve current tenant based on URL
+  const currentTenant = React.useMemo(() => {
+    if (!tenants || tenants.length === 0) return null;
+    const urlId = searchParams.get('tenantId');
+    if (urlId) return tenants.find(t => t.id === urlId) || tenants[0];
+    return tenants[0];
+  }, [tenants, searchParams]);
 
-  // 2. Demo Seeding Logic
+  // 3. Demo Seeding Logic
   React.useEffect(() => {
     const handleDemoSeeding = async () => {
       if (mounted && db && user && searchParams.get('demo') === 'true' && !isTenantsLoading) {
@@ -107,14 +115,14 @@ export default function DashboardOverview() {
     handleDemoSeeding();
   }, [mounted, db, user, searchParams, tenants, isTenantsLoading, router]);
 
-  // 3. Fetch Invoices for real totals
+  // 4. Fetch Invoices for real totals of the SELECTED tenant
   const invoicesQuery = useMemoFirebase(() => {
     if (!db || !currentTenant || !user) return null;
     return query(
       collection(db, "tenants", currentTenant.id, "invoices"),
       where(`tenantMembers.${user.uid}`, "!=", null)
     );
-  }, [db, currentTenant, user]);
+  }, [db, currentTenant?.id, user]);
   const { data: invoices } = useCollection(invoicesQuery);
 
   const stats = React.useMemo(() => {
@@ -165,7 +173,7 @@ export default function DashboardOverview() {
     }
   ];
 
-  if (!mounted || isSeeding) {
+  if (!mounted || isSeeding || isTenantsLoading) {
     return (
       <div className="h-[80vh] flex flex-col items-center justify-center space-y-6">
         <div className="relative">
@@ -174,7 +182,7 @@ export default function DashboardOverview() {
         </div>
         <div className="text-center space-y-2">
           <h2 className="text-2xl font-bold text-primary">Initialisation...</h2>
-          <p className="text-muted-foreground">Préparation de votre environnement sécurisé.</p>
+          <p className="text-muted-foreground">Synchronisation de vos dossiers sécurisés.</p>
         </div>
       </div>
     );
@@ -213,7 +221,7 @@ export default function DashboardOverview() {
           <h1 className="text-3xl font-bold tracking-tight text-primary">Vue d'ensemble</h1>
           <div className="text-muted-foreground flex items-center gap-2 mt-1">
             <span>Dossier :</span>
-            <span className="font-semibold text-foreground">{currentTenant?.raisonSociale || "Chargement..."}</span>
+            <span className="font-semibold text-foreground">{currentTenant?.raisonSociale || "Sélectionnez un dossier"}</span>
             <Badge variant="outline" className="border-primary/20 bg-primary/5">
               {currentTenant?.regimeFiscal || "Réel"}
             </Badge>
@@ -231,136 +239,146 @@ export default function DashboardOverview() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="hover:shadow-md transition-shadow border-l-4 border-l-primary">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">CA Annuel (HT)</CardTitle>
-            <TrendingUp className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatAmount(stats.ca)} DZD</div>
-            <p className="text-[10px] text-muted-foreground mt-1">Basé sur {stats.count} factures émises.</p>
-          </CardContent>
+      {!currentTenant ? (
+        <Card className="p-12 text-center border-dashed border-2">
+          <Landmark className="h-12 w-12 mx-auto text-muted-foreground opacity-20 mb-4" />
+          <h2 className="text-xl font-bold">Aucun dossier actif</h2>
+          <p className="text-muted-foreground mt-2">Veuillez configurer un dossier dans les paramètres ou utiliser une démo.</p>
         </Card>
+      ) : (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card className="hover:shadow-md transition-shadow border-l-4 border-l-primary">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs font-bold uppercase text-muted-foreground">CA Annuel (HT)</CardTitle>
+                <TrendingUp className="h-4 w-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatAmount(stats.ca)} DZD</div>
+                <p className="text-[10px] text-muted-foreground mt-1">Basé sur {stats.count} factures émises.</p>
+              </CardContent>
+            </Card>
 
-        <Card className="hover:shadow-md transition-shadow border-l-4 border-l-amber-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Provision IBS / IFU</CardTitle>
-            <Landmark className="h-4 w-4 text-amber-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {currentTenant?.regimeFiscal === 'IFU' ? 'IFU 5-12%' : `${(ibsRate * 100).toFixed(0)}% IBS`}
-            </div>
-            <p className="text-[10px] text-muted-foreground mt-1 italic">Calculé selon secteur {currentTenant?.secteurActivite}</p>
-          </CardContent>
-        </Card>
+            <Card className="hover:shadow-md transition-shadow border-l-4 border-l-amber-500">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Provision IBS / IFU</CardTitle>
+                <Landmark className="h-4 w-4 text-amber-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {currentTenant?.regimeFiscal === 'IFU' ? 'IFU 5-12%' : `${(ibsRate * 100).toFixed(0)}% IBS`}
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1 italic">Calculé selon secteur {currentTenant?.secteurActivite}</p>
+              </CardContent>
+            </Card>
 
-        <Card className="hover:shadow-md transition-shadow border-l-4 border-l-emerald-500 bg-emerald-50/30">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold uppercase text-emerald-800">Économie TAP (LF 24)</CardTitle>
-            <Sparkles className="h-4 w-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-emerald-600">{formatAmount(stats.ca * 0.02)} DZD</div>
-            <p className="text-[10px] text-emerald-700 italic mt-1">Gain généré par la suppression de la TAP.</p>
-          </CardContent>
-        </Card>
+            <Card className="hover:shadow-md transition-shadow border-l-4 border-l-emerald-500 bg-emerald-50/30">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs font-bold uppercase text-emerald-800">Économie TAP (LF 24)</CardTitle>
+                <Sparkles className="h-4 w-4 text-emerald-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-emerald-600">{formatAmount(stats.ca * 0.02)} DZD</div>
+                <p className="text-[10px] text-emerald-700 italic mt-1">Gain généré par la suppression de la TAP.</p>
+              </CardContent>
+            </Card>
 
-        <Card className="bg-primary text-primary-foreground shadow-lg border-none">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold uppercase opacity-80">Santé Fiscale</CardTitle>
-            <BadgeCheck className="h-4 w-4" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-black">{(currentTenant?.onboardingComplete ? "98" : "45")}/100</div>
-            <Progress value={currentTenant?.onboardingComplete ? 98 : 45} className="mt-2 bg-white/20 h-1.5" />
-            <p className="text-[10px] mt-2 opacity-90 font-medium">
-              {currentTenant?.onboardingComplete ? "Dossier conforme aux exigences 2026" : "Informations NIF/NIN manquantes"}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+            <Card className="bg-primary text-primary-foreground shadow-lg border-none">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs font-bold uppercase opacity-80">Santé Fiscale</CardTitle>
+                <BadgeCheck className="h-4 w-4" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-black">{(currentTenant?.onboardingComplete ? "98" : "45")}/100</div>
+                <Progress value={currentTenant?.onboardingComplete ? 98 : 45} className="mt-2 bg-white/20 h-1.5" />
+                <p className="text-[10px] mt-2 opacity-90 font-medium">
+                  {currentTenant?.onboardingComplete ? "Dossier conforme aux exigences 2026" : "Informations NIF/NIN manquantes"}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
 
-      <div className="grid gap-6 md:grid-cols-7">
-        <Card className="md:col-span-4 shadow-sm border-t-4 border-t-primary">
-          <CardHeader className="bg-muted/10 border-b">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Activity className="h-5 w-5 text-primary" /> Analyse des Flux (HT)
-            </CardTitle>
-            <CardDescription>Évolution des produits et charges sur l'exercice en cours.</CardDescription>
-          </CardHeader>
-          <CardContent className="h-[350px] pt-6">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
-                <XAxis dataKey="month" axisLine={false} tickLine={false} />
-                <YAxis axisLine={false} tickLine={false} tickFormatter={(val) => `${val / 1000}k`} />
-                <Tooltip
-                  cursor={{ fill: "hsl(var(--muted))", opacity: 0.4 }}
-                  contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)" }}
-                />
-                <Legend iconType="circle" />
-                <Bar dataKey="revenue" name="Ventes (CA)" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="expenses" name="Achats / Charges" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+          <div className="grid gap-6 md:grid-cols-7">
+            <Card className="md:col-span-4 shadow-sm border-t-4 border-t-primary">
+              <CardHeader className="bg-muted/10 border-b">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Activity className="h-5 w-5 text-primary" /> Analyse des Flux (HT)
+                </CardTitle>
+                <CardDescription>Évolution des produits et charges sur l'exercice en cours.</CardDescription>
+              </CardHeader>
+              <CardContent className="h-[350px] pt-6">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={monthlyData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
+                    <XAxis dataKey="month" axisLine={false} tickLine={false} />
+                    <YAxis axisLine={false} tickLine={false} tickFormatter={(val) => `${val / 1000}k`} />
+                    <Tooltip
+                      cursor={{ fill: "hsl(var(--muted))", opacity: 0.4 }}
+                      contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)" }}
+                    />
+                    <Legend iconType="circle" />
+                    <Bar dataKey="revenue" name="Ventes (CA)" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="expenses" name="Achats / Charges" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
 
-        <div className="md:col-span-3 space-y-6">
-          <Card className="shadow-lg border-none ring-1 ring-border">
-            <CardHeader className="bg-primary text-white pb-4">
-              <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-wider">
-                <History className="h-4 w-4" /> Veille Réglementaire Active
-              </CardTitle>
-              <CardDescription className="text-white/70 text-[10px]">
-                Mises à jour législatives automatiquement intégrées au dossier.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y">
-                {REGULATORY_MILESTONES.map((item, idx) => (
-                  <div key={idx} className="p-4 hover:bg-muted/30 transition-colors">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${item.color}`}>
-                          {item.law}
-                        </span>
-                        <h4 className="text-xs font-bold">{item.title}</h4>
+            <div className="md:col-span-3 space-y-6">
+              <Card className="shadow-lg border-none ring-1 ring-border">
+                <CardHeader className="bg-primary text-white pb-4">
+                  <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-wider">
+                    <History className="h-4 w-4" /> Veille Réglementaire Active
+                  </CardTitle>
+                  <CardDescription className="text-white/70 text-[10px]">
+                    Mises à jour législatives automatiquement intégrées au dossier.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="divide-y">
+                    {REGULATORY_MILESTONES.map((item, idx) => (
+                      <div key={idx} className="p-4 hover:bg-muted/30 transition-colors">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${item.color}`}>
+                              {item.law}
+                            </span>
+                            <h4 className="text-xs font-bold">{item.title}</h4>
+                          </div>
+                          <Badge variant="outline" className="text-[8px] h-4 border-emerald-200 text-emerald-600 bg-emerald-50">
+                            {item.status}
+                          </Badge>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground leading-relaxed">
+                          {item.desc}
+                        </p>
                       </div>
-                      <Badge variant="outline" className="text-[8px] h-4 border-emerald-200 text-emerald-600 bg-emerald-50">
-                        {item.status}
-                      </Badge>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground leading-relaxed">
-                      {item.desc}
-                    </p>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-            <CardFooter className="bg-muted/20 p-3 flex justify-center border-t">
-              <Button variant="ghost" size="sm" className="text-[10px] h-7 text-primary font-bold">
-                Consulter le Corpus Juridique (RAG)
-              </Button>
-            </CardFooter>
-          </Card>
+                </CardContent>
+                <CardFooter className="bg-muted/20 p-3 flex justify-center border-t">
+                  <Button variant="ghost" size="sm" className="text-[10px] h-7 text-primary font-bold">
+                    Consulter le Corpus Juridique (RAG)
+                  </Button>
+                </CardFooter>
+              </Card>
 
-          <Card className="bg-accent/5 border-dashed border-2 border-accent/20">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2 text-primary">
-                <Zap className="h-4 w-4 text-accent" /> Assistant IA : Note de Synthèse
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-[10px] text-muted-foreground italic leading-relaxed">
-                "Votre dossier présente une santé fiscale de 98%. La suppression de la TAP en 2024 a optimisé votre marge de 2%. Attention : l'échéance de la G29 approche (30 avril), assurez-vous que les NIN de vos salariés sont renseignés."
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+              <Card className="bg-accent/5 border-dashed border-2 border-accent/20">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2 text-primary">
+                    <Zap className="h-4 w-4 text-accent" /> Assistant IA : Note de Synthèse
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-[10px] text-muted-foreground italic leading-relaxed">
+                    "Votre dossier {currentTenant.raisonSociale} présente une santé fiscale de 98%. La suppression de la TAP en 2024 a optimisé votre marge de 2%. Attention : l'échéance de la G29 approche (30 avril), assurez-vous que les NIN de vos salariés sont renseignés."
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }
