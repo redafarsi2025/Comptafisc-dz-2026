@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import {
   LayoutDashboard,
   Receipt,
@@ -119,11 +119,11 @@ const cabinetNav = [
 export function DashboardSidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, isUserLoading } = useUser()
   const db = useFirestore()
   const auth = useAuth()
   const [mounted, setMounted] = React.useState(false)
-  const [currentTenantId, setCurrentTenantId] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     setMounted(true)
@@ -139,11 +139,19 @@ export function DashboardSidebar() {
 
   const { data: tenants, isLoading: isTenantsLoading } = useCollection(tenantsQuery);
 
+  const tenantIdFromUrl = searchParams.get('tenantId')
+
   const currentTenant = React.useMemo(() => {
-    if (!tenants) return null;
-    if (currentTenantId) return tenants.find(t => t.id === currentTenantId) || tenants[0];
+    if (!tenants || tenants.length === 0) return null;
+    if (tenantIdFromUrl) return tenants.find(t => t.id === tenantIdFromUrl) || tenants[0];
     return tenants[0];
-  }, [tenants, currentTenantId]);
+  }, [tenants, tenantIdFromUrl]);
+
+  const handleTenantSelect = (id: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('tenantId', id)
+    router.push(`${pathname}?${params.toString()}`)
+  }
 
   const handleLogout = async () => {
     try {
@@ -160,16 +168,19 @@ export function DashboardSidebar() {
         {label}
       </SidebarGroupLabel>
       <SidebarMenu>
-        {items.map((item: any) => (
-          <SidebarMenuItem key={item.name}>
-            <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name} className="hover:bg-sidebar-accent group">
-              <Link href={item.href}>
-                <item.icon className={pathname === item.href ? "text-primary" : "text-sidebar-foreground/60 group-hover:text-primary transition-colors"} />
-                <span className="font-medium">{item.name}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        ))}
+        {items.map((item: any) => {
+          const href = currentTenant ? `${item.href}?tenantId=${currentTenant.id}` : item.href
+          return (
+            <SidebarMenuItem key={item.name}>
+              <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name} className="hover:bg-sidebar-accent group">
+                <Link href={href}>
+                  <item.icon className={pathname === item.href ? "text-primary" : "text-sidebar-foreground/60 group-hover:text-primary transition-colors"} />
+                  <span className="font-medium">{item.name}</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )
+        })}
       </SidebarMenu>
     </SidebarGroup>
   )
@@ -212,7 +223,7 @@ export function DashboardSidebar() {
               <DropdownMenuContent align="start" className="w-72 p-2 shadow-2xl rounded-xl">
                 <div className="px-2 py-1.5 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Dossiers actifs</div>
                 {tenants?.map((t) => (
-                  <DropdownMenuItem key={t.id} onClick={() => setCurrentTenantId(t.id)} className="cursor-pointer rounded-lg mb-1">
+                  <DropdownMenuItem key={t.id} onClick={() => handleTenantSelect(t.id)} className="cursor-pointer rounded-lg mb-1">
                     <div className="flex flex-col">
                       <span className="font-bold text-xs uppercase">{t.raisonSociale}</span>
                       <span className="text-[9px] text-muted-foreground font-mono">NIF: {t.nif || 'Non renseigné'}</span>
@@ -246,7 +257,7 @@ export function DashboardSidebar() {
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname === "/dashboard/settings"} tooltip="Paramètres">
-                <Link href="/dashboard/settings"><Settings /><span>Paramètres Dossier</span></Link>
+                <Link href={currentTenant ? `/dashboard/settings?tenantId=${currentTenant.id}` : "/dashboard/settings"}><Settings /><span>Paramètres Dossier</span></Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
