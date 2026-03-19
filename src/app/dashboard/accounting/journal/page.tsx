@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -29,13 +28,14 @@ export default function LivreJournal() {
   const currentTenant = tenants?.[0];
 
   const entriesQuery = useMemoFirebase(() => {
-    if (!db || !currentTenant) return null;
+    if (!db || !currentTenant || !user) return null;
     return query(
       collection(db, "tenants", currentTenant.id, "journal_entries"),
+      where(`tenantMembers.${user.uid}`, "!=", null), // Security filter for listing
       orderBy("entryDate", "desc"),
       limit(100)
     );
-  }, [db, currentTenant]);
+  }, [db, currentTenant, user]);
   const { data: entries, isLoading } = useCollection<JournalEntry>(entriesQuery);
 
   const formatAmount = (val: number) => mounted ? val.toLocaleString() : "..."

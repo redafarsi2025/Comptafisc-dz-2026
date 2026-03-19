@@ -1,9 +1,8 @@
-
 "use client"
 
 import * as React from "react"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, query, where, orderBy } from "firebase/firestore"
+import { collection, query, where, orderBy, limit } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -26,7 +25,7 @@ export default function BalanceGenerale() {
 
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
+    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null), limit(1));
   }, [db, user]);
   const { data: tenants } = useCollection(tenantsQuery);
   const currentTenant = tenants?.[0];

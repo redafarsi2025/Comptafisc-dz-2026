@@ -5,18 +5,21 @@ import { DEMO_DATASET } from './demo-dataset';
 
 /**
  * Seeds a comprehensive demo tenant for a specific user using Dataset v2.0.
+ * Ensures denormalized tenantMembers for secure list operations.
  */
 export async function seedDemoForUser(db: Firestore, userId: string, email: string) {
   const tenantId = `DEMO_${userId.substring(0, 5)}_${Date.now().toString().slice(-4)}`;
   const enterprise = DEMO_DATASET.enterprises[0];
 
   const tenantRef = doc(db, "tenants", tenantId);
+  const tenantMembers = { [userId]: 'owner' };
+  
   const tenantData = {
     ...enterprise,
     id: tenantId,
     isDemo: true,
     createdAt: new Date().toISOString(),
-    members: { [userId]: 'owner' }
+    members: tenantMembers
   };
 
   try {
@@ -36,7 +39,7 @@ export async function seedDemoForUser(db: Firestore, userId: string, email: stri
         paymentMethod: "Virement",
         status: 'Issued',
         tenantId,
-        tenantMembers: { [userId]: 'owner' },
+        tenantMembers, // Denormalize for query security
         createdAt: new Date().toISOString(),
         createdByUserId: userId
       });
@@ -58,7 +61,7 @@ export async function seedDemoForUser(db: Firestore, userId: string, email: stri
           credit: l.credit
         })),
         tenantId,
-        tenantMembers: { [userId]: 'owner' },
+        tenantMembers, // Denormalize for query security
         createdAt: new Date().toISOString(),
         createdByUserId: userId
       });
@@ -79,7 +82,7 @@ export async function seedDemoForUser(db: Firestore, userId: string, email: stri
         isGrandSud: emp.isGrandSud,
         isHandicapped: emp.isHandicapped,
         tenantId,
-        tenantMembers: { [userId]: 'owner' },
+        tenantMembers, // Denormalize for query security
         createdAt: new Date().toISOString()
       });
     }

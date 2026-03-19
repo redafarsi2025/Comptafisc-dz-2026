@@ -59,20 +59,21 @@ export default function AssetsPage() {
     if (!db || !currentTenant || !user) return null;
     return query(
       collection(db, "tenants", currentTenant.id, "assets"),
-      where(`tenantMembers.${user.uid}`, "!=", null)
+      where(`tenantMembers.${user.uid}`, "!=", null) // Explicit security filter
     );
   }, [db, currentTenant, user]);
   const { data: assets, isLoading } = useCollection(assetsQuery);
 
   const handleAddAsset = async () => {
-    if (!db || !currentTenant || !newAsset.designation) return;
+    if (!db || !currentTenant || !newAsset.designation || !user) return;
     setIsSaving(true);
 
     const assetData = {
       ...newAsset,
       tenantId: currentTenant.id,
-      tenantMembers: currentTenant.members,
+      tenantMembers: currentTenant.members, // Ensure correct permission field
       createdAt: new Date().toISOString(),
+      createdByUserId: user.uid,
       acquisitionValue: Number(newAsset.acquisitionValue) || 0,
       amortizationRate: Number(newAsset.amortizationRate) || 0,
     };

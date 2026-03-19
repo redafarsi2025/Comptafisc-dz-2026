@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -51,9 +50,12 @@ export default function AccountingJournal() {
 
   // Fetch custom accounts
   const customAccountsQuery = useMemoFirebase(() => {
-    if (!db || !currentTenantId) return null;
-    return collection(db, "tenants", currentTenantId, "accounts");
-  }, [db, currentTenantId]);
+    if (!db || !currentTenantId || !user) return null;
+    return query(
+      collection(db, "tenants", currentTenantId, "accounts"),
+      where(`tenantMembers.${user.uid}`, "!=", null)
+    );
+  }, [db, currentTenantId, user]);
   const { data: customAccounts } = useCollection(customAccountsQuery);
 
   const allAccounts = React.useMemo(() => {
@@ -185,6 +187,7 @@ export default function AccountingJournal() {
     
     const entryData = {
       tenantId: currentTenantId,
+      tenantMembers: currentTenant.members, // Denormalize members for list security
       entryDate: new Date(entryDate).toISOString(),
       description,
       documentReference: reference,
@@ -241,6 +244,7 @@ export default function AccountingJournal() {
       rootCode,
       class: rootAccount.class,
       tenantId: currentTenantId,
+      tenantMembers: currentTenant.members,
       category: rootAccount.category
     };
 

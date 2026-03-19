@@ -14,15 +14,6 @@ service cloud.firestore {
       return isSignedIn() && exists(/databases/$(database)/documents/saas_admins/$(request.auth.uid));
     }
 
-    // Vérifie si l'utilisateur est membre du dossier (tenant)
-    function isTenantMember(tenantId) {
-      return isSignedIn() && (
-        isAdmin() || 
-        exists(/databases/$(database)/documents/tenants/$(tenantId)) && 
-        get(/databases/$(database)/documents/tenants/$(tenantId)).data.members[request.auth.uid] != null
-      );
-    }
-
     // --- SaaS Admin Rules ---
     match /saas_admins/{userId} {
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
@@ -68,7 +59,11 @@ service cloud.firestore {
       // Règle récursive pour toutes les sous-collections (journal, invoices, employees, etc.)
       match /{allSubcollections=**} {
         // Pour les sous-collections, on vérifie l'accès via le dossier parent
-        allow read, write: if isTenantMember(tenantId);
+        // get() est autorisé car le tenantId est fixe dans le chemin
+        allow read, write: if isSignedIn() && (
+          isAdmin() || 
+          get(/databases/$(database)/documents/tenants/$(tenantId)).data.members[request.auth.uid] != null
+        );
       }
     }
   }
