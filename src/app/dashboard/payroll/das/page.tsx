@@ -89,7 +89,7 @@ export default function DasPage() {
   const generateG29Xml = () => {
     if (!currentTenant || !dasData.length) return "Données insuffisantes.";
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<G29_DGI_2026>\n`;
-    xml += `  <DECLARENT>\n    <RAISON_SOCIALE>${currentTenant.raisonSociale}</RAISON_SOCIALE>\n    <NIF>${currentTenant.nif || ''}</NIF>\n    <EXERCICE>${selectedYear}</DECLARENT>\n  <REMUNERATIONS>\n`;
+    xml += `  <DECLARENT>\n    <RAISON_SOCIALE>${currentTenant.raisonSociale}</RAISON_SOCIALE>\n    <NIF>${currentTenant.nif || ''}</NIF>\n    <EXERCICE>${selectedYear}</EXERCICE>\n  </DECLARENT>\n  <REMUNERATIONS>\n`;
     dasData.forEach(s => {
       xml += `    <SALARIE>\n      <NIN>${s.nin || 'REQUIS'}</NIN>\n      <NOM_PRENOM>${s.name}</NOM_PRENOM>\n      <BRUT_ANNUEL>${s.annualGross.toFixed(2)}</BRUT_ANNUEL>\n      <IRG_REVENU>${s.annualIrg.toFixed(2)}</IRG_REVENU>\n    </SALARIE>\n`;
     });
@@ -235,7 +235,7 @@ export default function DasPage() {
                 <CardDescription className="text-slate-400 text-[10px]">Format conforme Jibayatic (Art. 8 LF 2026).</CardDescription>
               </div>
               <Badge variant="outline" className="border-slate-700 text-slate-300">V2026.1</Badge>
-            </Header>
+            </CardHeader>
             <CardContent className="p-0">
               <ScrollArea className="h-[400px] bg-slate-950 p-6">
                 <pre className="text-amber-400 font-mono text-xs leading-relaxed">
