@@ -9,7 +9,7 @@ import { DEMO_DATASET } from './demo-dataset';
  */
 export async function seedDemoForUser(db: Firestore, userId: string, email: string) {
   const tenantId = `DEMO_${userId.substring(0, 5)}_${Date.now().toString().slice(-4)}`;
-  const enterprise = DEMO_DATASET.enterprises[0];
+  const enterprise = DEMO_DATASET.entreprises[0];
 
   const tenantRef = doc(db, "tenants", tenantId);
   const tenantMembers = { [userId]: 'owner' };
@@ -30,8 +30,8 @@ export async function seedDemoForUser(db: Firestore, userId: string, email: stri
     const invoicesRef = collection(db, "tenants", tenantId, "invoices");
     for (const inv of DEMO_DATASET.factures) {
       await addDoc(invoicesRef, {
-        clientName: inv.clientName,
-        invoiceNumber: inv.id,
+        clientName: inv.client.nom,
+        invoiceNumber: inv.numero,
         invoiceDate: inv.date,
         totalAmountExcludingTax: inv.amountHT,
         totalTaxAmount: Math.round(inv.amountHT * (inv.tvaRate / 100)),
@@ -51,7 +51,7 @@ export async function seedDemoForUser(db: Firestore, userId: string, email: stri
       await addDoc(entriesRef, {
         entryDate: entry.date,
         description: entry.description,
-        journalType: entry.type,
+        journalType: entry.journal,
         documentReference: entry.ref,
         status: 'Validated',
         lines: entry.lines.map(l => ({
@@ -71,14 +71,14 @@ export async function seedDemoForUser(db: Firestore, userId: string, email: stri
     const employeesRef = collection(db, "tenants", tenantId, "employees");
     for (const emp of DEMO_DATASET.salaries) {
       await addDoc(employeesRef, {
-        name: emp.name,
-        position: emp.position,
-        baseSalary: emp.baseSalary,
-        primesImposables: emp.primesImposables,
-        indemnitePanier: emp.indemnitePanier,
-        indemniteTransport: emp.indemniteTransport,
+        name: emp.nom + " " + emp.prenom,
+        position: emp.poste,
+        baseSalary: emp.salaireBrut,
+        primesImposables: emp.primesImposables || 0,
+        indemnitePanier: emp.indemnitePanier || 0,
+        indemniteTransport: emp.indemniteTransport || 0,
         nin: emp.nin,
-        cnasNumber: emp.cnasNumber,
+        cnasNumber: emp.cnas,
         isGrandSud: emp.isGrandSud,
         isHandicapped: emp.isHandicapped,
         tenantId,

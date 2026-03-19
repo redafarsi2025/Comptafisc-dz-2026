@@ -21,7 +21,6 @@ export default function DemoFactoryPage() {
   const [progress, setProgress] = React.useState(0)
   const [status, setStatus] = React.useState("")
 
-  // Fetch existing demo tenants
   const demoTenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, "tenants"), where("isDemo", "==", true));
@@ -38,25 +37,27 @@ export default function DemoFactoryPage() {
       // 1. Créer le Tenant
       const tenantId = `DEMO_${Date.now()}`;
       const tenantRef = doc(db, "tenants", tenantId);
+      const tenantMembers = { [user.uid]: 'owner' };
+      
       const tenantData = {
         ...entTemplate,
         id: tenantId,
         isDemo: true,
         createdAt: new Date().toISOString(),
-        members: { [user.uid]: 'owner' }
+        members: tenantMembers
       };
       
       await setDocumentNonBlocking(tenantRef, tenantData, { merge: true });
       setProgress(30);
       setStatus("Génération des salariés de démo...");
 
-      // 2. Créer les Salariés (si BTP ou SPA)
+      // 2. Créer les Salariés
       if (entTemplate.secteurActivite === "BTP" || entTemplate.formeJuridique === "SPA") {
-        for (const emp of DEMO_DATASET.employees) {
+        for (const emp of DEMO_DATASET.salaries) {
           await addDocumentNonBlocking(collection(db, "tenants", tenantId, "employees"), {
             ...emp,
             tenantId,
-            tenantMembers: { [user.uid]: 'owner' },
+            tenantMembers,
             createdAt: new Date().toISOString()
           });
         }
@@ -65,31 +66,30 @@ export default function DemoFactoryPage() {
       setStatus("Saisie des factures et écritures...");
 
       // 3. Créer les Factures
-      for (const inv of DEMO_DATASET.invoices) {
+      for (const inv of DEMO_DATASET.factures) {
         await addDocumentNonBlocking(collection(db, "tenants", tenantId, "invoices"), {
           ...inv,
           tenantId,
           status: 'Issued',
-          totalAmountIncludingTax: inv.amountHT * (1 + inv.tvaRate/100),
-          totalTaxAmount: inv.amountHT * (inv.tvaRate/100),
+          totalAmountIncludingTax: inv.amountHT * (1 + (inv.tvaRate || 19)/100),
+          totalTaxAmount: inv.amountHT * ((inv.tvaRate || 19)/100),
           totalAmountExcludingTax: inv.amountHT,
-          tenantMembers: { [user.uid]: 'owner' },
+          tenantMembers,
           createdAt: new Date().toISOString(),
           createdByUserId: user.uid
         });
       }
 
       // 4. Créer les Écritures Journal
-      for (const entry of DEMO_DATASET.journalEntries) {
+      for (const entry of DEMO_DATASET.ecrituresComptables) {
         await addDocumentNonBlocking(collection(db, "tenants", tenantId, "journal_entries"), {
+          ...entry,
           entryDate: entry.date,
-          description: entry.description,
-          journalType: entry.type,
+          journalType: entry.journal,
           documentReference: entry.ref,
           status: 'Validated',
-          lines: entry.lines,
           tenantId,
-          tenantMembers: { [user.uid]: 'owner' },
+          tenantMembers,
           createdAt: new Date().toISOString(),
           createdByUserId: user.uid
         });
@@ -141,7 +141,7 @@ export default function DemoFactoryPage() {
             <DatabaseBackup className="h-5 w-5 text-primary" /> Templates disponibles
           </h3>
           <div className="grid grid-cols-1 gap-4">
-            {DEMO_DATASET.enterprises.map((ent) => (
+            {DEMO_DATASET.entreprises.map((ent) => (
               <Card key={ent.id} className="hover:shadow-md transition-shadow group border-l-4 border-l-accent">
                 <CardHeader className="pb-2">
                   <div className="flex justify-between items-start">
@@ -153,7 +153,7 @@ export default function DemoFactoryPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="text-xs text-muted-foreground">
-                  <p>Inclus : 12 factures, 8 salariés, Journal complet balancé.</p>
+                  <p>Inclus : Factures, Salariés, Journal complet balancé.</p>
                 </CardContent>
                 <CardFooter className="bg-muted/20 border-t p-3 flex justify-end">
                   <Button 
@@ -204,15 +204,6 @@ export default function DemoFactoryPage() {
               )}
             </CardContent>
           </Card>
-
-          <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-4">
-            <ShieldCheck className="h-6 w-6 text-emerald-600 shrink-0 mt-1" />
-            <div className="text-xs text-emerald-900 leading-relaxed">
-              <p className="font-bold mb-1 underline">Usage Commercial :</p>
-              L'injection de démo crée un véritable dossier client lié à votre compte. 
-              Cela vous permet de montrer le <strong>Grand Livre</strong>, la <strong>G50</strong> ou les <strong>États Financiers</strong> sans avoir à saisir manuellement des données lors d'un rendez-vous.
-            </div>
-          </div>
         </div>
       </div>
     </div>
