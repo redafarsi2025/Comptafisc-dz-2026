@@ -106,7 +106,7 @@ export default function FiscalEngineAdmin() {
       await setDocumentNonBlocking(doc(db, "fiscal_laws", lawId), {
         id: lawId,
         name: "Loi de Finances 2026",
-        description: "Mise à jour complète IFU, CASNOS, Exonérations Startup et SNMG 24k.",
+        description: "Mise à jour complète IFU, CASNOS, Exonérations Startup, TVA et SNMG 24k.",
         effectiveStartDate: "2026-01-01",
         publicationDate: "2025-12-30"
       }, { merge: true });
@@ -121,7 +121,11 @@ export default function FiscalEngineAdmin() {
         { code: "CASNOS_RATE", name: "Taux Cotisation CASNOS", unit: "%", dataType: "number" },
         { code: "CASNOS_MIN", name: "Cotisation CASNOS Minimum", unit: "DA", dataType: "number" },
         { code: "CASNOS_MAX", name: "Cotisation CASNOS Maximum", unit: "DA", dataType: "number" },
-        { code: "SNMG", name: "SNMG", unit: "DA", dataType: "number" },
+        { code: "CASNOS_PENALTY_FIXED", name: "Amende Non-déclaration CASNOS", unit: "DA", dataType: "number" },
+        { code: "SNMG", name: "SNMG (Salaire National Minimum Garanti)", unit: "DA", dataType: "number" },
+        { code: "TVA_STD", name: "Taux TVA Standard", unit: "%", dataType: "number" },
+        { code: "TVA_RED", name: "Taux TVA Réduit", unit: "%", dataType: "number" },
+        { code: "IBS_RATE", name: "Taux IBS Standard (Commerce/Services)", unit: "%", dataType: "number" },
       ];
 
       for (const t of varTypes) {
@@ -138,17 +142,21 @@ export default function FiscalEngineAdmin() {
         { type: "CASNOS_RATE", val: "0.15" },
         { type: "CASNOS_MIN", val: "32400" },
         { type: "CASNOS_MAX", val: "648000" },
+        { type: "CASNOS_PENALTY_FIXED", val: "5000" },
         { type: "SNMG", val: "24000" },
+        { type: "TVA_STD", val: "0.19" },
+        { type: "TVA_RED", val: "0.09" },
+        { type: "IBS_RATE", val: "0.26" },
       ];
 
       for (const v of valUpdates) {
         const vid = `VAL_2026_${v.type}`;
         await setDocumentNonBlocking(doc(db, "fiscal_variable_values", vid), {
           id: vid, fiscalLawId: lawId, fiscalVariableTypeId: v.type,
-          value: v.val, effectiveStartDate: "2026-01-01", notes: "Initialisation complète LF 2026"
+          value: v.val, effectiveStartDate: "2026-01-01", notes: "Initialisation complète LF 2026 conforme PRD"
         }, { merge: true });
       }
-      toast({ title: "Moteur Fiscal 2026 mis à jour avec les nouveaux paramètres CASNOS" });
+      toast({ title: "Moteur Fiscal 2026 initialisé avec succès" });
     } finally {
       setIsInitializing(false);
     }
@@ -165,7 +173,7 @@ export default function FiscalEngineAdmin() {
         </div>
         <Button variant="outline" size="sm" onClick={handleInitialize2026} disabled={isInitializing} className="border-primary text-primary hover:bg-primary/5">
           {isInitializing ? <RefreshCcw className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-          Ré-initialiser Moteur 2026 (CASNOS inclus)
+          Ré-initialiser Moteur 2026 (TVA, IBS, CASNOS...)
         </Button>
       </div>
 
