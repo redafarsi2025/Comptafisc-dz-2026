@@ -1,19 +1,19 @@
-
 "use client"
 
 import * as React from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Building2, Loader2, Mail, Lock, User, KeyRound } from "lucide-react"
+import { Building2, Loader2, Mail, Lock, User, KeyRound, Sparkles } from "lucide-react"
 import { useAuth, useUser, useFirestore, initiateEmailSignUp, setDocumentNonBlocking } from "@/firebase"
 import { doc } from "firebase/firestore"
 import { toast } from "@/hooks/use-toast"
 
 export default function RegisterPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const auth = useAuth()
   const db = useFirestore()
   const { user, isUserLoading } = useUser()
@@ -25,14 +25,13 @@ export default function RegisterPage() {
     adminKey: "",
   })
 
+  const isDemoMode = searchParams.get('demo') === 'true';
   const SUPER_KEY = process.env.NEXT_PUBLIC_SUPERADMIN_KEY;
 
   // Redirect if already logged in
   React.useEffect(() => {
     if (!isUserLoading && user && !user.isAnonymous) {
-      // Si l'utilisateur a utilisé la clé admin, on le redirige vers l'admin
       if (formData.adminKey === SUPER_KEY && SUPER_KEY) {
-        // Promotion immédiate si la clé est valide
         const adminRef = doc(db, "saas_admins", user.uid);
         setDocumentNonBlocking(adminRef, {
           id: user.uid,
@@ -41,13 +40,14 @@ export default function RegisterPage() {
           isSuperAdmin: true,
           method: "Auto-Promotion via Key"
         }, { merge: true });
-        
         router.push("/saas-admin");
       } else {
-        router.push("/dashboard");
+        // Pass demo flag forward if present
+        const targetUrl = isDemoMode ? "/dashboard?demo=true" : "/dashboard";
+        router.push(targetUrl);
       }
     }
-  }, [user, isUserLoading, router, db, formData.adminKey, SUPER_KEY])
+  }, [user, isUserLoading, router, db, formData.adminKey, SUPER_KEY, isDemoMode])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -64,7 +64,7 @@ export default function RegisterPage() {
     try {
       initiateEmailSignUp(auth, formData.email, formData.password)
       toast({
-        title: "Compte en cours de création",
+        title: isDemoMode ? "Préparation de votre démo..." : "Compte en cours de création",
         description: "Veuillez patienter pendant la redirection...",
       })
     } catch (error: any) {
@@ -86,11 +86,21 @@ export default function RegisterPage() {
           </div>
           <CardTitle className="text-2xl font-bold text-primary">ComptaFisc-DZ</CardTitle>
           <CardDescription>
-            Créez votre compte pour gérer votre fiscalité en Algérie.
+            {isDemoMode 
+              ? "Inscrivez-vous pour accéder à votre espace de démo personnalisé." 
+              : "Créez votre compte pour gérer votre fiscalité en Algérie."}
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
+            {isDemoMode && (
+              <div className="bg-accent/10 border border-accent/20 p-3 rounded-lg flex items-center gap-3 mb-4">
+                <Sparkles className="h-5 w-5 text-accent animate-pulse" />
+                <p className="text-[10px] text-accent-foreground font-bold uppercase leading-tight">
+                  Le dossier "Bensalem Commerce" sera prêt dès votre première connexion.
+                </p>
+              </div>
+            )}
             <div className="space-y-2">
               <label className="text-sm font-medium">Nom complet</label>
               <div className="relative">
@@ -133,24 +143,26 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            <div className="pt-4 border-t">
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1">
-                  <KeyRound className="h-3 w-3" /> Clé d'administration (Optionnel)
-                </label>
-                <Input
-                  className="bg-muted/30 border-dashed"
-                  type="password"
-                  placeholder="Clé secrète superadmin"
-                  value={formData.adminKey}
-                  onChange={(e) => setFormData({ ...formData, adminKey: e.target.value })}
-                />
+            {!isDemoMode && (
+              <div className="pt-4 border-t">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1">
+                    <KeyRound className="h-3 w-3" /> Clé d'administration (Optionnel)
+                  </label>
+                  <Input
+                    className="bg-muted/30 border-dashed"
+                    type="password"
+                    placeholder="Clé secrète superadmin"
+                    value={formData.adminKey}
+                    onChange={(e) => setFormData({ ...formData, adminKey: e.target.value })}
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            <Button className="w-full" type="submit" disabled={isLoading}>
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "S'inscrire"}
+            <Button className="w-full h-12 text-lg" type="submit" disabled={isLoading}>
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (isDemoMode ? "Lancer ma Démo" : "S'inscrire")}
             </Button>
             <div className="text-sm text-center text-muted-foreground">
               Déjà un compte ?{" "}

@@ -37,8 +37,8 @@ export default function LandingPage() {
           <Button size="lg" className="bg-[#0C55CC] hover:bg-[#0A47A6] px-8 h-12 text-lg shadow-lg hover:scale-105 transition-transform" asChild>
             <Link href="/register">Essayer Gratuitement</Link>
           </Button>
-          <Button size="lg" variant="outline" className="border-[#0C55CC] text-[#0C55CC] px-8 h-12 text-lg">
-            Demander une démo
+          <Button size="lg" variant="outline" className="border-[#0C55CC] text-[#0C55CC] px-8 h-12 text-lg" asChild>
+            <Link href="/register?demo=true">Demander une démo</Link>
           </Button>
         </div>
 

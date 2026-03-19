@@ -1,6 +1,6 @@
 /**
- * @fileOverview Jeu de données de démonstration complet pour le SaaS ComptaFisc-DZ.
- * Contient les entreprises, salariés, factures et écritures comptables types.
+ * @fileOverview Jeu de données de démonstration enrichi pour le SaaS ComptaFisc-DZ.
+ * Inclut les entreprises, salariés et factures selon le référentiel réaliste algérien.
  */
 
 export const DEMO_DATASET = {
@@ -57,6 +57,7 @@ export const DEMO_DATASET = {
     { invoiceNumber: "FAC-2025-001", clientName: "SPA Grands Travaux Ouest", amountHT: 850000, tvaRate: 19, description: "Fourniture matériaux de bureau", date: "2025-01-08" },
     { invoiceNumber: "FAC-2025-002", clientName: "SARL Bâtisseurs du Nord", amountHT: 320000, tvaRate: 19, description: "Vente équipements bureautique", date: "2025-01-15" },
     { invoiceNumber: "FAC-2025-003", clientName: "Admin Bir Mourad Raïs", amountHT: 1200000, tvaRate: 19, description: "Fournitures administratives", date: "2025-02-03" },
+    { invoiceNumber: "FAC-2025-004", clientName: "EURL Pharmacie El Shifa", amountHT: 175000, tvaRate: 9, description: "Mobilier médical", date: "2025-02-18" },
   ],
   journalEntries: [
     {

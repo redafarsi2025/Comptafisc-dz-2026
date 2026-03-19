@@ -26,9 +26,12 @@ import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebas
 import { collection, query, where, limit } from "firebase/firestore"
 import { 
   TrendingUp, ArrowUpRight, BadgeCheck, 
-  CheckCircle2, Activity, Sparkles, Landmark, History, ShieldCheck, Zap
+  CheckCircle2, Activity, Sparkles, Landmark, History, ShieldCheck, Zap, Loader2
 } from "lucide-react"
 import { getIBSRate } from "@/lib/calculations"
+import { useSearchParams, useRouter } from "next/navigation"
+import { seedDemoForUser } from "@/lib/demo-seeder"
+import { toast } from "@/hooks/use-toast"
 
 const REGULATORY_MILESTONES = [
   { 
@@ -57,16 +60,50 @@ const REGULATORY_MILESTONES = [
 export default function DashboardOverview() {
   const db = useFirestore()
   const { user } = useUser()
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const [mounted, setMounted] = React.useState(false)
+  const [isSeeding, setIsSeeding] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // 1. Fetch Tenant data for fiscal context
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null), limit(1));
   }, [db, user]);
-  const { data: tenants } = useCollection(tenantsQuery);
+  const { data: tenants, isLoading: isTenantsLoading } = useCollection(tenantsQuery);
   const currentTenant = tenants?.[0];
 
-  // 2. Fetch Invoices for real totals
+  // 2. Demo Seeding Logic
+  React.useEffect(() => {
+    const handleDemoSeeding = async () => {
+      if (mounted && db && user && searchParams.get('demo') === 'true' && !isTenantsLoading) {
+        if (tenants?.length === 0) {
+          setIsSeeding(true);
+          try {
+            await seedDemoForUser(db, user.uid, user.email || "");
+            toast({
+              title: "Démo activée !",
+              description: "Le dossier 'SARL Bensalem Commerce' a été créé avec ses données historiques.",
+            });
+            // Clean URL and refresh to show the new tenant
+            router.replace("/dashboard");
+          } catch (e) {
+            console.error(e);
+            toast({ variant: "destructive", title: "Erreur démo", description: "Impossible de charger les données." });
+          } finally {
+            setIsSeeding(false);
+          }
+        }
+      }
+    };
+    handleDemoSeeding();
+  }, [mounted, db, user, searchParams, tenants, isTenantsLoading, router]);
+
+  // 3. Fetch Invoices for real totals
   const invoicesQuery = useMemoFirebase(() => {
     if (!db || !currentTenant || !user) return null;
     return query(
@@ -90,6 +127,8 @@ export default function DashboardOverview() {
     return getIBSRate(currentTenant.secteurActivite, currentTenant.activiteNAP);
   }, [currentTenant]);
 
+  const formatAmount = (val: number) => mounted ? val.toLocaleString() : "...";
+
   const monthlyData = [
     { month: "Jan", revenue: stats.ca * 0.1, expenses: stats.ca * 0.05 },
     { month: "Feb", revenue: stats.ca * 0.15, expenses: stats.ca * 0.08 },
@@ -98,6 +137,21 @@ export default function DashboardOverview() {
     { month: "May", revenue: stats.ca * 0.3, expenses: stats.ca * 0.15 },
     { month: "Jun", revenue: stats.ca, expenses: stats.ca * 0.6 },
   ]
+
+  if (isSeeding) {
+    return (
+      <div className="h-[80vh] flex flex-col items-center justify-center space-y-6">
+        <div className="relative">
+          <div className="h-24 w-24 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+          <Sparkles className="absolute inset-0 m-auto h-8 w-8 text-accent animate-pulse" />
+        </div>
+        <div className="text-center space-y-2">
+          <h2 className="text-2xl font-bold text-primary">Initialisation de votre démo...</h2>
+          <p className="text-muted-foreground animate-pulse">Configuration du dossier, des factures et de la paie Bensalem Commerce.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -131,7 +185,7 @@ export default function DashboardOverview() {
             <TrendingUp className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.ca.toLocaleString()} DZD</div>
+            <div className="text-2xl font-bold">{formatAmount(stats.ca)} DZD</div>
             <p className="text-[10px] text-muted-foreground mt-1">Basé sur {stats.count} factures émises.</p>
           </CardContent>
         </Card>
@@ -155,7 +209,7 @@ export default function DashboardOverview() {
             <Sparkles className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-600">{(stats.ca * 0.02).toLocaleString()} DZD</div>
+            <div className="text-2xl font-bold text-emerald-600">{formatAmount(stats.ca * 0.02)} DZD</div>
             <p className="text-[10px] text-emerald-700 italic mt-1">Gain généré par la suppression de la TAP.</p>
           </CardContent>
         </Card>
@@ -248,7 +302,7 @@ export default function DashboardOverview() {
             </CardHeader>
             <CardContent>
               <p className="text-[10px] text-muted-foreground italic leading-relaxed">
-                "Votre dossier présente une santé fiscale de 98%. La suppression de la TAP en 2024 a optimisé votre marge de 2%. Attention : l'échéance de la G29 approche (30 avril), assurez-vous que les NIN de vos 12 salariés sont renseignés."
+                "Votre dossier présente une santé fiscale de 98%. La suppression de la TAP en 2024 a optimisé votre marge de 2%. Attention : l'échéance de la G29 approche (30 avril), assurez-vous que les NIN de vos salariés sont renseignés."
               </p>
             </CardContent>
           </Card>
