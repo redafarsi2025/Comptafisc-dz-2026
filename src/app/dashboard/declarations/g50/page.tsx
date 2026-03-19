@@ -32,23 +32,17 @@ export default function G50Declaration() {
 
   // 2. Fetch Invoices (for TVA)
   const invoicesQuery = useMemoFirebase(() => {
-    if (!db || !currentTenant || !user) return null;
-    return query(
-      collection(db, "tenants", currentTenant.id, "invoices"),
-      where(`tenantMembers.${user.uid}`, "!=", null)
-    );
-  }, [db, currentTenant, user]);
+    if (!db || !currentTenant) return null;
+    return collection(db, "tenants", currentTenant.id, "invoices");
+  }, [db, currentTenant]);
   const { data: invoices } = useCollection(invoicesQuery);
 
   // 3. Fetch Employees (for IRG Salarié)
   const employeesQuery = useMemoFirebase(() => {
-    if (!db || !currentTenant || !user) return null;
-    return query(
-      collection(db, "tenants", currentTenant.id, "employees"),
-      where(`tenantMembers.${user.uid}`, "!=", null)
-    );
-  }, [db, currentTenant, user]);
-  const { data: employees } = useCollection(employeesQuery);
+    if (!db || !currentTenant) return null;
+    return collection(db, "tenants", currentTenant.id, "employees");
+  }, [db, currentTenant]);
+  const { data: employees, isLoading } = useCollection(employeesQuery);
 
   const g50Data = React.useMemo(() => {
     const tvaCollectee = invoices?.reduce((sum, inv) => sum + (inv.totalTaxAmount || 0), 0) || 0;

@@ -59,7 +59,7 @@ service cloud.firestore {
       // Règle récursive pour toutes les sous-collections (journal, invoices, employees, etc.)
       match /{allSubcollections=**} {
         // Pour les sous-collections, on vérifie l'accès via le dossier parent
-        // get() est autorisé car le tenantId est fixe dans le chemin
+        // L'accès est autorisé si l'utilisateur est membre du dossier (tenantId fixe dans le path)
         allow read, write: if isSignedIn() && (
           isAdmin() || 
           get(/databases/$(database)/documents/tenants/$(tenantId)).data.members[request.auth.uid] != null

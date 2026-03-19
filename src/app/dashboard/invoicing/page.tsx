@@ -38,14 +38,11 @@ export default function InvoicingPage() {
   const isIFU = currentTenant?.regimeFiscal === "IFU";
   const isCabinet = currentTenant?.plan === "CABINET";
 
-  // Fetch clients for the active tenant with security filter
+  // Fetch clients for the active tenant
   const clientsQuery = useMemoFirebase(() => {
-    if (!db || !currentTenant || !user) return null;
-    return query(
-      collection(db, "tenants", currentTenant.id, "clients"),
-      where(`tenantMembers.${user.uid}`, "!=", null)
-    );
-  }, [db, currentTenant, user]);
+    if (!db || !currentTenant) return null;
+    return collection(db, "tenants", currentTenant.id, "clients");
+  }, [db, currentTenant]);
   const { data: clients } = useCollection(clientsQuery);
 
   const totals = React.useMemo(() => {
@@ -85,7 +82,6 @@ export default function InvoicingPage() {
       status: 'Issued',
       createdAt: new Date().toISOString(),
       createdByUserId: user.uid,
-      tenantMembers: currentTenant.members,
       items: items.map(item => ({
         ...item,
         taxAmount: calculateTVA(item.quantity * item.unitPrice, "TVA_19", isIFU),
@@ -268,7 +264,7 @@ export default function InvoicingPage() {
           <Card className="bg-slate-900 text-white border-none shadow-xl">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-bold uppercase text-slate-400">Aperçu du Document</CardTitle>
-            </CardHeader>
+            </Header>
             <CardContent className="space-y-4">
               <div className="h-32 bg-slate-800/50 rounded-lg flex items-center justify-center border border-slate-700 border-dashed">
                 <div className="flex flex-col items-center gap-2 opacity-40">

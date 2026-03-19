@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -32,12 +31,9 @@ export default function PayrollLedger() {
   const currentTenant = tenants?.[0];
 
   const employeesQuery = useMemoFirebase(() => {
-    if (!db || !currentTenant || !user) return null;
-    return query(
-      collection(db, "tenants", currentTenant.id, "employees"),
-      where(`tenantMembers.${user.uid}`, "!=", null)
-    );
-  }, [db, currentTenant, user]);
+    if (!db || !currentTenant) return null;
+    return collection(db, "tenants", currentTenant.id, "employees");
+  }, [db, currentTenant]);
   const { data: employees, isLoading } = useCollection(employeesQuery);
 
   const ledgerData = React.useMemo(() => {

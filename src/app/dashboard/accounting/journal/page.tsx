@@ -28,14 +28,13 @@ export default function LivreJournal() {
   const currentTenant = tenants?.[0];
 
   const entriesQuery = useMemoFirebase(() => {
-    if (!db || !currentTenant || !user) return null;
+    if (!db || !currentTenant) return null;
     return query(
       collection(db, "tenants", currentTenant.id, "journal_entries"),
-      where(`tenantMembers.${user.uid}`, "!=", null), // Security filter for listing
       orderBy("entryDate", "desc"),
       limit(100)
     );
-  }, [db, currentTenant, user]);
+  }, [db, currentTenant]);
   const { data: entries, isLoading } = useCollection<JournalEntry>(entriesQuery);
 
   const formatAmount = (val: number) => mounted ? val.toLocaleString() : "..."

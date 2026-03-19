@@ -35,12 +35,9 @@ export default function G50TerDeclaration() {
 
   // 2. Fetch Employees (for IRG Calculation)
   const employeesQuery = useMemoFirebase(() => {
-    if (!db || !currentTenant || !user) return null;
-    return query(
-      collection(db, "tenants", currentTenant.id, "employees"),
-      where(`tenantMembers.${user.uid}`, "!=", null)
-    );
-  }, [db, currentTenant, user]);
+    if (!db || !currentTenant) return null;
+    return collection(db, "tenants", currentTenant.id, "employees");
+  }, [db, currentTenant]);
   const { data: employees, isLoading } = useCollection(employeesQuery);
 
   const quarterData = React.useMemo(() => {

@@ -56,12 +56,9 @@ export default function AssetsPage() {
 
   // 2. Fetch Assets
   const assetsQuery = useMemoFirebase(() => {
-    if (!db || !currentTenant || !user) return null;
-    return query(
-      collection(db, "tenants", currentTenant.id, "assets"),
-      where(`tenantMembers.${user.uid}`, "!=", null) // Explicit security filter
-    );
-  }, [db, currentTenant, user]);
+    if (!db || !currentTenant) return null;
+    return collection(db, "tenants", currentTenant.id, "assets");
+  }, [db, currentTenant]);
   const { data: assets, isLoading } = useCollection(assetsQuery);
 
   const handleAddAsset = async () => {
@@ -71,7 +68,6 @@ export default function AssetsPage() {
     const assetData = {
       ...newAsset,
       tenantId: currentTenant.id,
-      tenantMembers: currentTenant.members, // Ensure correct permission field
       createdAt: new Date().toISOString(),
       createdByUserId: user.uid,
       acquisitionValue: Number(newAsset.acquisitionValue) || 0,

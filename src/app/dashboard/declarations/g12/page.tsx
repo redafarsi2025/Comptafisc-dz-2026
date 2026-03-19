@@ -34,9 +34,9 @@ export default function G12Declaration() {
   const currentTenant = tenants?.[0];
 
   const invoicesQuery = useMemoFirebase(() => {
-    if (!db || !currentTenant || !user) return null;
-    return query(collection(db, "tenants", currentTenant.id, "invoices"), where(`tenantMembers.${user.uid}`, "!=", null));
-  }, [db, currentTenant, user]);
+    if (!db || !currentTenant) return null;
+    return collection(db, "tenants", currentTenant.id, "invoices");
+  }, [db, currentTenant]);
   const { data: invoices } = useCollection(invoicesQuery);
 
   const ifuRate = getIFURate(currentTenant?.secteurActivite || "SERVICES", currentTenant?.formeJuridique || "");

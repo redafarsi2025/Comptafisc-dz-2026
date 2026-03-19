@@ -36,12 +36,9 @@ export default function ContactsPage() {
   const currentTenant = tenants?.[0];
 
   const contactsQuery = useMemoFirebase(() => {
-    if (!db || !currentTenant || !user) return null;
-    return query(
-      collection(db, "tenants", currentTenant.id, "clients"), // We use the existing 'clients' collection but label it 'contacts'
-      where(`tenantMembers.${user.uid}`, "!=", null)
-    );
-  }, [db, currentTenant, user]);
+    if (!db || !currentTenant) return null;
+    return collection(db, "tenants", currentTenant.id, "clients");
+  }, [db, currentTenant]);
   const { data: contacts, isLoading } = useCollection(contactsQuery);
 
   const handleAddContact = async () => {
@@ -50,7 +47,6 @@ export default function ContactsPage() {
     const contactData = {
       ...newContact,
       tenantId: currentTenant.id,
-      tenantMembers: currentTenant.members,
       createdAt: new Date().toISOString()
     };
 

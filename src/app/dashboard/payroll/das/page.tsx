@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -37,12 +36,9 @@ export default function DasPage() {
 
   // Fetch employees for the year
   const employeesQuery = useMemoFirebase(() => {
-    if (!db || !currentTenant || !user) return null;
-    return query(
-      collection(db, "tenants", currentTenant.id, "employees"),
-      where(`tenantMembers.${user.uid}`, "!=", null)
-    );
-  }, [db, currentTenant, user]);
+    if (!db || !currentTenant) return null;
+    return collection(db, "tenants", currentTenant.id, "employees");
+  }, [db, currentTenant]);
   const { data: employees, isLoading } = useCollection(employeesQuery);
 
   const dasData = React.useMemo(() => {
@@ -239,7 +235,7 @@ export default function DasPage() {
                 <CardDescription className="text-slate-400 text-[10px]">Format conforme Jibayatic (Art. 8 LF 2026).</CardDescription>
               </div>
               <Badge variant="outline" className="border-slate-700 text-slate-300">V2026.1</Badge>
-            </CardHeader>
+            </Header>
             <CardContent className="p-0">
               <ScrollArea className="h-[400px] bg-slate-950 p-6">
                 <pre className="text-amber-400 font-mono text-xs leading-relaxed">
