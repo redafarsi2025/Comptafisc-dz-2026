@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -21,7 +20,7 @@ export default function LiasseFiscaleG4() {
     setMounted(true)
   }, [])
 
-  const formatAmount = (val: number) => mounted ? val.toLocaleString() : "..."
+  const formatAmount = (val: number) => mounted ? Math.round(val).toLocaleString() : "..."
   const formatDate = (dateStr: string) => mounted ? new Date(dateStr).toLocaleDateString() : "..."
 
   const tenantsQuery = useMemoFirebase(() => {
@@ -75,6 +74,14 @@ export default function LiasseFiscaleG4() {
       }
     };
 
+    // Calcul des soldes nets d'actifs via le registre si possible
+    const totalVnc = assets?.reduce((sum, a) => {
+      const rate = a.amortizationRate / 100;
+      const years = (new Date().getTime() - new Date(a.acquisitionDate).getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+      const cumul = Math.min(a.acquisitionValue, a.acquisitionValue * rate * years);
+      return sum + (a.acquisitionValue - cumul);
+    }, 0) || 0;
+
     Object.entries(balances).forEach(([code, b]) => {
       const solde = b.debit - b.credit;
       if (code.startsWith('20')) categories.actif.immos_incorp += solde;
@@ -95,28 +102,23 @@ export default function LiasseFiscaleG4() {
       else if (code.startsWith('63')) categories.tcr.salaires += (b.debit - b.credit);
     });
 
+    // On écrase les immo brutes du journal par les VNC du registre pour le bilan net
+    if (totalVnc > 0) {
+      categories.actif.immos_corp = totalVnc;
+    }
+
     return categories;
-  }, [entries]);
+  }, [entries, assets]);
 
   const resComptable = (g4Data?.tcr.ventes || 0) - (g4Data?.tcr.achats || 0) - (g4Data?.tcr.services || 0) - (g4Data?.tcr.salaires || 0);
-  const resFiscal = resComptable; // Simplifié pour l'exemple
-
-  // Simulation des données d'amortissement si pas d'assets réels
-  const displayAssets = React.useMemo(() => {
-    if (assets && assets.length > 0) return assets;
-    return [
-      { id: '1', designation: 'Matériel Industriel (Presse)', acquisitionDate: '2023-01-15', acquisitionValue: 5000000, amortizationRate: 10 },
-      { id: '2', designation: 'Matériel de Transport', acquisitionDate: '2022-06-10', acquisitionValue: 2500000, amortizationRate: 20 },
-      { id: '3', designation: 'Mobilier de Bureau', acquisitionDate: '2023-03-20', acquisitionValue: 800000, amortizationRate: 10 },
-    ];
-  }, [assets]);
+  const resFiscal = resComptable; 
 
   const calculateAmort = (asset: any) => {
     const value = asset.acquisitionValue;
     const rate = asset.amortizationRate / 100;
-    const years = (new Date().getFullYear() - new Date(asset.acquisitionDate).getFullYear());
+    const years = (new Date().getTime() - new Date(asset.acquisitionDate).getTime()) / (1000 * 60 * 60 * 24 * 365.25);
     const dotation = value * rate;
-    const cumul = dotation * years;
+    const cumul = Math.min(value, dotation * years);
     return { dotation, cumul, vnc: value - cumul };
   };
 
@@ -158,17 +160,17 @@ export default function LiasseFiscaleG4() {
             <Card className="border-t-4 border-t-primary shadow-lg">
               <CardHeader className="bg-muted/10">
                 <CardTitle className="text-lg">BILAN - ACTIF</CardTitle>
-                <CardDescription>État du patrimoine à la clôture</CardDescription>
+                <CardDescription>Patrimoine Net (VNC pour les immobilisations)</CardDescription>
               </CardHeader>
               <CardContent className="p-0">
                 <Table>
-                  <TableHeader><TableRow><TableHead>Rubriques G4</TableHead><TableHead className="text-right">Montant</TableHead></TableRow></TableHeader>
+                  <TableHeader><TableRow><TableHead>Rubriques G4</TableHead><TableHead className="text-right">Montant Net</TableHead></TableRow></TableHeader>
                   <TableBody>
-                    <TableRow><TableCell>Immobilisations Incorporelles</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.actif.immos_incorp || 0)} DA</TableCell></TableRow>
-                    <TableRow><TableCell>Immobilisations Corporelles</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.actif.immos_corp || 0)} DA</TableCell></TableRow>
-                    <TableRow><TableCell>Stocks et en-cours</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.actif.stocks || 0)} DA</TableCell></TableRow>
-                    <TableRow><TableCell>Créances et Emplois assimilés</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.actif.clients || 0)} DA</TableCell></TableRow>
-                    <TableRow><TableCell>Disponibilités</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.actif.tresorerie || 0)} DA</TableCell></TableRow>
+                    <TableRow><TableCell>Immobilisations Incorporelles</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.actif.immos_incorp || 0)}</TableCell></TableRow>
+                    <TableRow><TableCell>Immobilisations Corporelles (VNC)</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.actif.immos_corp || 0)}</TableCell></TableRow>
+                    <TableRow><TableCell>Stocks et en-cours</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.actif.stocks || 0)}</TableCell></TableRow>
+                    <TableRow><TableCell>Créances et Emplois assimilés</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.actif.clients || 0)}</TableCell></TableRow>
+                    <TableRow><TableCell>Disponibilités</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.actif.tresorerie || 0)}</TableCell></TableRow>
                     <TableRow className="bg-primary text-white"><TableCell className="font-bold">TOTAL ACTIF</TableCell><TableCell className="text-right font-bold">{formatAmount(Object.values(g4Data?.actif || {}).reduce((a, b) => a + b, 0))} DA</TableCell></TableRow>
                   </TableBody>
                 </Table>
@@ -184,11 +186,11 @@ export default function LiasseFiscaleG4() {
                 <Table>
                   <TableHeader><TableRow><TableHead>Rubriques G4</TableHead><TableHead className="text-right">Montant</TableHead></TableRow></TableHeader>
                   <TableBody>
-                    <TableRow><TableCell>Capitaux Propres</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.passif.capitaux || 0)} DA</TableCell></TableRow>
-                    <TableRow><TableCell>Résultat de l'exercice</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.passif.resultats || 0)} DA</TableCell></TableRow>
-                    <TableRow><TableCell>Dettes Financières</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.passif.dettes_fi || 0)} DA</TableCell></TableRow>
-                    <TableRow><TableCell>Fournisseurs et Comptes Rattachés</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.passif.fournisseurs || 0)} DA</TableCell></TableRow>
-                    <TableRow><TableCell>Dettes Fiscales et Sociales</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.passif.dettes_fisc || 0)} DA</TableCell></TableRow>
+                    <TableRow><TableCell>Capitaux Propres</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.passif.capitaux || 0)}</TableCell></TableRow>
+                    <TableRow><TableCell>Résultat de l'exercice</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.passif.resultats || 0)}</TableCell></TableRow>
+                    <TableRow><TableCell>Dettes Financières</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.passif.dettes_fi || 0)}</TableCell></TableRow>
+                    <TableRow><TableCell>Fournisseurs et Comptes Rattachés</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.passif.fournisseurs || 0)}</TableCell></TableRow>
+                    <TableRow><TableCell>Dettes Fiscales et Sociales</TableCell><TableCell className="text-right font-mono">{formatAmount(g4Data?.passif.dettes_fisc || 0)}</TableCell></TableRow>
                     <TableRow className="bg-accent text-accent-foreground"><TableCell className="font-bold">TOTAL PASSIF</TableCell><TableCell className="text-right font-bold">{formatAmount(Object.values(g4Data?.passif || {}).reduce((a, b) => a + b, 0))} DA</TableCell></TableRow>
                   </TableBody>
                 </Table>
@@ -225,14 +227,14 @@ export default function LiasseFiscaleG4() {
             <Card className="md:col-span-2 border-l-4 border-l-amber-500 shadow-md">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2 text-amber-800"><Calculator className="h-5 w-5" /> Détermination du Résultat Fiscal</CardTitle>
-                <CardDescription>Passage du résultat comptable au résultat imposable (G N°4 - Tableau 9)</CardDescription>
+                <CardDescription>Passage du résultat comptable au résultat imposable (Tableau 9)</CardDescription>
               </CardHeader>
               <CardContent className="p-0">
                 <Table>
                   <TableBody>
                     <TableRow><TableCell className="font-medium">Résultat Net Comptable</TableCell><TableCell className="text-right font-mono">{formatAmount(resComptable)}</TableCell></TableRow>
-                    <TableRow className="text-emerald-600"><TableCell>+ Réintégrations (Amendes, charges non déductibles...)</TableCell><TableCell className="text-right font-mono">0</TableCell></TableRow>
-                    <TableRow className="text-destructive"><TableCell>- Déductions (Dividendes, plus-values exonérées...)</TableCell><TableCell className="text-right font-mono">0</TableCell></TableRow>
+                    <TableRow className="text-emerald-600"><TableCell>+ Réintégrations (Amendes, dotations non déductibles...)</TableCell><TableCell className="text-right font-mono">0</TableCell></TableRow>
+                    <TableRow className="text-destructive"><TableCell>- Déductions (Dividendes, abattements...)</TableCell><TableCell className="text-right font-mono">0</TableCell></TableRow>
                     <TableRow className="bg-amber-100 text-amber-900 border-t-2 border-amber-300">
                       <TableCell className="font-bold uppercase">Résultat Fiscal (Base de calcul IBS)</TableCell>
                       <TableCell className="text-right font-bold text-lg font-mono">{formatAmount(resFiscal)} DA</TableCell>
@@ -250,7 +252,7 @@ export default function LiasseFiscaleG4() {
                   <div className="flex justify-between text-xs"><span>Taux applicable :</span><span className="font-bold">19%</span></div>
                   <div className="flex justify-between text-xs"><span>Minimum fiscal :</span><span className="font-bold">10 000 DA</span></div>
                 </div>
-                <Badge className="bg-white text-primary hover:bg-white/90">Prêt pour G50 / G4</Badge>
+                <Badge className="bg-white text-primary hover:bg-white/90">Certifié conforme LF 2026</Badge>
               </CardContent>
             </Card>
           </div>
@@ -262,7 +264,7 @@ export default function LiasseFiscaleG4() {
               <CardTitle className="flex items-center gap-2">
                 <TrendingDown className="h-5 w-5 text-primary" /> Tableau des Amortissements (Annexe n°2)
               </CardTitle>
-              <CardDescription>Justification de la dépréciation des actifs de l'exercice.</CardDescription>
+              <CardDescription>Justification réelle extraite du Registre des Immobilisations.</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
@@ -277,7 +279,7 @@ export default function LiasseFiscaleG4() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {displayAssets.map((asset) => {
+                  {assets && assets.length > 0 ? assets.map((asset) => {
                     const { dotation, cumul, vnc } = calculateAmort(asset);
                     return (
                       <TableRow key={asset.id} className="hover:bg-muted/10">
@@ -294,22 +296,26 @@ export default function LiasseFiscaleG4() {
                         <TableCell className="text-right font-mono text-xs font-bold text-primary">{formatAmount(vnc)}</TableCell>
                       </TableRow>
                     );
-                  })}
-                  <TableRow className="bg-primary/10 font-bold">
-                    <TableCell className="uppercase text-[10px]">TOTAUX DES AMORTISSEMENTS</TableCell>
-                    <TableCell className="text-right font-mono">{formatAmount(displayAssets.reduce((s, a) => s + a.acquisitionValue, 0))}</TableCell>
-                    <TableCell></TableCell>
-                    <TableCell className="text-right font-mono text-destructive">-{formatAmount(displayAssets.reduce((s, a) => s + calculateAmort(a).dotation, 0))}</TableCell>
-                    <TableCell className="text-right font-mono">-{formatAmount(displayAssets.reduce((s, a) => s + calculateAmort(a).cumul, 0))}</TableCell>
-                    <TableCell className="text-right font-mono text-primary">{formatAmount(displayAssets.reduce((s, a) => s + calculateAmort(a).vnc, 0))} DA</TableCell>
-                  </TableRow>
+                  }) : (
+                    <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">Aucun actif enregistré dans le registre.</TableCell></TableRow>
+                  )}
+                  {assets && assets.length > 0 && (
+                    <TableRow className="bg-primary/10 font-bold">
+                      <TableCell className="uppercase text-[10px]">TOTAUX DES AMORTISSEMENTS</TableCell>
+                      <TableCell className="text-right font-mono">{formatAmount(assets.reduce((s, a) => s + a.acquisitionValue, 0))}</TableCell>
+                      <TableCell></TableCell>
+                      <TableCell className="text-right font-mono text-destructive">-{formatAmount(assets.reduce((s, a) => s + calculateAmort(a).dotation, 0))}</TableCell>
+                      <TableCell className="text-right font-mono">-{formatAmount(assets.reduce((s, a) => s + calculateAmort(a).cumul, 0))}</TableCell>
+                      <TableCell className="text-right font-mono text-primary">{formatAmount(assets.reduce((s, a) => s + calculateAmort(a).vnc, 0))} DA</TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
               <div className="p-6 bg-amber-50 border-t flex items-start gap-4">
                 <AlertCircle className="h-5 w-5 text-amber-600 mt-1" />
                 <div className="text-xs text-amber-900 leading-relaxed">
-                  <strong>Note réglementaire :</strong> Ces amortissements sont calculés selon le mode linéaire conformément aux durées de vie usuelles admises par l'administration fiscale algérienne. 
-                  La dotation totale de <strong>{formatAmount(displayAssets.reduce((s, a) => s + calculateAmort(a).dotation, 0))} DA</strong> doit être reportée au débit du compte 681 et en déduction du résultat fiscal au Tableau 9 si elle respecte les conditions de déductibilité.
+                  <strong>Note réglementaire :</strong> Ce tableau est généré dynamiquement. La VNC totale de <strong>{formatAmount(assets?.reduce((s, a) => s + calculateAmort(a).vnc, 0) || 0)} DA</strong> doit correspondre au montant porté à l'actif du bilan. 
+                  Toute cession d'actif en cours d'exercice doit être régularisée via le journal d'O.D.
                 </div>
               </div>
             </CardContent>

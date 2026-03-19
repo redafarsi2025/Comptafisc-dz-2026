@@ -35,7 +35,8 @@ import {
   CalendarDays,
   Eye,
   GraduationCap,
-  FileBadge
+  FileBadge,
+  TrendingDown
 } from "lucide-react"
 
 import {
@@ -67,6 +68,7 @@ import { toast } from "@/hooks/use-toast"
 const navigation = [
   { name: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard },
   { name: "Saisie Comptable", href: "/dashboard/accounting", icon: BookText },
+  { name: "Registre Immos", href: "/dashboard/accounting/assets", icon: TrendingDown },
   { name: "Facturation", href: "/dashboard/invoicing", icon: Receipt },
   { name: "Paie & Livre de Paie", href: "/dashboard/payroll", icon: Users },
   { name: "Déclarations Fisc", href: "/dashboard/declarations", icon: FileText },
