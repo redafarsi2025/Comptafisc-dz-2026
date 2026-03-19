@@ -10,7 +10,7 @@ import {
   Layout, Database, ArrowRight, CheckCircle2,
   FileText, Download, UploadCloud, 
   ChevronLeft, Plus, MousePointer2, Type, Trash2, Image as ImageIcon,
-  Layers, Settings
+  Layers, Settings, PlusCircle
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -74,6 +74,32 @@ export default function DgiFormsEditor() {
     setCurrentPageIdx(0)
     setActiveTab("editor")
     toast({ title: "Template Chargé", description: `Édition du formulaire ${form.name} en cours.` })
+  }
+
+  const handleCreateBlankForm = () => {
+    const newForm = {
+      id: `custom_${Date.now()}`,
+      type: 'G50',
+      version: '1.0',
+      name: "Nouveau Formulaire Personnalisé",
+      status: "Draft",
+      lastUpdate: new Date().toISOString().split('T')[0],
+      pages: [
+        {
+          pageNumber: 1,
+          title: "Page 1",
+          backgroundImage: "https://placehold.co/1200x1600?text=Importez+votre+scan+PDF",
+          fields: []
+        }
+      ]
+    };
+    setSelectedForm(newForm);
+    setCurrentPageIdx(0);
+    setActiveTab("editor");
+    toast({ 
+      title: "Nouveau formulaire créé", 
+      description: "Commencez par importer une image de fond dans l'onglet Éditeur." 
+    });
   }
 
   const handleAddField = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -148,7 +174,14 @@ export default function DgiFormsEditor() {
   }
 
   const handleSaveTemplate = () => {
-    setTemplates(prev => prev.map(t => t.id === selectedForm.id ? selectedForm : t))
+    setTemplates(prev => {
+      const exists = prev.find(t => t.id === selectedForm.id);
+      if (exists) {
+        return prev.map(t => t.id === selectedForm.id ? selectedForm : t);
+      } else {
+        return [...prev, selectedForm];
+      }
+    })
     toast({ title: "Template enregistré", description: "Les modifications ont été sauvegardées localement." })
   }
 
@@ -221,7 +254,10 @@ export default function DgiFormsEditor() {
                 </Card>
               );
             })}
-            <Card className="border-dashed border-2 flex flex-col items-center justify-center p-8 text-center bg-muted/10 hover:bg-muted/20 transition-colors">
+            <Card 
+              className="border-dashed border-2 flex flex-col items-center justify-center p-8 text-center bg-muted/10 hover:bg-muted/20 transition-colors cursor-pointer"
+              onClick={handleCreateBlankForm}
+            >
               <UploadCloud className="h-10 w-10 text-muted-foreground mb-4 opacity-20" />
               <CardTitle className="text-sm font-bold text-muted-foreground uppercase">Nouveau Formulaire</CardTitle>
               <Button variant="outline" size="sm" className="mt-4 text-[10px] font-bold border-dashed">Démarrer à blanc</Button>
