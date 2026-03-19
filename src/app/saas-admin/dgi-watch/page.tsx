@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { 
   Eye, RefreshCw, Sparkles, CheckCircle2, Loader2, 
-  ArrowRight, FileText, Calendar, Zap, AlertTriangle, ListChecks
+  ArrowRight, FileText, Calendar, Zap, AlertTriangle, ListChecks, DatabaseZap
 } from "lucide-react"
 import { scrapeDgiNews } from "@/lib/dgi-watch/scraper"
 import { analyzeDgiPublication } from "@/ai/flows/dgi-analysis-flow"
@@ -19,6 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 export default function DgiWatchAdmin() {
   const db = useFirestore()
   const [isProcessing, setIsProcessing] = React.useState(false)
+  const [isInjecting, setIsInjecting] = React.useState<string | null>(null)
 
   const publicationsQuery = useMemoFirebase(() => 
     db ? query(collection(db, "dgi_publications"), orderBy("detectedAt", "desc")) : null
@@ -34,7 +35,7 @@ export default function DgiWatchAdmin() {
       for (const item of news) {
         const pubRef = doc(db, "dgi_publications", item.id)
         
-        // On analyse systématiquement pour le prototype, ou seulement si non analysé
+        // Analyse IA
         const analysis = await analyzeDgiPublication({ 
           title: item.title, 
           content: item.title 
@@ -53,6 +54,64 @@ export default function DgiWatchAdmin() {
       toast({ variant: "destructive", title: "Erreur Sync" })
     } finally {
       setIsProcessing(false)
+    }
+  }
+
+  const handleInjectVariables = async (pub: any) => {
+    if (!db || !pub.extractedVariables || pub.extractedVariables.length === 0) return;
+    
+    setIsInjecting(pub.id);
+    try {
+      // 1. Créer ou identifier une loi de référence pour cette injection
+      const lawId = `AUTO_${pub.id.substring(0, 8)}`;
+      await setDocumentNonBlocking(doc(db, "fiscal_laws", lawId), {
+        id: lawId,
+        name: pub.title,
+        description: `Injection automatique depuis DGI Watch. Source: ${pub.url}`,
+        effectiveStartDate: pub.extractedVariables[0]?.effectiveDate || new Date().toISOString().split('T')[0],
+        publicationDate: pub.publishedDate || new Date().toISOString().split('T')[0],
+        sourceUrl: pub.url
+      }, { merge: true });
+
+      // 2. Injecter chaque variable
+      for (const v of pub.extractedVariables) {
+        // S'assurer que le type de variable existe
+        await setDocumentNonBlocking(doc(db, "fiscal_variable_types", v.code), {
+          id: v.code,
+          code: v.code,
+          name: v.name,
+          unit: v.value.includes('%') ? '%' : 'DA',
+          dataType: 'number',
+          description: `Variable auto-détectée: ${v.name}`
+        }, { merge: true });
+
+        // Créer la valeur
+        const valId = `VAL_${lawId}_${v.code}`;
+        await setDocumentNonBlocking(doc(db, "fiscal_variable_values", valId), {
+          id: valId,
+          fiscalLawId: lawId,
+          fiscalVariableTypeId: v.code,
+          value: v.value.replace(/[^0-9.]/g, ''), // Nettoyage simple pour avoir un nombre
+          effectiveStartDate: v.effectiveDate || new Date().toISOString().split('T')[0],
+          notes: `Injecté via DGI Watch - Analyse Gemini`
+        }, { merge: true });
+      }
+
+      // 3. Marquer la publication comme "Appliquée"
+      await setDocumentNonBlocking(doc(db, "dgi_publications", pub.id), {
+        isApplied: true,
+        appliedAt: new Date().toISOString()
+      }, { merge: true });
+
+      toast({ 
+        title: "Injection réussie", 
+        description: `${pub.extractedVariables.length} variables ajoutées au moteur fiscal.` 
+      });
+    } catch (e) {
+      console.error(e);
+      toast({ variant: "destructive", title: "Erreur d'injection" });
+    } finally {
+      setIsInjecting(null);
     }
   }
 
@@ -123,7 +182,7 @@ export default function DgiWatchAdmin() {
         ) : (
           <div className="space-y-6">
             {publications?.map((pub) => (
-              <Card key={pub.id} className="overflow-hidden border-none shadow-lg ring-1 ring-border">
+              <Card key={pub.id} className={`overflow-hidden border-none shadow-lg ring-1 ring-border ${pub.isApplied ? 'bg-emerald-50/10' : ''}`}>
                 <CardHeader className="bg-muted/30 border-b py-4">
                   <div className="flex items-start justify-between">
                     <div className="space-y-1">
@@ -137,6 +196,9 @@ export default function DgiWatchAdmin() {
                         <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                           <Calendar className="h-3 w-3" /> Détecté le {new Date(pub.detectedAt).toLocaleDateString()}
                         </span>
+                        {pub.isApplied && (
+                          <Badge className="bg-emerald-500 text-white text-[8px] h-4 ml-2">APPLIQUÉ AU MOTEUR</Badge>
+                        )}
                       </div>
                       <CardTitle className="text-lg text-primary">{pub.title}</CardTitle>
                     </div>
@@ -153,7 +215,7 @@ export default function DgiWatchAdmin() {
                         <h4 className="text-[10px] font-bold uppercase text-muted-foreground mb-2 flex items-center gap-1">
                           <Zap className="h-3 w-3 text-accent" /> Résumé Exécutif
                         </h4>
-                        <p className="text-sm leading-relaxed italic text-foreground/80">"{pub.summary}"</p>
+                        <p className="text-sm leading-relaxed italic text-foreground/80">"{pub.summary || 'Analyse IA en attente...'}"</p>
                       </div>
                       <div>
                         <h4 className="text-[10px] font-bold uppercase text-muted-foreground mb-2">Modules SaaS Impactés</h4>
@@ -177,14 +239,28 @@ export default function DgiWatchAdmin() {
                             <span>{pt}</span>
                           </li>
                         ))}
+                        {!pub.keyPoints && <li className="text-xs text-muted-foreground italic">Aucun point extrait.</li>}
                       </ul>
                     </div>
 
                     {/* Colonne 3 : Variables Extraites */}
                     <div className="space-y-4 bg-muted/20 p-4 rounded-xl">
-                      <h4 className="text-[10px] font-bold uppercase text-muted-foreground mb-2 flex items-center gap-1">
-                        <Zap className="h-3 w-3 text-emerald-600" /> Données Structurées
-                      </h4>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1">
+                          <Zap className="h-3 w-3 text-emerald-600" /> Données Structurées
+                        </h4>
+                        {pub.extractedVariables && pub.extractedVariables.length > 0 && !pub.isApplied && (
+                          <Button 
+                            size="sm" 
+                            className="h-6 text-[8px] bg-emerald-600 hover:bg-emerald-700"
+                            onClick={() => handleInjectVariables(pub)}
+                            disabled={isInjecting === pub.id}
+                          >
+                            {isInjecting === pub.id ? <Loader2 className="h-2 w-2 animate-spin mr-1" /> : <DatabaseZap className="h-2 w-2 mr-1" />}
+                            APPROUVER & INJECTER
+                          </Button>
+                        )}
+                      </div>
                       {pub.extractedVariables && pub.extractedVariables.length > 0 ? (
                         <div className="space-y-3">
                           {pub.extractedVariables.map((v: any, idx: number) => (
@@ -199,9 +275,6 @@ export default function DgiWatchAdmin() {
                               </div>
                             </div>
                           ))}
-                          <Button size="sm" className="w-full h-7 text-[10px] bg-emerald-600 hover:bg-emerald-700">
-                            Injecter dans le Moteur
-                          </Button>
                         </div>
                       ) : (
                         <div className="text-center py-6 text-muted-foreground italic text-xs">
