@@ -65,7 +65,7 @@ service cloud.firestore {
 
     // --- Tenant Multi-Tenancy Rules ---
     match /tenants/{tenantId} {
-      // Use 'in' operator for better performance on queries
+      // Allow list and get if member or admin. For list, a filter on members must be used in the query.
       allow get: if isSignedIn() && (isAdmin() || (resource != null && request.auth.uid in resource.data.members));
       allow list: if isSignedIn() && (isAdmin() || request.auth.uid in resource.data.members);
       allow create: if isSignedIn();

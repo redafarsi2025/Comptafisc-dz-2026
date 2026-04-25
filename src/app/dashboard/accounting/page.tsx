@@ -446,7 +446,7 @@ export default function AccountingJournal() {
             <FileDown className="h-8 w-8" />
             <span>Générer Export FEC Algérien (XML/CSV)</span>
           </Button>
-        </div>
+        </Card>
       </div>
     </div>
   )
