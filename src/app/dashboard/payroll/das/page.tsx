@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -13,10 +14,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { toast } from "@/hooks/use-toast"
+import { useSearchParams } from "next/navigation"
 
 export default function DasPage() {
   const db = useFirestore()
   const { user } = useUser()
+  const searchParams = useSearchParams()
+  const tenantIdFromUrl = searchParams.get('tenantId')
   const [mounted, setMounted] = React.useState(false)
   const [selectedYear, setSelectedYear] = React.useState(2025)
 
@@ -26,19 +30,24 @@ export default function DasPage() {
 
   const formatAmount = (val: number) => mounted ? val.toLocaleString() : "..."
 
-  // Fetch active tenant
+  // Fetch active tenants
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null), limit(1));
+    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
   }, [db, user]);
   const { data: tenants } = useCollection(tenantsQuery);
-  const currentTenant = tenants?.[0];
+  
+  const currentTenant = React.useMemo(() => {
+    if (!tenants) return null;
+    if (tenantIdFromUrl) return tenants.find(t => t.id === tenantIdFromUrl) || tenants[0];
+    return tenants[0];
+  }, [tenants, tenantIdFromUrl]);
 
   // Fetch employees for the year
   const employeesQuery = useMemoFirebase(() => {
     if (!db || !currentTenant) return null;
     return collection(db, "tenants", currentTenant.id, "employees");
-  }, [db, currentTenant]);
+  }, [db, currentTenant?.id]);
   const { data: employees, isLoading } = useCollection(employeesQuery);
 
   const dasData = React.useMemo(() => {
@@ -123,10 +132,10 @@ export default function DasPage() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => setSelectedYear(selectedYear - 1)}><Calendar className="mr-2 h-4 w-4" /> Exercice {selectedYear}</Button>
-          <Button className="bg-emerald-600 hover:bg-emerald-700 shadow-md" onClick={() => handleDownloadXml('G29')}>
+          <Button className="bg-emerald-600 hover:bg-emerald-700 shadow-md" onClick={() => handleDownloadXml('G29')} disabled={!currentTenant}>
             <FileCode className="mr-2 h-4 w-4" /> Télécharger G n°29 (XML)
           </Button>
-          <Button className="bg-primary shadow-md" onClick={() => handleDownloadXml('CNAS')}>
+          <Button className="bg-primary shadow-md" onClick={() => handleDownloadXml('CNAS')} disabled={!currentTenant}>
             <FileDown className="mr-2 h-4 w-4" /> Télécharger DAS CNAS (XML)
           </Button>
         </div>
@@ -196,7 +205,9 @@ export default function DasPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {dasData.map((s, idx) => (
+                  {!dasData.length ? (
+                    <TableRow><TableCell colSpan={5} className="text-center py-12 text-muted-foreground italic">Aucun salarié dans le registre pour cette période.</TableCell></TableRow>
+                  ) : dasData.map((s, idx) => (
                     <TableRow key={idx} className="hover:bg-muted/10">
                       <TableCell>
                         <div className="flex flex-col">
@@ -212,14 +223,16 @@ export default function DasPage() {
                     </TableRow>
                   ))}
                 </TableBody>
-                <TableFooter className="bg-primary/5">
-                  <TableRow className="font-bold">
-                    <TableCell colSpan={2}>TOTAL EXERCICE {selectedYear}</TableCell>
-                    <TableCell className="text-right font-mono">{formatAmount(totals.gross)} DA</TableCell>
-                    <TableCell className="text-right font-mono text-amber-600">{formatAmount(totals.irg)} DA</TableCell>
-                    <TableCell className="text-right font-mono text-primary">{formatAmount(totals.cnas)} DA</TableCell>
-                  </TableRow>
-                </TableFooter>
+                {dasData.length > 0 && (
+                  <TableFooter className="bg-primary/5">
+                    <TableRow className="font-bold">
+                      <TableCell colSpan={2}>TOTAL EXERCICE {selectedYear}</TableCell>
+                      <TableCell className="text-right font-mono">{formatAmount(totals.gross)} DA</TableCell>
+                      <TableCell className="text-right font-mono text-amber-600">{formatAmount(totals.irg)} DA</TableCell>
+                      <TableCell className="text-right font-mono text-primary">{formatAmount(totals.cnas)} DA</TableCell>
+                    </TableRow>
+                  </TableFooter>
+                )}
               </Table>
             </CardContent>
           </Card>

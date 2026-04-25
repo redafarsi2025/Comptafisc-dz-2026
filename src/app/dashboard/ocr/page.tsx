@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -11,12 +12,14 @@ import Image from "next/image"
 import { useFirestore, useUser, useCollection, useMemoFirebase, addDocumentNonBlocking } from "@/firebase"
 import { collection, query, where, limit } from "firebase/firestore"
 import { toast } from "@/hooks/use-toast"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
 export default function OcrIngestion() {
   const db = useFirestore()
   const { user } = useUser()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const tenantIdFromUrl = searchParams.get('tenantId')
   const [file, setFile] = React.useState<File | null>(null)
   const [preview, setPreview] = React.useState<string | null>(null)
   const [isProcessing, setIsProcessing] = React.useState(false)
@@ -25,10 +28,15 @@ export default function OcrIngestion() {
 
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null), limit(1));
+    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
   }, [db, user]);
   const { data: tenants } = useCollection(tenantsQuery);
-  const currentTenant = tenants?.[0];
+  
+  const currentTenant = React.useMemo(() => {
+    if (!tenants) return null;
+    if (tenantIdFromUrl) return tenants.find(t => t.id === tenantIdFromUrl) || tenants[0];
+    return tenants[0];
+  }, [tenants, tenantIdFromUrl]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0]
@@ -95,7 +103,7 @@ export default function OcrIngestion() {
     try {
       await addDocumentNonBlocking(journalEntriesRef, entryData);
       toast({ title: "Saisie automatique réussie", description: `L'écriture pour "${result.vendorName}" a été validée.` });
-      router.push("/dashboard/accounting/journal");
+      router.push(`/dashboard/accounting/journal?tenantId=${currentTenant.id}`);
     } catch (e) {
       console.error(e);
     } finally {
@@ -156,7 +164,7 @@ export default function OcrIngestion() {
           <CardFooter>
             <Button
               className="w-full h-12 text-lg shadow-lg"
-              disabled={!preview || isProcessing}
+              disabled={!preview || isProcessing || !currentTenant}
               onClick={processOcr}
             >
               {isProcessing ? (

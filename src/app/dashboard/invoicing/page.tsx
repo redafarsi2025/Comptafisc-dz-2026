@@ -225,7 +225,9 @@ export default function InvoicingPage() {
                 </TableBody>
               </Table>
             </div>
-            <Button variant="outline" size="sm" onClick={addItem} className="border-dashed"><Plus className="mr-2 h-4 w-4" /> Ajouter une ligne de facturation</Button>
+            <Button variant="outline" size="sm" onClick={addItem} className="border-dashed w-full">
+              <Plus className="mr-2 h-4 w-4" /> Ajouter une ligne de facturation
+            </Button>
           </CardContent>
         </Card>
 

@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -12,10 +13,13 @@ import { FileText, Download, Printer, ShieldCheck, GraduationCap, Calculator, In
 import { TAX_RATES } from "@/lib/calculations"
 import { jsPDF } from "jspdf"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useSearchParams } from "next/navigation"
 
 export default function TaxeApprentissagePage() {
   const db = useFirestore()
   const { user } = useUser()
+  const searchParams = useSearchParams()
+  const tenantIdFromUrl = searchParams.get('tenantId')
   const [mounted, setMounted] = React.useState(false)
   const [selectedSemester, setSelectedSemester] = React.useState("1")
 
@@ -25,19 +29,24 @@ export default function TaxeApprentissagePage() {
 
   const formatAmount = (val: number) => mounted ? Math.round(val).toLocaleString() : "..."
 
-  // 1. Fetch Active Tenant
+  // 1. Fetch Active Tenants
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null), limit(1));
+    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
   }, [db, user]);
   const { data: tenants } = useCollection(tenantsQuery);
-  const currentTenant = tenants?.[0];
+  
+  const currentTenant = React.useMemo(() => {
+    if (!tenants) return null;
+    if (tenantIdFromUrl) return tenants.find(t => t.id === tenantIdFromUrl) || tenants[0];
+    return tenants[0];
+  }, [tenants, tenantIdFromUrl]);
 
   // 2. Fetch Employees (for Payroll Base)
   const employeesQuery = useMemoFirebase(() => {
     if (!db || !currentTenant) return null;
     return collection(db, "tenants", currentTenant.id, "employees");
-  }, [db, currentTenant]);
+  }, [db, currentTenant?.id]);
   const { data: employees, isLoading } = useCollection(employeesQuery);
 
   const semesterData = React.useMemo(() => {
@@ -97,6 +106,8 @@ export default function TaxeApprentissagePage() {
     
     doc.save(`AnnexeI_S${selectedSemester}_${currentTenant?.raisonSociale}.pdf`);
   };
+
+  if (!currentTenant) return <div className="p-8 text-center">Chargement du dossier...</div>;
 
   return (
     <div className="space-y-6">

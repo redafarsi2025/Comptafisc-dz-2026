@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -10,10 +11,13 @@ import { Printer, FileDown, BookOpen, Calendar, Calculator, ShieldCheck } from "
 import { PAYROLL_CONSTANTS, calculateIRG } from "@/lib/calculations"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useSearchParams } from "next/navigation"
 
 export default function PayrollLedger() {
   const db = useFirestore()
   const { user } = useUser()
+  const searchParams = useSearchParams()
+  const tenantIdFromUrl = searchParams.get('tenantId')
   const [mounted, setMounted] = React.useState(false)
   const [selectedMonth, setSelectedMonth] = React.useState(new Date().getMonth().toString())
 
@@ -25,15 +29,20 @@ export default function PayrollLedger() {
 
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null), limit(1));
+    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
   }, [db, user]);
   const { data: tenants } = useCollection(tenantsQuery);
-  const currentTenant = tenants?.[0];
+  
+  const currentTenant = React.useMemo(() => {
+    if (!tenants) return null;
+    if (tenantIdFromUrl) return tenants.find(t => t.id === tenantIdFromUrl) || tenants[0];
+    return tenants[0];
+  }, [tenants, tenantIdFromUrl]);
 
   const employeesQuery = useMemoFirebase(() => {
     if (!db || !currentTenant) return null;
     return collection(db, "tenants", currentTenant.id, "employees");
-  }, [db, currentTenant]);
+  }, [db, currentTenant?.id]);
   const { data: employees, isLoading } = useCollection(employeesQuery);
 
   const ledgerData = React.useMemo(() => {
@@ -107,7 +116,7 @@ export default function PayrollLedger() {
       <Card className="shadow-lg border-t-4 border-t-primary overflow-hidden">
         <CardHeader className="bg-muted/30 border-b flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="text-lg">Journal de Paie - {currentTenant?.raisonSociale}</CardTitle>
+            <CardTitle className="text-lg">Journal de Paie - {currentTenant?.raisonSociale || 'Chargement...'}</CardTitle>
             <CardDescription>Période du 01 au 31 {["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"][parseInt(selectedMonth)]} 2026</CardDescription>
           </div>
           <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
@@ -130,7 +139,9 @@ export default function PayrollLedger() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {ledgerData.map((s, idx) => (
+                {!ledgerData.length ? (
+                   <TableRow><TableCell colSpan={8} className="text-center py-12 text-muted-foreground italic">Aucun salarié trouvé dans ce dossier.</TableCell></TableRow>
+                ) : ledgerData.map((s, idx) => (
                   <TableRow key={idx} className="hover:bg-muted/10 text-xs">
                     <TableCell>
                       <div className="flex flex-col">
@@ -148,18 +159,20 @@ export default function PayrollLedger() {
                   </TableRow>
                 ))}
               </TableBody>
-              <TableFooter className="bg-primary/5">
-                <TableRow className="font-bold text-xs">
-                  <TableCell>TOTAUX PÉRIODE</TableCell>
-                  <TableCell className="text-right font-mono">{formatAmount(totals.base)}</TableCell>
-                  <TableCell className="text-right font-mono">{formatAmount(totals.poste)}</TableCell>
-                  <TableCell className="text-right font-mono text-destructive">-{formatAmount(totals.cnasE)}</TableCell>
-                  <TableCell className="text-right font-mono text-destructive">-{formatAmount(totals.irg)}</TableCell>
-                  <TableCell className="text-right"></TableCell>
-                  <TableCell className="text-right font-mono text-lg text-primary">{formatAmount(totals.net)} DA</TableCell>
-                  <TableCell className="text-right font-mono text-muted-foreground">{formatAmount(totals.cnasP)}</TableCell>
-                </TableRow>
-              </TableFooter>
+              {ledgerData.length > 0 && (
+                <TableFooter className="bg-primary/5">
+                  <TableRow className="font-bold text-xs">
+                    <TableCell>TOTAUX PÉRIODE</TableCell>
+                    <TableCell className="text-right font-mono">{formatAmount(totals.base)}</TableCell>
+                    <TableCell className="text-right font-mono">{formatAmount(totals.poste)}</TableCell>
+                    <TableCell className="text-right font-mono text-destructive">-{formatAmount(totals.cnasE)}</TableCell>
+                    <TableCell className="text-right font-mono text-destructive">-{formatAmount(totals.irg)}</TableCell>
+                    <TableCell className="text-right"></TableCell>
+                    <TableCell className="text-right font-mono text-lg text-primary">{formatAmount(totals.net)} DA</TableCell>
+                    <TableCell className="text-right font-mono text-muted-foreground">{formatAmount(totals.cnasP)}</TableCell>
+                  </TableRow>
+                </TableFooter>
+              )}
             </Table>
           </div>
         </CardContent>

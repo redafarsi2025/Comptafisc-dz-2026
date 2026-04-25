@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -12,13 +13,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Landmark, Download, FileCheck, Info, Calendar, Calculator, TrendingUp, AlertCircle, CheckCircle2, Clock } from "lucide-react"
 import { getIFURate, TAX_RATES, calculateIFU } from "@/lib/calculations"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Label } from "@/components/ui/label"
+import { useSearchParams } from "next/navigation"
 
 export default function G12Declaration() {
   const db = useFirestore()
   const { user } = useUser()
+  const searchParams = useSearchParams()
+  const tenantIdFromUrl = searchParams.get('tenantId')
   const [mounted, setMounted] = React.useState(false)
   const [forecastCA, setForecastCA] = React.useState<number>(0)
-  const [isFractioned, setIsFractioned] = React.useState(true)
 
   React.useEffect(() => {
     setMounted(true)
@@ -28,15 +32,20 @@ export default function G12Declaration() {
 
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null), limit(1));
+    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
   }, [db, user]);
   const { data: tenants } = useCollection(tenantsQuery);
-  const currentTenant = tenants?.[0];
+  
+  const currentTenant = React.useMemo(() => {
+    if (!tenants) return null;
+    if (tenantIdFromUrl) return tenants.find(t => t.id === tenantIdFromUrl) || tenants[0];
+    return tenants[0];
+  }, [tenants, tenantIdFromUrl]);
 
   const invoicesQuery = useMemoFirebase(() => {
     if (!db || !currentTenant) return null;
     return collection(db, "tenants", currentTenant.id, "invoices");
-  }, [db, currentTenant]);
+  }, [db, currentTenant?.id]);
   const { data: invoices } = useCollection(invoicesQuery);
 
   const ifuRate = getIFURate(currentTenant?.secteurActivite || "SERVICES", currentTenant?.formeJuridique || "");
@@ -51,7 +60,7 @@ export default function G12Declaration() {
   const actualTax = calculateIFU(actualCA, ifuRate, isAuto);
   const regularisation = Math.max(0, actualTax - forecastTax);
 
-  if (!currentTenant) return null;
+  if (!currentTenant) return <div className="flex items-center justify-center h-screen">Chargement du dossier...</div>;
 
   return (
     <div className="space-y-6">
@@ -175,8 +184,4 @@ export default function G12Declaration() {
       </Tabs>
     </div>
   )
-}
-
-function Label({ children, className }: { children: React.ReactNode, className?: string }) {
-  return <label className={`text-sm font-medium ${className}`}>{children}</label>;
 }

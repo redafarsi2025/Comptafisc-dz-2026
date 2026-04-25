@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -14,10 +15,13 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { format, addDays, isAfter, differenceInDays } from "date-fns"
 import { fr } from "date-fns/locale"
+import { useSearchParams } from "next/navigation"
 
 export default function G8Declaration() {
   const db = useFirestore()
   const { user } = useUser()
+  const searchParams = useSearchParams()
+  const tenantIdFromUrl = searchParams.get('tenantId')
   const [mounted, setMounted] = React.useState(false)
 
   React.useEffect(() => {
@@ -26,10 +30,15 @@ export default function G8Declaration() {
 
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null), limit(1));
+    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
   }, [db, user]);
   const { data: tenants } = useCollection(tenantsQuery);
-  const currentTenant = tenants?.[0];
+  
+  const currentTenant = React.useMemo(() => {
+    if (!tenants) return null;
+    if (tenantIdFromUrl) return tenants.find(t => t.id === tenantIdFromUrl) || tenants[0];
+    return tenants[0];
+  }, [tenants, tenantIdFromUrl]);
 
   const startDate = currentTenant?.debutActivite ? new Date(currentTenant.debutActivite) : null;
   const deadline = startDate ? addDays(startDate, 30) : null;
@@ -88,7 +97,7 @@ export default function G8Declaration() {
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Action requise</AlertTitle>
           <AlertDescription>
-            Veuillez renseigner la <strong>Date de début d'activité</strong> dans les <a href="/dashboard/settings" className="underline font-bold">Paramètres du Dossier</a> pour activer cette déclaration.
+            Veuillez renseigner la <strong>Date de début d'activité</strong> dans les <Link href={`/dashboard/settings?tenantId=${currentTenant?.id || ''}`} className="underline font-bold">Paramètres du Dossier</Link> pour activer cette déclaration.
           </AlertDescription>
         </Alert>
       )}

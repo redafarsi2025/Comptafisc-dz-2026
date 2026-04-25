@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -19,19 +20,27 @@ import {
 import { toast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
 import { PLANS } from "@/lib/plans"
+import { useSearchParams } from "next/navigation"
 
 export default function TenantSettingsPage() {
   const db = useFirestore()
   const { user } = useUser()
+  const searchParams = useSearchParams()
+  const tenantIdFromUrl = searchParams.get('tenantId')
   const [isSaving, setIsSaving] = React.useState(false)
 
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null), limit(1));
+    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
   }, [db, user]);
   
   const { data: tenants, isLoading: isTenantsLoading } = useCollection(tenantsQuery);
-  const currentTenant = tenants?.[0];
+  
+  const currentTenant = React.useMemo(() => {
+    if (!tenants) return null;
+    if (tenantIdFromUrl) return tenants.find(t => t.id === tenantIdFromUrl) || tenants[0];
+    return tenants[0];
+  }, [tenants, tenantIdFromUrl]);
 
   const [formData, setFormData] = React.useState<any>({})
   const [selectedSector, setSelectedSector] = React.useState<string | null>(null)

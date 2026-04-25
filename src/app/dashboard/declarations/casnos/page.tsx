@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -10,10 +11,13 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Landmark, Calculator, Info, Download, ShieldCheck, AlertCircle, Clock, CalendarDays } from "lucide-react"
 import { CASNOS_CONSTANTS, calculateCASNOS } from "@/lib/calculations"
+import { useSearchParams } from "next/navigation"
 
 export default function CasnosDeclaration() {
   const db = useFirestore()
   const { user } = useUser()
+  const searchParams = useSearchParams()
+  const tenantIdFromUrl = searchParams.get('tenantId')
   const [mounted, setMounted] = React.useState(false)
   const [annualBase, setAnnualBase] = React.useState<number>(0)
 
@@ -23,10 +27,15 @@ export default function CasnosDeclaration() {
 
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null), limit(1));
+    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
   }, [db, user]);
   const { data: tenants } = useCollection(tenantsQuery);
-  const currentTenant = tenants?.[0];
+  
+  const currentTenant = React.useMemo(() => {
+    if (!tenants) return null;
+    if (tenantIdFromUrl) return tenants.find(t => t.id === tenantIdFromUrl) || tenants[0];
+    return tenants[0];
+  }, [tenants, tenantIdFromUrl]);
 
   const contribution = calculateCASNOS(annualBase);
   const isAgri = currentTenant?.secteurActivite === "AGRICULTURE";
@@ -45,7 +54,7 @@ export default function CasnosDeclaration() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline"><Download className="mr-2 h-4 w-4" /> Formulaires CASNOS</Button>
-          <Button className="bg-primary shadow-lg">Soumettre Attestation</Button>
+          <Button className="bg-primary shadow-lg" disabled={!currentTenant}>Soumettre Attestation</Button>
         </div>
       </div>
 

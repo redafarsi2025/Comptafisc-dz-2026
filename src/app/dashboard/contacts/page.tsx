@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -13,10 +14,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
+import { useSearchParams } from "next/navigation"
 
 export default function ContactsPage() {
   const db = useFirestore()
   const { user } = useUser()
+  const searchParams = useSearchParams()
+  const tenantIdFromUrl = searchParams.get('tenantId')
   const [searchTerm, setSearchTerm] = React.useState("")
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [newContact, setNewContact] = React.useState({
@@ -30,15 +34,20 @@ export default function ContactsPage() {
 
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null), limit(1));
+    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
   }, [db, user]);
   const { data: tenants } = useCollection(tenantsQuery);
-  const currentTenant = tenants?.[0];
+  
+  const currentTenant = React.useMemo(() => {
+    if (!tenants) return null;
+    if (tenantIdFromUrl) return tenants.find(t => t.id === tenantIdFromUrl) || tenants[0];
+    return tenants[0];
+  }, [tenants, tenantIdFromUrl]);
 
   const contactsQuery = useMemoFirebase(() => {
     if (!db || !currentTenant) return null;
     return collection(db, "tenants", currentTenant.id, "clients");
-  }, [db, currentTenant]);
+  }, [db, currentTenant?.id]);
   const { data: contacts, isLoading } = useCollection(contactsQuery);
 
   const handleAddContact = async () => {
@@ -79,7 +88,7 @@ export default function ContactsPage() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-primary shadow-lg"><Plus className="mr-2 h-4 w-4" /> Nouveau Tiers</Button>
+            <Button className="bg-primary shadow-lg" disabled={!currentTenant}><Plus className="mr-2 h-4 w-4" /> Nouveau Tiers</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>

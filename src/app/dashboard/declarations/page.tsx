@@ -32,7 +32,7 @@ export default function DeclarationsPage() {
 
   const formatAmount = (val: number) => mounted ? val.toLocaleString() : "..."
 
-  // 1. Fetch accessible tenants
+  // 1. Fetch accessible tenants (no limit to find the URL one)
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));

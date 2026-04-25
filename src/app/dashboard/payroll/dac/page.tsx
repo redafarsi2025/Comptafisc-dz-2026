@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -9,10 +10,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFoo
 import { Badge } from "@/components/ui/badge"
 import { FileText, Download, ShieldCheck, Info, Loader2, Calendar, FileSpreadsheet } from "lucide-react"
 import { PAYROLL_CONSTANTS } from "@/lib/calculations"
+import { useSearchParams } from "next/navigation"
 
 export default function DacPage() {
   const db = useFirestore()
   const { user } = useUser()
+  const searchParams = useSearchParams()
+  const tenantIdFromUrl = searchParams.get('tenantId')
   const [mounted, setMounted] = React.useState(false)
 
   React.useEffect(() => {
@@ -23,15 +27,20 @@ export default function DacPage() {
 
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null), limit(1));
+    return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
   }, [db, user]);
   const { data: tenants } = useCollection(tenantsQuery);
-  const currentTenant = tenants?.[0];
+  
+  const currentTenant = React.useMemo(() => {
+    if (!tenants) return null;
+    if (tenantIdFromUrl) return tenants.find(t => t.id === tenantIdFromUrl) || tenants[0];
+    return tenants[0];
+  }, [tenants, tenantIdFromUrl]);
 
   const employeesQuery = useMemoFirebase(() => {
     if (!db || !currentTenant) return null;
     return collection(db, "tenants", currentTenant.id, "employees");
-  }, [db, currentTenant]);
+  }, [db, currentTenant?.id]);
   const { data: employees, isLoading } = useCollection(employeesQuery);
 
   const dacData = React.useMemo(() => {
@@ -60,7 +69,7 @@ export default function DacPage() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline"><Calendar className="mr-2 h-4 w-4" /> Période en cours</Button>
-          <Button className="bg-primary shadow-lg"><Download className="mr-2 h-4 w-4" /> Télécharger DAC (PDF)</Button>
+          <Button className="bg-primary shadow-lg" disabled={!currentTenant}><Download className="mr-2 h-4 w-4" /> Télécharger DAC (PDF)</Button>
         </div>
       </div>
 
@@ -95,7 +104,7 @@ export default function DacPage() {
       <Card className="border-t-4 border-t-primary shadow-lg overflow-hidden">
         <CardHeader className="bg-muted/30">
           <CardTitle className="text-lg">Détail des Cotisations</CardTitle>
-          <CardDescription>Consolidation des assiettes CNAS pour le mois de {mounted ? new Date().toLocaleString('fr-FR', { month: 'long', year: 'numeric' }) : "..."}.</CardDescription>
+          <CardDescription>Consolidation des assiettes CNAS pour le dossier {currentTenant?.raisonSociale || '...'}</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -121,12 +130,14 @@ export default function DacPage() {
                 <TableCell className="text-right font-mono text-xs text-primary">{formatAmount(dacData.partPatronale)}</TableCell>
               </TableRow>
             </TableBody>
-            <TableFooter className="bg-primary/5">
-              <TableRow className="font-bold">
-                <TableCell colSpan={3}>MONTANT TOTAL À PAYER</TableCell>
-                <TableCell className="text-right font-mono text-lg text-primary">{formatAmount(dacData.total)} DA</TableCell>
-              </TableRow>
-            </TableFooter>
+            {dacData.total > 0 && (
+              <TableFooter className="bg-primary/5">
+                <TableRow className="font-bold">
+                  <TableCell colSpan={3}>MONTANT TOTAL À PAYER</TableCell>
+                  <TableCell className="text-right font-mono text-lg text-primary">{formatAmount(dacData.total)} DA</TableCell>
+                </TableRow>
+              </TableFooter>
+            )}
           </Table>
         </CardContent>
       </Card>
