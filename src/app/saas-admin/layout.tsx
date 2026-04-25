@@ -1,12 +1,14 @@
 
 "use client"
 
+import * as React from "react"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { AdminSidebar } from "@/components/admin/sidebar"
-import { useUser } from "@/firebase"
+import { useUser, useFirestore, useMemoFirebase, useDoc } from "@/firebase"
 import { redirect } from "next/navigation"
 import { Loader2, Lock, User as UserIcon, ShieldCheck } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { doc } from "firebase/firestore"
 
 export default function AdminLayout({
   children,
@@ -14,18 +16,28 @@ export default function AdminLayout({
   children: React.ReactNode
 }) {
   const { user, isUserLoading } = useUser()
+  const db = useFirestore()
 
-  if (isUserLoading) return (
+  // Verify Admin status from Firestore before rendering admin content
+  const adminDocRef = useMemoFirebase(() => (db && user) ? doc(db, "saas_admins", user.uid) : null, [db, user]);
+  const { data: adminRecord, isLoading: isAdminLoading } = useDoc(adminDocRef);
+
+  if (isUserLoading || isAdminLoading) return (
     <div className="h-screen flex items-center justify-center bg-slate-50">
       <div className="flex flex-col items-center gap-4">
         <Loader2 className="animate-spin text-primary h-10 w-10" />
-        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Initialisation de la console...</p>
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Vérification des privilèges...</p>
       </div>
     </div>
   )
   
   if (!user) {
     redirect("/login")
+  }
+
+  // If user is authenticated but not a SaaS Admin, redirect to standard dashboard
+  if (!adminRecord) {
+    redirect("/dashboard")
   }
 
   return (

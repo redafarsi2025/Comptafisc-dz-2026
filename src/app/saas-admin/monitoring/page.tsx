@@ -13,25 +13,31 @@ import {
 } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
-import { collection } from "firebase/firestore"
+import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
+import { collection, doc } from "firebase/firestore"
 
 export default function MonitoringPage() {
   const db = useFirestore()
+  const { user } = useUser()
   const [mounted, setMounted] = React.useState(false)
 
   React.useEffect(() => {
     setMounted(true)
   }, [])
 
-  // Real collection counts for monitoring
-  const invoicesQuery = useMemoFirebase(() => db ? collection(db, "tenants") : null, [db]); // Proxied for tenant count
-  const { data: tenants } = useCollection(invoicesQuery);
+  // Admin Guard
+  const adminDocRef = useMemoFirebase(() => (db && user) ? doc(db, "saas_admins", user.uid) : null, [db, user]);
+  const { data: adminRecord } = useDoc(adminDocRef);
+  const isSaaSAdmin = !!adminRecord;
 
-  const usersQuery = useMemoFirebase(() => db ? collection(db, "userProfiles") : null, [db]);
+  // Real collection counts for monitoring - only fetch if admin
+  const tenantsQuery = useMemoFirebase(() => (db && isSaaSAdmin) ? collection(db, "tenants") : null, [db, isSaaSAdmin]);
+  const { data: tenants } = useCollection(tenantsQuery);
+
+  const usersQuery = useMemoFirebase(() => (db && isSaaSAdmin) ? collection(db, "userProfiles") : null, [db, isSaaSAdmin]);
   const { data: users } = useCollection(usersQuery);
 
-  if (!mounted) return null;
+  if (!mounted || !isSaaSAdmin) return null;
 
   return (
     <div className="space-y-8">

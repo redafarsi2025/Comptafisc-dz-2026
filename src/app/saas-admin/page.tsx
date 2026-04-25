@@ -5,7 +5,7 @@ import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  AreaChart, Area, PieChart, Pie, Cell, Legend
+  PieChart, Pie, Cell, Legend
 } from "recharts"
 import { 
   TrendingUp, ArrowUpRight, 
@@ -15,8 +15,8 @@ import {
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, query, orderBy } from "firebase/firestore"
+import { useFirestore, useCollection, useMemoFirebase, useDoc, useUser } from "@/firebase"
+import { collection, query, orderBy, doc } from "firebase/firestore"
 
 const PLAN_COLORS: Record<string, string> = {
   'GRATUIT': '#94a3b8',
@@ -29,23 +29,29 @@ const PLAN_PRICES: Record<string, number> = {
   'GRATUIT': 0,
   'ESSENTIEL': 1500,
   'PRO': 5000,
-  'CABINET': 15000, // Estimation pour le calcul du MRR
+  'CABINET': 15000, 
 };
 
 export default function AdminDashboard() {
   const db = useFirestore()
+  const { user } = useUser()
   const [mounted, setMounted] = React.useState(false)
 
   React.useEffect(() => {
     setMounted(true)
   }, [])
 
+  // Guard: Only fetch if user is definitely an admin
+  const adminDocRef = useMemoFirebase(() => (db && user) ? doc(db, "saas_admins", user.uid) : null, [db, user]);
+  const { data: adminRecord } = useDoc(adminDocRef);
+  const isSaaSAdmin = !!adminRecord;
+
   // Fetch real profiles
-  const profilesQuery = useMemoFirebase(() => db ? query(collection(db, "userProfiles"), orderBy("updatedAt", "desc")) : null, [db]);
+  const profilesQuery = useMemoFirebase(() => (db && isSaaSAdmin) ? query(collection(db, "userProfiles"), orderBy("updatedAt", "desc")) : null, [db, isSaaSAdmin]);
   const { data: profiles, isLoading: isLoadingProfiles } = useCollection(profilesQuery);
 
   // Fetch real tenants
-  const tenantsQuery = useMemoFirebase(() => db ? collection(db, "tenants") : null, [db]);
+  const tenantsQuery = useMemoFirebase(() => (db && isSaaSAdmin) ? collection(db, "tenants") : null, [db, isSaaSAdmin]);
   const { data: tenants, isLoading: isLoadingTenants } = useCollection(tenantsQuery);
 
   const stats = React.useMemo(() => {

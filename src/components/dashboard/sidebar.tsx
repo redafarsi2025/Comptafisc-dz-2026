@@ -60,16 +60,15 @@ import {
   DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { useUser, useFirestore, useAuth, useCollection, useMemoFirebase, initiateAnonymousSignIn } from "@/firebase"
-import { collection, query, where } from "firebase/firestore"
+import { useUser, useFirestore, useAuth, useCollection, useMemoFirebase, useDoc, initiateAnonymousSignIn } from "@/firebase"
+import { collection, query, where, doc } from "firebase/firestore"
 import { signOut } from "firebase/auth"
 
-// 1. Pilotage & Décision
+// Navigation configurations
 const pilotageNav = [
   { name: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard },
 ]
 
-// 2. Comptabilité SCF
 const accountingNav = [
   { name: "Saisie Journal", href: "/dashboard/accounting", icon: BookText },
   { name: "Grand Livre", href: "/dashboard/accounting/ledger", icon: Library },
@@ -79,13 +78,11 @@ const accountingNav = [
   { name: "Rapprochement Bancaire", href: "/dashboard/cabinet/bank-recon", icon: Landmark },
 ]
 
-// 3. Activité & Tiers
 const businessNav = [
   { name: "Facturation Émise", href: "/dashboard/invoicing", icon: Receipt },
   { name: "Tiers (Clients/Fourn.)", href: "/dashboard/contacts", icon: Contact },
 ]
 
-// 4. Ressources Humaines & Paie
 const payrollNav = [
   { name: "Registre du Personnel", href: "/dashboard/payroll", icon: Users },
   { name: "Livre de Paie", href: "/dashboard/payroll/ledger", icon: BookOpen },
@@ -94,7 +91,6 @@ const payrollNav = [
   { name: "CACOBATPH (BTP)", href: "/dashboard/payroll/cacobatph", icon: HardHat },
 ]
 
-// 5. Fiscalité DGI & Sociaux
 const fiscalNav = [
   { name: "Déclarations (G50/G12)", href: "/dashboard/declarations", icon: FileText },
   { name: "G50 ter (Trimestriel)", href: "/dashboard/declarations/g50ter", icon: CalendarDays },
@@ -104,14 +100,12 @@ const fiscalNav = [
   { name: "Taxe Apprentissage", href: "/dashboard/declarations/taxe-apprentissage", icon: GraduationCap },
 ]
 
-// 6. Centre IA & Veille
 const aiNav = [
   { name: "Assistant Fiscal IA", href: "/dashboard/assistant", icon: MessageSquareMore },
   { name: "Capture OCR (Gemini)", href: "/dashboard/ocr", icon: Camera },
   { name: "DGI Watch (Veille)", href: "/dashboard/cabinet/dgi-watch", icon: Eye },
 ]
 
-// 7. Expert Cabinet (Multi-dossiers)
 const cabinetNav = [
   { name: "Dashboard Cabinet", href: "/dashboard/cabinet", icon: Layers },
   { name: "Collaboration Hub", href: "/dashboard/cabinet/collaboration", icon: MessagesSquare },
@@ -134,12 +128,17 @@ export function DashboardSidebar() {
     }
   }, [user, isUserLoading, auth]);
 
+  // Fetch Tenants where user is a member
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
   }, [db, user]);
-
   const { data: tenants, isLoading: isTenantsLoading } = useCollection(tenantsQuery);
+
+  // Check if user is SaaS Admin to show the admin console link
+  const adminDocRef = useMemoFirebase(() => (db && user) ? doc(db, "saas_admins", user.uid) : null, [db, user]);
+  const { data: adminRecord } = useDoc(adminDocRef);
+  const isSaaSAdmin = !!adminRecord;
 
   const tenantIdFromUrl = searchParams.get('tenantId')
 
@@ -267,11 +266,14 @@ export function DashboardSidebar() {
                 <Link href={currentTenant ? `/dashboard/settings?tenantId=${currentTenant.id}` : "/dashboard/settings"}><Settings /><span>Paramètres Dossier</span></Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname.startsWith("/saas-admin")} className="text-accent hover:bg-accent/5">
-                <Link href="/saas-admin"><ShieldAlert className="text-accent" /><span>Console SaaS Admin</span></Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+            
+            {isSaaSAdmin && (
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname.startsWith("/saas-admin")} className="text-accent hover:bg-accent/5">
+                  <Link href="/saas-admin"><ShieldAlert className="text-accent" /><span>Console SaaS Admin</span></Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>

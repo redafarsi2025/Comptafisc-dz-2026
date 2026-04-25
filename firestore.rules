@@ -24,23 +24,7 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // --- Plans & Variables ---
-    match /plans/{planId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    match /fiscal_variable_types/{typeId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    match /fiscal_variable_values/{valId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    // --- DGI Watch & Content ---
+    // --- DGI Publications & Templates (Global Read) ---
     match /dgi_publications/{pubId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
@@ -56,23 +40,43 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // --- SaaS Admin Rules ---
+    match /fiscal_variable_types/{typeId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /fiscal_variable_values/{valId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // --- Plans ---
+    match /plans/{planId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // --- SaaS Admin Records ---
     match /saas_admins/{userId} {
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow create: if isSignedIn();
+      allow create: if isSignedIn(); 
       allow update, delete: if isAdmin();
     }
 
-    // --- Tenant Logic Rules ---
+    // --- Tenant Multi-Tenancy Rules ---
     match /tenants/{tenantId} {
-      allow read, update: if isSignedIn() && (isAdmin() || resource.data.members[request.auth.uid] != null);
+      // Use 'in' operator for better performance on queries
+      allow get: if isSignedIn() && (isAdmin() || (resource != null && request.auth.uid in resource.data.members));
+      allow list: if isSignedIn() && (isAdmin() || request.auth.uid in resource.data.members);
       allow create: if isSignedIn();
+      allow update: if isSignedIn() && (isAdmin() || request.auth.uid in resource.data.members);
       allow delete: if isAdmin();
 
+      // Rule for all subcollections (Journal, Invoices, Employees, Assets, etc.)
       match /{allSubcollections=**} {
         allow read, write: if isSignedIn() && (
           isAdmin() || 
-          get(/databases/$(database)/documents/tenants/$(tenantId)).data.members[request.auth.uid] != null
+          request.auth.uid in get(/databases/$(database)/documents/tenants/$(tenantId)).data.members
         );
       }
     }
