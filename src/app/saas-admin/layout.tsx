@@ -40,7 +40,7 @@ export default function AdminLayout({
     redirect("/login")
   }
 
-  // Redirect non-admins to standard dashboard
+  // Redirect non-admins to standard dashboard to prevent seeing client UI inside /saas-admin
   if (!adminRecord) {
     redirect("/dashboard")
   }

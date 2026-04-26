@@ -215,7 +215,7 @@ export default function AdminDashboard() {
                     { name: 'Mar', value: stats.totalTenants }
                   ]}>
                     <defs>
-                      <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                      <linearGradient id="colorValue" x1="0" x1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#0C55CC" stopOpacity={0.2}/>
                         <stop offset="95%" stopColor="#0C55CC" stopOpacity={0}/>
                       </linearGradient>
