@@ -83,7 +83,7 @@ export default function HrComplianceDashboard() {
           severity: 'CRITIQUE',
           action: 'Régularisation immédiate du salaire de base.'
         });
-        estimatedPenalty += 10000; // Amende forfaitaire indicative
+        estimatedPenalty += 10000; 
       }
 
       // R1: Défaut de déclaration CNAS
@@ -96,7 +96,7 @@ export default function HrComplianceDashboard() {
           severity: 'CRITIQUE',
           action: 'Affiliation via portail Damancom requise.'
         });
-        estimatedPenalty += (emp.baseSalary || 24000) * 0.35 * 6; // Simulation 6 mois de cotisations
+        estimatedPenalty += (emp.baseSalary || 24000) * 0.35 * 6; 
       }
 
       // R6: Absence de NIN (G29 Obligatoire)
@@ -109,7 +109,7 @@ export default function HrComplianceDashboard() {
           severity: 'ÉLEVÉ',
           action: 'Récupérer l\'identité biométrique.'
         });
-        estimatedPenalty += 2000; // Risque de rejet de déclaration
+        estimatedPenalty += 2000; 
       }
     });
 
@@ -135,6 +135,27 @@ export default function HrComplianceDashboard() {
       a.risk.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [complianceMetrics, searchTerm]);
+
+  // Derived advice based on actual issues found in anomalies
+  const dynamicAdvice = React.useMemo(() => {
+    if (complianceMetrics.anomalies.length === 0) {
+      return "Excellent niveau de conformité. Vos données sont prêtes pour les déclarations DAS et G29 sans risque de rejet.";
+    }
+    
+    const codes = complianceMetrics.anomalies.map(a => a.code);
+    
+    if (codes.includes('R7')) {
+      return "Risque critique détecté : Régularisez en priorité les salaires inférieurs au SNMG (24 000 DA) pour éviter des sanctions pénales.";
+    }
+    if (codes.includes('R1')) {
+      return "Risque de redressement CNAS : Des salariés ne sont pas affiliés. Procédez aux déclarations d'activité pour sécuriser votre dossier.";
+    }
+    if (codes.includes('R6')) {
+      return "Optimisation nécessaire : Certains NIN sont manquants. Récupérez-les pour garantir le succès de vos prochaines télé-déclarations G29/DAS.";
+    }
+    
+    return "Certaines anomalies ont été détectées. Consultez le registre pour plus de détails et corriger votre score.";
+  }, [complianceMetrics.anomalies]);
 
   if (!mounted || isLoading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary h-10 w-10" /></div>
 
@@ -274,7 +295,7 @@ export default function HrComplianceDashboard() {
                </p>
             </Card>
 
-            <Card className="bg-blue-50 border border-blue-100 rounded-2xl p-6 relative overflow-hidden">
+            <Card className="bg-blue-50 border border-blue-200 rounded-2xl p-6 relative overflow-hidden">
                <Info className="absolute -right-4 -bottom-4 h-24 w-24 opacity-10 text-blue-600" />
                <h4 className="text-[10px] font-black text-blue-800 uppercase tracking-widest mb-2 flex items-center gap-2">
                  <Info className="h-4 w-4" /> Note sur le SNMG 2026
@@ -326,9 +347,7 @@ export default function HrComplianceDashboard() {
                    <span className="text-[10px] font-black uppercase text-amber-500 tracking-widest">Conseil Master Node</span>
                  </div>
                  <p className="text-[11px] opacity-70 leading-relaxed italic">
-                   {complianceMetrics.anomalies.length > 0 
-                    ? "Votre exposition au risque de redressement est significative. Régularisez en priorité les salaires inférieurs au SNMG." 
-                    : "Excellent niveau de conformité. Vos données sont prêtes pour les déclarations DAS et G29 sans risque de rejet."}
+                   {dynamicAdvice}
                  </p>
               </div>
             </CardContent>
