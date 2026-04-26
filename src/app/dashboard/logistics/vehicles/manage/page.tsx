@@ -1,7 +1,8 @@
+
 "use client"
 
 import * as React from "react"
-import { useFirestore, useUser, useDoc, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useCollection } from "@/firebase"
+import { useFirestore, useUser, useDoc, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useCollection, setDocumentNonBlocking } from "@/firebase"
 import { collection, doc, query, where, getDocs, limit } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -9,11 +10,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { Switch } from "@/components/ui/switch"
 import { 
   Truck, Save, ChevronLeft, Loader2, 
   Settings, Gauge, ShieldCheck, User,
   CalendarDays, Zap, Info, AlertTriangle,
-  Database, Fingerprint
+  Database, Fingerprint, Banknote, Calculator
 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "@/hooks/use-toast"
@@ -28,6 +30,7 @@ export default function ManageVehiclePage() {
   const vehicleId = searchParams.get('id')
   const [mounted, setMounted] = React.useState(false)
   const [isSaving, setIsSaving] = React.useState(false)
+  const [syncWithAssets, setSyncWithAssets] = React.useState(true)
 
   const [formData, setFormData] = React.useState({
     name: "",
@@ -40,7 +43,12 @@ export default function ManageVehiclePage() {
     health: 100,
     currentOdometer: 0,
     driverName: "",
-    notes: ""
+    notes: "",
+    // Financial fields for Asset Registry
+    acquisitionValue: 0,
+    acquisitionDate: new Date().toISOString().split('T')[0],
+    amortizationRate: 20,
+    assetId: ""
   })
 
   React.useEffect(() => { setMounted(true) }, [])
@@ -70,8 +78,13 @@ export default function ManageVehiclePage() {
         health: existingVehicle.health || 100,
         currentOdometer: existingVehicle.currentOdometer || 0,
         driverName: existingVehicle.driverName || "",
-        notes: existingVehicle.notes || ""
+        notes: existingVehicle.notes || "",
+        acquisitionValue: existingVehicle.acquisitionValue || 0,
+        acquisitionDate: existingVehicle.acquisitionDate || new Date().toISOString().split('T')[0],
+        amortizationRate: existingVehicle.amortizationRate || 20,
+        assetId: existingVehicle.assetId || ""
       });
+      if (existingVehicle.assetId) setSyncWithAssets(true);
     }
   }, [existingVehicle]);
 
@@ -84,35 +97,67 @@ export default function ManageVehiclePage() {
     setIsSaving(true);
     const vehiclesColRef = collection(db, "tenants", tenantId, "vehicles");
     const sectionsColRef = collection(db, "tenants", tenantId, "sectionsAnalytiques");
+    const assetsColRef = collection(db, "tenants", tenantId, "assets");
 
     try {
-      let finalId = vehicleId;
+      let finalVehicleId = vehicleId;
+      let finalAssetId = formData.assetId;
 
-      if (vehicleId) {
-        // Mode Édition
-        updateDocumentNonBlocking(doc(db, "tenants", tenantId, "vehicles", vehicleId), {
-          ...formData,
-          updatedAt: new Date().toISOString()
-        });
-        toast({ title: "Véhicule mis à jour", description: `Les modifications pour "${formData.plate}" ont été enregistrées.` });
-      } else {
-        // Mode Création
-        const docRef = await addDocumentNonBlocking(vehiclesColRef, {
-          ...formData,
-          tenantId,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          createdByUserId: user.uid
-        });
-        finalId = docRef?.id;
-        toast({ title: "Véhicule créé", description: `L'unité ${formData.plate} a été ajoutée à la flotte.` });
+      // 1. GESTION DE L'ACTIF (COMPTABILITÉ CLASSE 2)
+      if (syncWithAssets && formData.acquisitionValue > 0) {
+        if (finalAssetId) {
+          // Update existing asset
+          await updateDocumentNonBlocking(doc(assetsColRef, finalAssetId), {
+            designation: formData.name,
+            code: formData.plate,
+            acquisitionValue: formData.acquisitionValue,
+            acquisitionDate: formData.acquisitionDate,
+            amortizationRate: formData.amortizationRate,
+            category: "2182", // Matériel de transport
+            updatedAt: new Date().toISOString()
+          });
+        } else {
+          // Create new asset
+          const assetDocRef = await addDocumentNonBlocking(assetsColRef, {
+            designation: formData.name,
+            code: formData.plate,
+            acquisitionValue: formData.acquisitionValue,
+            acquisitionDate: formData.acquisitionDate,
+            serviceDate: formData.acquisitionDate,
+            amortizationRate: formData.amortizationRate,
+            category: "2182",
+            residualValue: 0,
+            physicalStatus: "GOOD",
+            physicalLocation: "Dépôt Flotte",
+            createdAt: new Date().toISOString(),
+            createdByUserId: user.uid
+          });
+          finalAssetId = assetDocRef?.id || "";
+        }
       }
 
-      // SYNCHRONISATION ANALYTIQUE : Créer une section si l'axe VEH existe
-      if (axes && axes.length > 0 && finalId) {
+      // 2. SAUVEGARDE DU VÉHICULE
+      const vehicleData = {
+        ...formData,
+        assetId: finalAssetId,
+        updatedAt: new Date().toISOString()
+      };
+
+      if (vehicleId) {
+        updateDocumentNonBlocking(doc(vehiclesColRef, vehicleId), vehicleData);
+      } else {
+        const vDocRef = await addDocumentNonBlocking(vehiclesColRef, {
+          ...vehicleData,
+          tenantId,
+          createdAt: new Date().toISOString(),
+          createdByUserId: user.uid
+        });
+        finalVehicleId = vDocRef?.id;
+      }
+
+      // 3. SYNCHRONISATION ANALYTIQUE (AXE VEH)
+      if (axes && axes.length > 0 && (finalVehicleId || vehicleId)) {
         const axeVEH = axes[0];
-        
-        // Vérifier si la section existe déjà par code (plate)
         const existingSectionQuery = query(sectionsColRef, where("code", "==", formData.plate), where("axeId", "==", axeVEH.id));
         const sectionSnap = await getDocs(existingSectionQuery);
 
@@ -124,11 +169,10 @@ export default function ManageVehiclePage() {
             code: formData.plate,
             libelle: formData.name,
             actif: true,
-            vehicleId: finalId,
+            vehicleId: finalVehicleId || vehicleId,
             createdAt: new Date().toISOString()
           });
         } else {
-          // Update existing section label
           updateDocumentNonBlocking(doc(sectionsColRef, sectionSnap.docs[0].id), {
             libelle: formData.name,
             actif: formData.status === "ACTIVE"
@@ -136,6 +180,7 @@ export default function ManageVehiclePage() {
         }
       }
 
+      toast({ title: "Véhicule & Actif enregistrés", description: "La fiche technique et comptable a été mise à jour." });
       router.push(`/dashboard/logistics?tenantId=${tenantId}`);
     } catch (e) {
       console.error(e);
@@ -227,6 +272,59 @@ export default function ManageVehiclePage() {
                   </Select>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* VOLET FINANCIER SCF */}
+          <Card className="shadow-xl border-none ring-1 ring-border rounded-2xl overflow-hidden bg-white">
+            <CardHeader className="bg-primary/5 border-b border-primary/10 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                  <Banknote className="h-4 w-4" /> Paramètres Financiers (SCF)
+                </CardTitle>
+                <CardDescription className="text-[10px] font-bold uppercase text-slate-400">Synchronisation automatique avec le Registre des Actifs</CardDescription>
+              </div>
+              <Switch checked={syncWithAssets} onCheckedChange={setSyncWithAssets} />
+            </CardHeader>
+            <CardContent className={cn("pt-6 space-y-6 transition-opacity", !syncWithAssets && "opacity-40 pointer-events-none")}>
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Valeur d'Acquisition HT (DA)</Label>
+                    <Input 
+                      type="number"
+                      value={formData.acquisitionValue || ""}
+                      onChange={e => setFormData({...formData, acquisitionValue: parseFloat(e.target.value) || 0})}
+                      className="h-11 rounded-xl font-black text-primary"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Date d'Acquisition</Label>
+                    <Input 
+                      type="date"
+                      value={formData.acquisitionDate}
+                      onChange={e => setFormData({...formData, acquisitionDate: e.target.value})}
+                      className="h-11 rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Taux d'Amort. (SCF)</Label>
+                    <div className="relative">
+                      <Input 
+                        type="number"
+                        value={formData.amortizationRate}
+                        onChange={e => setFormData({...formData, amortizationRate: parseFloat(e.target.value) || 20})}
+                        className="h-11 rounded-xl pr-10"
+                      />
+                      <span className="absolute right-3 top-3 text-[10px] font-black text-slate-400">%</span>
+                    </div>
+                  </div>
+               </div>
+               <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-start gap-3">
+                  <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+                  <p className="text-[10px] text-emerald-800 leading-relaxed font-medium">
+                    "En activant la synchronisation, ce véhicule sera comptabilisé en <strong>Compte 2182 (Matériel de transport)</strong>. Le système calculera automatiquement ses dotations aux amortissements."
+                  </p>
+               </div>
             </CardContent>
           </Card>
 

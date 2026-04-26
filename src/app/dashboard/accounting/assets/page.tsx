@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Trash2, Edit2, Building2, ShieldCheck, Loader2, Calendar, User, MapPin, Fingerprint, Receipt } from "lucide-react"
+import { Plus, Trash2, Edit2, Building2, ShieldCheck, Loader2, Calendar, User, MapPin, Fingerprint, Receipt, Truck } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -21,7 +21,7 @@ const ASSET_CATEGORIES = [
   { id: '211', name: 'Terrains', rate: 0 },
   { id: '213', name: 'Constructions', rate: 5 },
   { id: '215', name: 'Installations Techniques & Matériel', rate: 10 },
-  { id: '2182', name: 'Matériel de Transport', rate: 20 },
+  { id: '2182', name: 'Matériel de Transport (Véhicules)', rate: 20 },
   { id: '2183', name: 'Matériel de Bureau', rate: 15 },
   { id: '2184', name: 'Mobilier de Bureau', rate: 10 },
 ]
@@ -201,7 +201,6 @@ export default function AssetsPage() {
                   <Label>Catégorie SCF</Label>
                   <Select value={newAsset.category} onValueChange={v => {
                     const cat = ASSET_CATEGORIES.find(c => c.id === v);
-                    // On met à jour la catégorie ET on suggère le taux correspondant
                     setNewAsset({
                       ...newAsset, 
                       category: v, 
@@ -336,7 +335,10 @@ export default function AssetsPage() {
                     <TableRow key={a.id} className="hover:bg-muted/5 group">
                       <TableCell>
                         <div className="flex flex-col">
-                          <span className="font-bold text-xs">{a.designation}</span>
+                          <div className="flex items-center gap-2">
+                             <span className="font-bold text-xs">{a.designation}</span>
+                             {a.category === "2182" && <Truck className="h-3 w-3 text-primary" />}
+                          </div>
                           <span className="text-[9px] font-mono text-muted-foreground uppercase">{a.code || a.category}</span>
                         </div>
                       </TableCell>
