@@ -43,8 +43,7 @@ import {
   Loader2,
   Package,
   ClipboardCheck,
-  Boxes,
-  History
+  Boxes
 } from "lucide-react"
 
 import {
@@ -375,7 +374,7 @@ export function DashboardSidebar() {
                   <LifeBuoy />
                   <span>Assistance & Support</span>
                 </Link>
-              </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname === "/dashboard/settings"} tooltip="Paramètres">
@@ -383,7 +382,7 @@ export function DashboardSidebar() {
                   <Settings />
                   <span>Paramètres Dossier</span>
                 </Link>
-              </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenuItem>
             
             {isSaaSAdmin && (
