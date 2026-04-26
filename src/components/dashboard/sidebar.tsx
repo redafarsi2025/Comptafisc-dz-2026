@@ -277,7 +277,7 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
 
   return (
     <>
-    <Sidebar variant="sidebar" collapsible="icon" className="border-r border-e border-sidebar-border/50">
+    <Sidebar side={isRtl ? "right" : "left"} variant="sidebar" collapsible="icon" className={cn("border-sidebar-border/50", isRtl ? "border-l" : "border-r")}>
       <SidebarHeader className="bg-sidebar p-4">
         <SidebarMenu>
           <SidebarMenuItem>
@@ -353,10 +353,11 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
                 <Link href={currentTenant ? `/dashboard/settings?tenantId=${currentTenant.id}` : "/dashboard/settings"}>
                   <Settings /><span>{t.Navigation.settings}</span>
                 </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroup>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border/50 p-4 bg-sidebar-accent/30">
