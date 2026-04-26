@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -10,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Progress } from "@/components/ui/progress"
 import { 
   FlaskConical, Plus, Trash2, Save, Loader2, 
   ChevronLeft, Beaker, Calculator, ShieldCheck,
@@ -278,7 +278,7 @@ export default function NewRecipePage() {
                       </div>
                       <DialogFooter>
                         <Button onClick={handleQuickCreateProduct} disabled={isCreatingQuickProduct} className="w-full">
-                          {isCreatingQuickProduct ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                          {isCreatingQuickProduct ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
                           Créer et sélectionner
                         </Button>
                       </DialogFooter>
@@ -346,7 +346,7 @@ export default function NewRecipePage() {
                     </div>
                     <DialogFooter>
                       <Button onClick={handleQuickCreateComponent} disabled={isCreatingQuickProduct} className="w-full">
-                         {isCreatingQuickProduct ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                         {isCreatingQuickProduct ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
                          Créer et ajouter
                       </Button>
                     </DialogFooter>
@@ -478,8 +478,4 @@ export default function NewRecipePage() {
       </div>
     </div>
   )
-}
-
-function calculateSalaireBase(indice: number, valeurPoint: number): number {
-  return Math.round(indice * valeurPoint);
 }
