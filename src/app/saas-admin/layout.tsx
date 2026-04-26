@@ -6,9 +6,8 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { AdminSidebar } from "@/components/admin/sidebar"
 import { useUser, useFirestore, useMemoFirebase, useDoc } from "@/firebase"
 import { redirect } from "next/navigation"
-import { ShieldCheck, Target, Zap, Bell, Search, User as UserIcon, Loader2 } from "lucide-react"
+import { ShieldCheck, Target, Zap, Bell, User as UserIcon, Loader2, Lock } from "lucide-react"
 import { doc } from "firebase/firestore"
-import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 
 export default function AdminLayout({
@@ -47,21 +46,19 @@ export default function AdminLayout({
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-[#0F172A]"> {/* Fond sombre exclusif à l'admin */}
+      <div className="flex min-h-screen w-full bg-[#0F172A]">
         <AdminSidebar />
         <SidebarInset className="bg-transparent text-slate-100 flex-1 flex flex-col">
           <header className="h-20 border-b border-slate-800 bg-slate-900/50 backdrop-blur-xl flex items-center px-8 justify-between sticky top-0 z-50 shadow-2xl">
-            <div className="flex items-center gap-8">
-              <div className="flex items-center gap-5">
-                <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-primary to-blue-700 flex items-center justify-center shadow-xl shadow-primary/20 border border-white/10">
-                  <Target className="h-6 w-6 text-white" />
-                </div>
-                <div className="flex flex-col">
-                  <h2 className="text-base font-black text-white tracking-tighter leading-tight uppercase">Admin Command Center</h2>
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
-                    <span className="text-[9px] text-slate-400 font-black uppercase tracking-[0.15em]">Live Node • Root v2.5</span>
-                  </div>
+            <div className="flex items-center gap-5">
+              <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-primary to-blue-700 flex items-center justify-center shadow-xl shadow-primary/20 border border-white/10">
+                <Target className="h-6 w-6 text-white" />
+              </div>
+              <div className="flex flex-col">
+                <h2 className="text-base font-black text-white tracking-tighter leading-tight uppercase">Admin Command Center</h2>
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
+                  <span className="text-[9px] text-slate-400 font-black uppercase tracking-[0.15em]">Live Node • Root v2.5</span>
                 </div>
               </div>
             </div>
@@ -88,9 +85,7 @@ export default function AdminLayout({
             </div>
           </header>
           <main className="flex-1 p-8 overflow-auto">
-            <div className="max-w-[1600px] mx-auto animate-in fade-in duration-700 slide-in-from-bottom-2">
-              {children}
-            </div>
+            {children}
           </main>
         </SidebarInset>
       </div>

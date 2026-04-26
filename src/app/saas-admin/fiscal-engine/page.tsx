@@ -55,7 +55,6 @@ export default function FiscalEngineAdmin() {
     if (!db) return;
     setIsInitializing(true);
     try {
-      // 1. Initialisation Loi Source
       const lawId = "LF_2026";
       await setDocumentNonBlocking(doc(db, "fiscal_laws", lawId), {
         id: lawId,
@@ -66,7 +65,6 @@ export default function FiscalEngineAdmin() {
         status: 'VALIDATED'
       }, { merge: true });
 
-      // 2. Initialisation Règle IRG Salarié (Complexe)
       const irgRuleId = "RULE_IRG_SALARY_2026";
       await setDocumentNonBlocking(doc(db, "fiscal_business_rules", irgRuleId), {
         id: irgRuleId,
@@ -112,7 +110,6 @@ export default function FiscalEngineAdmin() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* IA Ingestion Panel */}
         <Card className="lg:col-span-1 border-t-4 border-t-accent shadow-lg bg-accent/5">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2 text-primary">
@@ -159,7 +156,6 @@ export default function FiscalEngineAdmin() {
           )}
         </Card>
 
-        {/* Dynamic Engine Tabs */}
         <div className="lg:col-span-2">
           <Tabs defaultValue="rules" className="w-full">
             <TabsList className="grid w-full grid-cols-3 mb-6 h-auto p-1 bg-muted/50 border">
@@ -169,10 +165,6 @@ export default function FiscalEngineAdmin() {
             </TabsList>
 
             <TabsContent value="rules" className="space-y-4">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="text-sm font-bold uppercase text-muted-foreground">Logique métier & Formules</h3>
-                <Button size="sm" variant="outline" className="h-8 text-[10px]"><Plus className="h-3 w-3 mr-1" /> Créer Formule</Button>
-              </div>
               <div className="grid gap-4">
                 {rules?.map((rule) => (
                   <Card key={rule.id} className="border-l-4 border-l-primary hover:shadow-md transition-shadow">
@@ -228,8 +220,7 @@ export default function FiscalEngineAdmin() {
                           <TableCell className="text-xs">{t.name}</TableCell>
                           <TableCell><Badge variant="secondary" className="text-[10px]">{t.unit}</Badge></TableCell>
                           <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" className="h-7 w-7"><History className="h-3.5 w-3.5" /></Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete('fiscal_variable_types', t.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteDocumentNonBlocking(doc(db, "fiscal_variable_types", t.id))}><Trash2 className="h-3.5 w-3.5" /></Button>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -254,9 +245,6 @@ export default function FiscalEngineAdmin() {
                       <span>Effet: <strong>{law.effectiveStartDate}</strong></span>
                       <span>Publiée: {law.publicationDate}</span>
                     </CardContent>
-                    <CardFooter className="bg-muted/20 p-2 flex justify-end">
-                      <Button variant="ghost" size="sm" className="h-7 text-[9px]"><Eye className="h-3 w-3 mr-1" /> Dossier Source</Button>
-                    </CardFooter>
                   </Card>
                 ))}
               </div>
@@ -266,11 +254,4 @@ export default function FiscalEngineAdmin() {
       </div>
     </div>
   )
-
-  function handleDelete(col: string, id: string) {
-    if (confirm("Supprimer cet élément ?")) {
-      deleteDocumentNonBlocking(doc(db, col, id));
-      toast({ title: "Supprimé" });
-    }
-  }
 }

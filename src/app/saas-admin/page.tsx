@@ -5,20 +5,18 @@ import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  PieChart, Pie, Cell, Legend
+  PieChart, Pie, Cell, Legend 
 } from "recharts"
 import { 
-  TrendingUp, Activity, Target, Sparkles, Zap, CreditCard, 
-  Users, ShieldCheck, DatabaseZap, Eye, MessageSquare, 
-  Cpu, CloudLightning, ArrowUpRight,
-  Inbox, Loader2, Building2, Bell, ShieldAlert
+  Activity, Target, Sparkles, Zap, CreditCard, 
+  ShieldCheck, DatabaseZap, Eye, ArrowUpRight,
+  Cpu, CloudLightning
 } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { useFirestore, useCollection, useMemoFirebase, useDoc, useUser } from "@/firebase"
-import { collection, query, orderBy, doc, limit, where } from "firebase/firestore"
+import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
+import { collection } from "firebase/firestore"
 import Link from "next/link"
 
 const PLAN_COLORS: Record<string, string> = {
@@ -37,14 +35,12 @@ const PLAN_PRICES: Record<string, number> = {
 
 export default function AdminDashboard() {
   const db = useFirestore()
-  const { user } = useUser()
   const [mounted, setMounted] = React.useState(false)
 
   React.useEffect(() => {
     setMounted(true)
   }, [])
 
-  // Collections SaaS réelles
   const profilesQuery = useMemoFirebase(() => db ? collection(db, "userProfiles") : null, [db]);
   const { data: profiles } = useCollection(profilesQuery);
 
@@ -127,7 +123,7 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-4xl font-black text-white tracking-tighter">{stats.totalTenants}</div>
-            <p className="text-[9px] text-slate-500 mt-2 font-black uppercase">Dossiers sur Cluster Firebase</p>
+            <p className="text-[9px] text-slate-500 mt-2 font-black uppercase">Dossiers réels</p>
           </CardContent>
         </Card>
 
@@ -240,9 +236,9 @@ export default function AdminDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent className="text-[9px] text-emerald-400 font-mono py-6 space-y-2">
-               <div className="flex gap-3"><span className="opacity-40">14:22:31</span> <span className="font-bold">[OK]</span> <span>API Firestore Gateway : Active</span></div>
-               <div className="flex gap-3"><span className="opacity-40">14:22:42</span> <span className="font-bold">[OK]</span> <span>Auth Session Validator : Secure</span></div>
-               <div className="flex gap-3"><span className="opacity-40">14:22:55</span> <span className="font-bold">[OK]</span> <span>Gemini Vision Parser : Standby</span></div>
+               <div className="flex gap-3"><span className="opacity-40">Live</span> <span className="font-bold">[OK]</span> <span>API Firestore Gateway : Active</span></div>
+               <div className="flex gap-3"><span className="opacity-40">Live</span> <span className="font-bold">[OK]</span> <span>Auth Session Validator : Secure</span></div>
+               <div className="flex gap-3"><span className="opacity-40">Live</span> <span className="font-bold">[OK]</span> <span>Gemini Vision Parser : Standby</span></div>
                <div className="flex gap-2 animate-pulse mt-4 text-emerald-300">
                   <span className="font-bold">&gt;</span> 
                   <span className="italic tracking-widest uppercase text-[8px] font-black">System Heartbeat... Normal</span>
@@ -254,7 +250,7 @@ export default function AdminDashboard() {
             <Link href="/saas-admin/dgi-watch">
               <CardHeader>
                 <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">DGI Watch Console</CardTitle>
-                <CardDescription className="text-white/70 text-[11px] font-bold">14 parutions analysées ce mois-ci.</CardDescription>
+                <CardDescription className="text-white/70 text-[11px] font-bold">Surveillance réglementaire active.</CardDescription>
               </CardHeader>
               <CardContent className="flex justify-between items-end pb-8">
                 <Eye className="h-12 w-12 opacity-20 group-hover:scale-110 transition-transform" />

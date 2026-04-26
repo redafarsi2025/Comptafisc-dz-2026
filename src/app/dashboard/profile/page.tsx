@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { useUser, useAuth, useFirestore, setDocumentNonBlocking, useDoc, useMemoFirebase } from "@/firebase"
 import { signOut } from "firebase/auth"
 import { doc } from "firebase/firestore"
-import { User, Mail, Shield, LogOut, Loader2, Save, KeyRound, ShieldCheck, ArrowRight, Target, Lock } from "lucide-react"
+import { User, Mail, Shield, LogOut, Loader2, KeyRound, ShieldCheck, ArrowRight, Target, Lock } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import Link from "next/link"
 
@@ -42,7 +42,6 @@ export default function ProfilePage() {
   }
 
   const handleBecomeAdmin = async () => {
-    // Clé statique pour le prototype, à coupler avec une logique de custom claims en production
     if (adminKey !== "ADMIN2026") {
       toast({
         variant: "destructive",
@@ -56,7 +55,6 @@ export default function ProfilePage() {
     setIsPromoting(true)
 
     try {
-      // Inscription dans la collection privilégiée
       await setDocumentNonBlocking(doc(db, "saas_admins", user.uid), {
         id: user.uid,
         email: user.email,
@@ -66,16 +64,10 @@ export default function ProfilePage() {
 
       toast({ 
         title: "Accréditation Root Activée", 
-        description: "Redirection vers le Command Center..." 
+        description: "Vous disposez maintenant des droits SuperAdmin." 
       });
       
       setAdminKey("");
-      
-      // Petit délai pour laisser Firestore synchroniser avant redirection
-      setTimeout(() => {
-        router.push("/saas-admin");
-      }, 1500);
-
     } catch (e) {
       console.error(e)
     } finally {
@@ -101,10 +93,10 @@ export default function ProfilePage() {
               <AvatarFallback className="text-3xl font-black bg-primary text-white uppercase tracking-tighter">DZ</AvatarFallback>
             </Avatar>
           </div>
-          <div className="pl-44 flex justify-between items-start pt-4">
+          <div className="pl-44 flex justify-between items-start pt-4 text-foreground">
             <div className="space-y-1">
-              <CardTitle className="text-3xl font-black text-slate-900 tracking-tighter uppercase">
-                {user?.displayName || user?.email?.split('@')[0] || "Utilisateur ComptaFisc"}
+              <CardTitle className="text-3xl font-black tracking-tighter uppercase">
+                {user?.displayName || user?.email?.split('@')[0] || "Utilisateur"}
               </CardTitle>
               <div className="flex items-center gap-2">
                 {isSaaSAdmin ? (
@@ -116,7 +108,6 @@ export default function ProfilePage() {
                     UTILISATEUR STANDARD
                   </Badge>
                 )}
-                <span className="text-[10px] text-muted-foreground font-mono">UID: {user?.uid.substring(0, 12)}...</span>
               </div>
             </div>
           </div>
@@ -125,7 +116,7 @@ export default function ProfilePage() {
           <div className="grid gap-6">
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest px-1">Identité de connexion</label>
-              <div className="relative group">
+              <div className="relative group text-foreground">
                 <Mail className="absolute left-3 top-3.5 h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
                 <Input className="pl-10 h-12 bg-muted/20 font-medium" defaultValue={user?.email || ""} readOnly />
               </div>
@@ -134,7 +125,7 @@ export default function ProfilePage() {
         </CardContent>
         <CardFooter className="border-t bg-muted/10 flex justify-between p-6">
           <p className="text-[10px] text-muted-foreground italic">Dernière connexion : {user?.metadata.lastSignInTime}</p>
-          <Button variant="destructive" onClick={handleLogout} disabled={isLoggingOut} className="h-10 px-8 shadow-lg shadow-destructive/20 font-bold uppercase tracking-widest text-[10px]">
+          <Button variant="destructive" onClick={handleLogout} disabled={isLoggingOut} className="h-10 px-8 shadow-lg font-bold uppercase tracking-widest text-[10px]">
             {isLoggingOut ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogOut className="mr-2 h-4 w-4" />} 
             Clôturer Session
           </Button>
@@ -154,7 +145,7 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-4">
-              <div className="relative flex-1">
+              <div className="relative flex-1 text-foreground">
                 <Lock className="absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
                 <Input 
                   type="password" 
@@ -165,7 +156,7 @@ export default function ProfilePage() {
                 />
               </div>
               <Button onClick={handleBecomeAdmin} disabled={isPromoting || !adminKey} className="bg-primary h-12 px-10 shadow-lg shadow-primary/20">
-                {isPromoting ? <Loader2 className="animate-spin h-5 w-5" /> : "Vérifier & Activer"}
+                {isPromoting ? <Loader2 className="animate-spin h-5 w-5" /> : "Activer les privilèges"}
               </Button>
             </div>
             <p className="text-[10px] text-slate-500 italic">Uniquement pour les administrateurs ComptaFisc-DZ certifiés.</p>
