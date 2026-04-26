@@ -32,63 +32,42 @@
         "code": { "type": "string", "description": "Code article unique" },
         "barcode": { "type": "string" },
         "name": { "type": "string" },
-        "name2": { "type": "string", "description": "Désignation multilingue" },
-        "family": { "type": "string" },
-        "brand": { "type": "string" },
-        "model": { "type": "string" },
         "type": { "type": "string", "enum": ["MARCHANDISE", "MATIERE_PREMIERE", "PRODUIT_FINI", "CONSOMMABLE"] },
         "unit": { "type": "string", "default": "U" },
-        "minStock": { "type": "number", "default": 0 },
-        "maxStock": { "type": "number" },
-        "securityStock": { "type": "number", "default": 0 },
-        "leadTimeDays": { "type": "number", "description": "Délai appro" },
-        "valuationMethod": { "type": "string", "enum": ["CMUP", "FIFO"], "default": "CMUP" },
-        "mainWarehouse": { "type": "string" },
-        "locationBin": { "type": "string", "description": "Allée/Casier" },
-        "purchasePrice": { "type": "number" },
-        "costPrice": { "type": "number" },
-        "sellingPrice": { "type": "number" },
-        "tvaRate": { "type": "number", "default": 19 },
         "theoreticalStock": { "type": "number", "default": 0 },
-        "lastInventoryDate": { "type": "string", "format": "date-time" },
-        "stockAccount": { "type": "string", "description": "Compte classe 3" },
-        "variationAccount": { "type": "string", "default": "603" },
+        "purchasePrice": { "type": "number" },
+        "sellingPrice": { "type": "number" },
         "tenantId": { "type": "string" }
       }
     },
-    "PurchaseOrder": {
-      "title": "PurchaseOrder",
+    "SalesOrder": {
+      "title": "SalesOrder",
       "type": "object",
-      "description": "Bon de commande fournisseur.",
+      "description": "Commande client (CC).",
       "properties": {
         "id": { "type": "string" },
         "orderNumber": { "type": "string" },
-        "supplierId": { "type": "string" },
-        "supplierName": { "type": "string" },
+        "clientId": { "type": "string" },
+        "clientName": { "type": "string" },
         "date": { "type": "string", "format": "date" },
-        "status": { "type": "string", "enum": ["DRAFT", "VALIDATED", "RECEIVED", "INVOICED", "CANCELLED"] },
+        "status": { "type": "string", "enum": ["DRAFT", "VALIDATED", "SHIPPED", "INVOICED", "CANCELLED"] },
         "totalHT": { "type": "number" },
         "totalTVA": { "type": "number" },
         "totalTTC": { "type": "number" },
         "items": { "type": "array" }
       }
     },
-    "SupplierInvoice": {
-      "title": "SupplierInvoice",
+    "DeliveryNote": {
+      "title": "DeliveryNote",
       "type": "object",
-      "description": "Facture fournisseur avec rapprochement 3-way.",
+      "description": "Bon de Livraison (BL).",
       "properties": {
         "id": { "type": "string" },
-        "invoiceNumber": { "type": "string" },
+        "deliveryNumber": { "type": "string" },
         "orderId": { "type": "string" },
-        "receiptId": { "type": "string" },
-        "supplierId": { "type": "string" },
+        "clientId": { "type": "string" },
         "date": { "type": "string", "format": "date" },
-        "amountHT": { "type": "number" },
-        "amountTVA": { "type": "number" },
-        "amountTTC": { "type": "number" },
-        "isMatched": { "type": "boolean" },
-        "paymentStatus": { "type": "string", "enum": ["UNPAID", "PARTIAL", "PAID"] }
+        "items": { "type": "array" }
       }
     }
   },
@@ -96,14 +75,10 @@
     "providers": ["password", "anonymous"]
   },
   "firestore": {
-    "/fiscal_laws/{lawId}": { "schema": "object", "description": "Lois de finances" },
-    "/dgi_templates/{templateId}": { "schema": "object", "description": "Templates formulaires" },
-    "/support_tickets/{ticketId}": { "schema": "object", "description": "Tickets support" },
-    "/tenants/{tenantId}": { "schema": "object", "description": "Dossiers clients" },
-    "/tenants/{tenantId}/assets/{assetId}": { "schema": "#/backend/entities/Asset", "description": "Registre des immobilisations" },
-    "/tenants/{tenantId}/products/{productId}": { "schema": "#/backend/entities/Product", "description": "Catalogue articles" },
-    "/tenants/{tenantId}/inventory_sessions/{sessionId}": { "schema": "#/backend/entities/InventorySession", "description": "Sessions d'inventaire" },
-    "/tenants/{tenantId}/purchase_orders/{orderId}": { "schema": "#/backend/entities/PurchaseOrder", "description": "Bons de commande" },
-    "/tenants/{tenantId}/supplier_invoices/{invoiceId}": { "schema": "#/backend/entities/SupplierInvoice", "description": "Factures fournisseurs" }
+    "/tenants/{tenantId}/sales_orders": { "schema": "#/backend/entities/SalesOrder", "description": "Commandes clients" },
+    "/tenants/{tenantId}/delivery_notes": { "schema": "#/backend/entities/DeliveryNote", "description": "Bons de livraison" },
+    "/tenants/{tenantId}/customer_invoices": { "schema": "object", "description": "Factures clients" },
+    "/tenants/{tenantId}/customer_returns": { "schema": "object", "description": "Retours clients" },
+    "/tenants/{tenantId}/customer_credit_notes": { "schema": "object", "description": "Avoirs clients" }
   }
 }

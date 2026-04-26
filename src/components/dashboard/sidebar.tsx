@@ -46,7 +46,9 @@ import {
   FileSearch,
   Plus,
   Undo2,
-  FileMinus
+  FileMinus,
+  ArrowRightLeft,
+  CircleDollarSign
 } from "lucide-react"
 
 import {
@@ -104,6 +106,15 @@ const accountingNav = [
   { name: "Rapprochement Bancaire", href: "/dashboard/cabinet/bank-recon", icon: Landmark },
 ]
 
+const salesNav = [
+  { name: "Flux de Vente Hub", href: "/dashboard/sales", icon: CircleDollarSign },
+  { name: "Commandes Clients", href: "/dashboard/sales/orders", icon: FileSearch },
+  { name: "Livraisons (BL)", href: "/dashboard/sales/delivery", icon: Truck },
+  { name: "Factures Émises", href: "/dashboard/sales/invoices", icon: Receipt },
+  { name: "Retours Clients", href: "/dashboard/sales/returns", icon: Undo2 },
+  { name: "Avoirs Clients", href: "/dashboard/sales/credit-notes", icon: FileMinus },
+]
+
 const purchaseNav = [
   { name: "Flux d'Achat Hub", href: "/dashboard/purchases", icon: ShoppingCart },
   { name: "Bons de Commande", href: "/dashboard/purchases/orders", icon: FileSearch },
@@ -121,7 +132,6 @@ const inventoryNav = [
 ]
 
 const businessNav = [
-  { name: "Facturation Émise", href: "/dashboard/invoicing", icon: Receipt },
   { name: "Tiers (Clients/Fourn.)", href: "/dashboard/contacts", icon: Contact },
 ]
 
@@ -310,8 +320,9 @@ export function DashboardSidebar() {
 
       <SidebarContent className="px-2">
         <NavGroup label="Pilotage" items={pilotageNav} />
-        <NavGroup label="Comptabilité SCF" items={accountingNav} />
+        <NavGroup label="Ventes & Clients" items={salesNav} />
         <NavGroup label="Achats & Dépenses" items={purchaseNav} />
+        <NavGroup label="Comptabilité SCF" items={accountingNav} />
         <NavGroup label="Stocks & Inventaires" items={inventoryNav} />
         <NavGroup label="Activité & Tiers" items={businessNav} />
         <NavGroup label="RH & Paie" items={payrollNav} />
@@ -327,7 +338,7 @@ export function DashboardSidebar() {
                   <LifeBuoy />
                   <span>Assistance & Support</span>
                 </Link>
-              </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname === "/dashboard/settings"} tooltip="Paramètres">
@@ -335,7 +346,7 @@ export function DashboardSidebar() {
                   <Settings />
                   <span>Paramètres Dossier</span>
                 </Link>
-              </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenuItem>
             
             {isSaaSAdmin && (
