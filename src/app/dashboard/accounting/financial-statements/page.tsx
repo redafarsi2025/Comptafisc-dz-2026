@@ -4,14 +4,14 @@
 import * as React from "react"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, query, where, orderBy } from "firebase/firestore"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { 
   FileBarChart, Printer, FileDown, TrendingUp, Landmark, 
   Calculator, PieChart, ShieldCheck, ArrowRightLeft, 
-  Wallet, Banknote, History, Loader2, Info
+  Wallet, Banknote, History, Loader2, Info, Lightbulb, Activity, Scale, AlertTriangle
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { jsPDF } from "jspdf"
@@ -139,7 +139,7 @@ export default function FinancialStatements() {
     const resNet = resExp + resFin;
 
     // TFT Calculs
-    const fluxExp = resNet + (d.tcr.dotations || 0); // Simplifié : Net + Amortissements
+    const fluxExp = resNet + (d.tcr.dotations || 0);
     const fluxInv = d.tft.cessions - d.tft.acquisitions;
     const fluxFin = d.tft.augmentCapital + d.tft.nvxEmprunts - d.tft.remboursements;
     
@@ -155,7 +155,75 @@ export default function FinancialStatements() {
     };
   }, [financialData]);
 
-  const formatVal = (val: number) => mounted ? val.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "...";
+  const formatVal = (val: number) => {
+    if (!mounted) return "...";
+    return val.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  const getBilanObservation = () => {
+    if (!financialData) return null;
+    const cp = Object.values(financialData.capitauxPropres).reduce((a, b) => a + b, 0);
+    const ratioAutonomie = totals.passif > 0 ? (cp / totals.passif) : 0;
+    const ratioLiquidity = (financialData.passifCourant.fournisseurs + financialData.passifCourant.dettesFisc) > 0 
+      ? (Object.values(financialData.actifCourant).reduce((a,b)=>a+b,0) / (financialData.passifCourant.fournisseurs + financialData.passifCourant.dettesFisc))
+      : 100;
+
+    if (ratioAutonomie < 0.2) return {
+      type: "warning",
+      title: "Autonomie financière faible",
+      text: "Vos capitaux propres représentent moins de 20% de vos ressources totales. Une augmentation de capital ou une mise en réserve des bénéfices est recommandée pour rassurer vos partenaires bancaires."
+    };
+    if (ratioLiquidity < 1) return {
+      type: "warning",
+      title: "Tension sur la trésorerie",
+      text: "Vos actifs circulants ne couvrent pas vos dettes à court terme. Risque de rupture de paiement fournisseur imminent. Accélérez le recouvrement client."
+    };
+    return {
+      type: "success",
+      title: "Structure de bilan saine",
+      text: "L'entité dispose d'une bonne solidité financière. L'équilibre entre emplois et ressources est maîtrisé conformément aux standards du SCF."
+    };
+  };
+
+  const getTCRObservation = () => {
+    if (!financialData) return null;
+    const margin = financialData.tcr.ca > 0 ? (totals.resNet / financialData.tcr.ca) : 0;
+    const chargesPersonnelRatio = financialData.tcr.ca > 0 ? (financialData.tcr.personnel / financialData.tcr.ca) : 0;
+
+    if (margin < 0) return {
+      type: "danger",
+      title: "Exploitation déficitaire",
+      text: "L'exercice génère une perte nette. Une révision urgente de la structure des coûts (achats et charges externes) est impérative pour inverser la tendance."
+    };
+    if (chargesPersonnelRatio > 0.4) return {
+      type: "warning",
+      title: "Poids de la masse salariale",
+      text: "Vos charges de personnel consomment plus de 40% de votre chiffre d'affaires. Vérifiez l'adéquation entre effectifs et volume d'activité."
+    };
+    return {
+      type: "success",
+      title: "Performance opérationnelle",
+      text: `L'entreprise dégage une rentabilité nette de ${(margin * 100).toFixed(1)}%. La création de valeur ajoutée est en ligne avec les moyennes du secteur.`
+    };
+  };
+
+  const getTFTObservation = () => {
+    if (totals.fluxInv < 0 && Math.abs(totals.fluxInv) > totals.fluxExp) return {
+      type: "info",
+      title: "Phase d'investissement",
+      text: "Votre flux de trésorerie est consommé par l'acquisition d'actifs (Classe 2). C'est un signe de croissance qui devrait booster la rentabilité des exercices futurs."
+    };
+    if (totals.fluxExp < 0) return {
+      type: "danger",
+      title: "Flux d'exploitation négatif",
+      text: "Votre activité courante détruit de la valeur. Il est urgent de revoir les délais de paiement ou de réduire le besoin en fonds de roulement (BFR)."
+    };
+    return {
+      type: "success",
+      title: "Auto-financement sain",
+      text: "L'activité génère suffisamment de cash pour couvrir les besoins courants et les investissements de maintien."
+    };
+  };
 
   const exportPDF = () => {
     const doc = new jsPDF();
@@ -205,6 +273,10 @@ export default function FinancialStatements() {
 
   if (isLoading) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>
 
+  const bilanObs = getBilanObservation();
+  const tcrObs = getTCRObservation();
+  const tftObs = getTFTObservation();
+
   return (
     <div className="space-y-8 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -212,7 +284,7 @@ export default function FinancialStatements() {
           <h1 className="text-3xl font-black text-primary flex items-center gap-3 tracking-tighter uppercase">
             <FileBarChart className="h-8 w-8 text-accent" /> États Financiers SCF Expert
           </h1>
-          <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest mt-1">Conformité Loi 07-11 • Jumeau Numérique Comptable</p>
+          <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest mt-1">Conformité Loi 07-11 • Digital Twin Financials</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" className="rounded-xl h-11 px-6 font-bold" onClick={exportPDF}>
@@ -231,17 +303,17 @@ export default function FinancialStatements() {
            <h2 className={`text-3xl font-black ${totals.resNet >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
              {formatVal(totals.resNet)} <span className="text-sm font-normal opacity-50">DA</span>
            </h2>
-           <Badge variant="outline" className="mt-4 w-fit border-white/20 text-white text-[9px] uppercase font-black">Certifié Master Node</Badge>
+           <Badge variant="outline" className="mt-4 w-fit border-white/20 text-white text-[9px] font-black uppercase tracking-widest">Calculé via Master Node</Badge>
         </Card>
         <Card className="border-l-4 border-l-primary shadow-sm bg-white p-6 flex flex-col justify-center">
            <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Total Bilan (Actif)</p>
            <h2 className="text-2xl font-black text-primary">{formatVal(totals.actif)} DA</h2>
-           <p className="text-[9px] text-muted-foreground mt-1 italic">Vérification d'équilibre : OK</p>
+           <p className="text-[9px] text-muted-foreground mt-1 italic">Vérification équilibre : Établie</p>
         </Card>
         <Card className="border-l-4 border-l-emerald-500 shadow-sm bg-white p-6 flex flex-col justify-center">
            <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Capitaux Propres</p>
            <h2 className="text-2xl font-black text-emerald-600">{formatVal(Object.values(financialData?.capitauxPropres || {}).reduce((a,b)=>a+b,0))} DA</h2>
-           <p className="text-[9px] text-muted-foreground mt-1 italic">Solidité financière : Élevée</p>
+           <p className="text-[9px] text-muted-foreground mt-1 italic">Capacité d'autofinancement : Elevée</p>
         </Card>
       </div>
 
@@ -255,11 +327,10 @@ export default function FinancialStatements() {
 
         <TabsContent value="bilan" className="space-y-8 animate-in fade-in duration-500">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* ACTIF */}
             <Card className="border-none shadow-xl ring-1 ring-border rounded-3xl overflow-hidden bg-white">
               <CardHeader className="bg-primary/5 border-b p-6">
                 <CardTitle className="text-lg font-black uppercase tracking-tighter text-primary">Bilan - ACTIF</CardTitle>
-                <CardDescription className="text-[10px] font-bold uppercase text-slate-400">Emplois des ressources de l'entité</CardDescription>
+                <CardDescription className="text-[10px] font-bold uppercase text-slate-400">Emplois des ressources</CardDescription>
               </CardHeader>
               <CardContent className="p-0">
                 <Table>
@@ -269,11 +340,10 @@ export default function FinancialStatements() {
                     <TableRow><TableCell className="pl-12 text-xs font-medium">Immobilisations Incorporelles</TableCell><TableCell className="text-right pr-8 font-mono text-xs">{formatVal(financialData?.actifNonCourant.incorp || 0)}</TableCell></TableRow>
                     <TableRow><TableCell className="pl-12 text-xs font-medium">Immobilisations Corporelles</TableCell><TableCell className="text-right pr-8 font-mono text-xs">{formatVal(financialData?.actifNonCourant.corp || 0)}</TableCell></TableRow>
                     <TableRow><TableCell className="pl-12 text-xs font-medium">Immobilisations Financières</TableCell><TableCell className="text-right pr-8 font-mono text-xs">{formatVal(financialData?.actifNonCourant.fin || 0)}</TableCell></TableRow>
-                    
                     <TableRow className="bg-muted/10"><TableCell colSpan={2} className="text-[10px] font-black uppercase pl-8 text-slate-500">Actif Courant</TableCell></TableRow>
                     <TableRow><TableCell className="pl-12 text-xs font-medium">Stocks et en-cours</TableCell><TableCell className="text-right pr-8 font-mono text-xs">{formatVal(financialData?.actifCourant.stocks || 0)}</TableCell></TableRow>
-                    <TableRow><TableCell className="pl-12 text-xs font-medium">Créances et emplois assimilés</TableCell><TableCell className="text-right pr-8 font-mono text-xs">{formatVal(financialData?.actifCourant.clients || 0)}</TableCell></TableRow>
-                    <TableRow><TableCell className="pl-12 text-xs font-medium">Disponibilités (Trésorerie Active)</TableCell><TableCell className="text-right pr-8 font-mono text-xs">{formatVal(financialData?.actifCourant.dispo || 0)}</TableCell></TableRow>
+                    <TableRow><TableCell className="pl-12 text-xs font-medium">Créances Clients</TableCell><TableCell className="text-right pr-8 font-mono text-xs">{formatVal(financialData?.actifCourant.clients || 0)}</TableCell></TableRow>
+                    <TableRow><TableCell className="pl-12 text-xs font-medium">Trésorerie Active</TableCell><TableCell className="text-right pr-8 font-mono text-xs">{formatVal(financialData?.actifCourant.dispo || 0)}</TableCell></TableRow>
                   </TableBody>
                   <TableFooter className="bg-primary text-white">
                     <TableRow className="font-black border-none"><TableCell className="pl-8 uppercase tracking-tighter text-base">Total Actif</TableCell><TableCell className="text-right pr-8 font-mono text-lg">{formatVal(totals.actif)} DA</TableCell></TableRow>
@@ -282,27 +352,22 @@ export default function FinancialStatements() {
               </CardContent>
             </Card>
 
-            {/* PASSIF */}
             <Card className="border-none shadow-xl ring-1 ring-border rounded-3xl overflow-hidden bg-white">
               <CardHeader className="bg-accent/5 border-b p-6">
                 <CardTitle className="text-lg font-black uppercase tracking-tighter text-accent-foreground">Bilan - PASSIF</CardTitle>
-                <CardDescription className="text-[10px] font-bold uppercase text-slate-400">Origine des ressources de l'entité</CardDescription>
+                <CardDescription className="text-[10px] font-bold uppercase text-slate-400">Origine des ressources</CardDescription>
               </CardHeader>
               <CardContent className="p-0">
                 <Table>
                   <TableHeader><TableRow className="bg-slate-50/50"><TableHead className="font-black text-[10px] uppercase pl-8">Rubriques SCF</TableHead><TableHead className="text-right font-black text-[10px] uppercase pr-8">Montant</TableHead></TableRow></TableHeader>
                   <TableBody>
                     <TableRow className="bg-muted/10"><TableCell colSpan={2} className="text-[10px] font-black uppercase pl-8 text-slate-500">Capitaux Propres</TableCell></TableRow>
-                    <TableRow><TableCell className="pl-12 text-xs font-medium">Capital Social ou Individuel</TableCell><TableCell className="text-right pr-8 font-mono text-xs">{formatVal(financialData?.capitauxPropres.capital || 0)}</TableCell></TableRow>
-                    <TableRow><TableCell className="pl-12 text-xs font-medium">Réserves (Légale, Statutaire...)</TableCell><TableCell className="text-right pr-8 font-mono text-xs">{formatVal(financialData?.capitauxPropres.reserves || 0)}</TableCell></TableRow>
-                    <TableRow><TableCell className="pl-12 text-xs font-medium">Report à nouveau (±)</TableCell><TableCell className="text-right pr-8 font-mono text-xs">{formatVal(financialData?.capitauxPropres.report || 0)}</TableCell></TableRow>
+                    <TableRow><TableCell className="pl-12 text-xs font-medium">Capital Social</TableCell><TableCell className="text-right pr-8 font-mono text-xs">{formatVal(financialData?.capitauxPropres.capital || 0)}</TableCell></TableRow>
+                    <TableRow><TableCell className="pl-12 text-xs font-medium">Réserves & Reports</TableCell><TableCell className="text-right pr-8 font-mono text-xs">{formatVal((financialData?.capitauxPropres.reserves || 0) + (financialData?.capitauxPropres.report || 0))}</TableCell></TableRow>
                     <TableRow><TableCell className="pl-12 text-xs font-black text-primary">Résultat Net de l'Exercice</TableCell><TableCell className="text-right pr-8 font-mono text-xs font-black text-primary">{formatVal(totals.resNet)}</TableCell></TableRow>
-                    
                     <TableRow className="bg-muted/10"><TableCell colSpan={2} className="text-[10px] font-black uppercase pl-8 text-slate-500">Passifs</TableCell></TableRow>
-                    <TableRow><TableCell className="pl-12 text-xs font-medium">Emprunts et Dettes Financières</TableCell><TableCell className="text-right pr-8 font-mono text-xs">{formatVal(financialData?.passifNonCourant.emprunts || 0)}</TableCell></TableRow>
-                    <TableRow><TableCell className="pl-12 text-xs font-medium">Fournisseurs et comptes rattachés</TableCell><TableCell className="text-right pr-8 font-mono text-xs">{formatVal(financialData?.passifCourant.fournisseurs || 0)}</TableCell></TableRow>
-                    <TableRow><TableCell className="pl-12 text-xs font-medium">Dettes Fiscales et Sociales</TableCell><TableCell className="text-right pr-8 font-mono text-xs">{formatVal(financialData?.passifCourant.dettesFisc || 0)}</TableCell></TableRow>
-                    <TableRow><TableCell className="pl-12 text-xs font-medium">Trésorerie Passive (Découverts)</TableCell><TableCell className="text-right pr-8 font-mono text-xs">{formatVal(financialData?.passifCourant.tresoPass || 0)}</TableCell></TableRow>
+                    <TableRow><TableCell className="pl-12 text-xs font-medium">Dettes Non Courantes (L.T)</TableCell><TableCell className="text-right pr-8 font-mono text-xs">{formatVal(financialData?.passifNonCourant.emprunts || 0)}</TableCell></TableRow>
+                    <TableRow><TableCell className="pl-12 text-xs font-medium">Dettes Courantes (C.T)</TableCell><TableCell className="text-right pr-8 font-mono text-xs">{formatVal(financialData?.passifCourant.fournisseurs + financialData?.passifCourant.dettesFisc)}</TableCell></TableRow>
                   </TableBody>
                   <TableFooter className="bg-slate-900 text-white">
                     <TableRow className="font-black border-none"><TableCell className="pl-8 uppercase tracking-tighter text-base">Total Passif</TableCell><TableCell className="text-right pr-8 font-mono text-lg">{formatVal(totals.passif)} DA</TableCell></TableRow>
@@ -311,64 +376,82 @@ export default function FinancialStatements() {
               </CardContent>
             </Card>
           </div>
+
+          {bilanObs && (
+            <Card className={`border-none shadow-lg rounded-3xl overflow-hidden ${bilanObs.type === 'success' ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'}`}>
+              <CardContent className="p-8 flex items-start gap-6">
+                <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 ${bilanObs.type === 'success' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
+                  {bilanObs.type === 'success' ? <CheckCircle2 className="h-6 w-6" /> : <AlertTriangle className="h-6 w-6" />}
+                </div>
+                <div>
+                  <h4 className={`text-lg font-black uppercase tracking-tighter ${bilanObs.type === 'success' ? 'text-emerald-800' : 'text-amber-800'}`}>{bilanObs.title}</h4>
+                  <p className={`text-sm mt-1 leading-relaxed ${bilanObs.type === 'success' ? 'text-emerald-700' : 'text-amber-700'}`}>{bilanObs.text}</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
-        <TabsContent value="resultat" className="animate-in fade-in duration-500">
+        <TabsContent value="resultat" className="animate-in fade-in duration-500 space-y-8">
           <Card className="border-none shadow-2xl ring-1 ring-border rounded-3xl overflow-hidden bg-white">
             <CardHeader className="bg-slate-900 text-white p-8">
               <CardTitle className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3">
-                <PieChart className="h-8 w-8 text-accent" /> Compte de Résultat par Nature (TCR)
+                <PieChart className="h-8 w-8 text-accent" /> Compte de Résultat (TCR)
               </CardTitle>
-              <CardDescription className="text-white/60 font-medium text-xs uppercase tracking-widest mt-1">Analyse de la performance économique de l'exercice</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
                 <TableHeader><TableRow className="bg-slate-50 border-b border-slate-100"><TableHead className="font-black text-[11px] uppercase py-6 pl-10">Postes de Gestion SCF</TableHead><TableHead className="text-right font-black text-[11px] uppercase py-6">Produits (+)</TableHead><TableHead className="text-right font-black text-[11px] uppercase py-6">Charges (-)</TableHead><TableHead className="text-right font-black text-[11px] uppercase py-6 pr-10">Solde</TableHead></TableRow></TableHeader>
                 <TableBody>
-                  <TableRow className="hover:bg-slate-50/50"><TableCell className="pl-10 text-xs font-bold uppercase tracking-tight">I. PRODUCTION DE L'EXERCICE (Ventes)</TableCell><TableCell className="text-right font-mono text-xs text-emerald-600">{formatVal(financialData?.tcr.ca || 0)}</TableCell><TableCell className="text-right font-mono text-xs">-</TableCell><TableCell className="text-right pr-10 font-mono text-xs font-black">{formatVal(financialData?.tcr.ca || 0)}</TableCell></TableRow>
-                  <TableRow className="hover:bg-slate-50/50"><TableCell className="pl-10 text-xs font-bold uppercase tracking-tight">II. CONSOMMATION DE L'EXERCICE (Achats)</TableCell><TableCell className="text-right font-mono text-xs">-</TableCell><TableCell className="text-right font-mono text-xs text-red-600">{formatVal(financialData?.tcr.achats || 0)}</TableCell><TableCell className="text-right pr-10 font-mono text-xs font-black text-red-600">-{formatVal(financialData?.tcr.achats || 0)}</TableCell></TableRow>
-                  <TableRow className="bg-primary/5 font-black"><TableCell className="pl-10 text-xs uppercase text-primary">VALEUR AJOUTÉE D'EXPLOITATION (I - II)</TableCell><TableCell colSpan={2}></TableCell><TableCell className="text-right pr-10 font-mono text-base text-primary">{formatVal((financialData?.tcr.ca || 0) - (financialData?.tcr.achats || 0))} DA</TableCell></TableRow>
-                  
-                  <TableRow className="hover:bg-slate-50/50"><TableCell className="pl-10 text-xs font-medium">III. Charges de personnel</TableCell><TableCell className="text-right">-</TableCell><TableCell className="text-right font-mono text-xs text-red-600">{formatVal(financialData?.tcr.personnel || 0)}</TableCell><TableCell className="text-right pr-10 font-mono text-xs">-{formatVal(financialData?.tcr.personnel || 0)}</TableCell></TableRow>
-                  <TableRow className="hover:bg-slate-50/50"><TableCell className="pl-10 text-xs font-medium">IV. Impôts, taxes et versements assimilés</TableCell><TableCell className="text-right">-</TableCell><TableCell className="text-right font-mono text-xs text-red-600">{formatVal(financialData?.tcr.impots || 0)}</TableCell><TableCell className="text-right pr-10 font-mono text-xs">-{formatVal(financialData?.tcr.impots || 0)}</TableCell></TableRow>
-                  <TableRow className="hover:bg-slate-50/50"><TableCell className="pl-10 text-xs font-medium">V. Dotations aux amortissements et provisions</TableCell><TableCell className="text-right">-</TableCell><TableCell className="text-right font-mono text-xs text-red-600">{formatVal(financialData?.tcr.dotations || 0)}</TableCell><TableCell className="text-right pr-10 font-mono text-xs">-{formatVal(financialData?.tcr.dotations || 0)}</TableCell></TableRow>
-                  
-                  <TableRow className="bg-slate-900 text-white font-black"><TableCell className="pl-10 text-sm uppercase tracking-tighter">1. RÉSULTAT D'EXPLOITATION</TableCell><TableCell colSpan={2}></TableCell><TableCell className="text-right pr-10 font-mono text-lg">{formatVal(totals.resExp)} DA</TableCell></TableRow>
-                  
-                  <TableRow className="hover:bg-slate-50/50"><TableCell className="pl-10 text-xs font-bold uppercase tracking-tight text-blue-600">2. RÉSULTAT FINANCIER (Produits - Charges)</TableCell><TableCell className="text-right font-mono text-xs text-blue-600">{formatVal(financialData?.tcr.financierProd || 0)}</TableCell><TableCell className="text-right font-mono text-xs text-red-600">{formatVal(financialData?.tcr.financierChg || 0)}</TableCell><TableCell className="text-right pr-10 font-mono text-xs font-black">{formatVal(totals.resFin)}</TableCell></TableRow>
+                  <TableRow><TableCell className="pl-10 text-xs font-bold uppercase">Production de l'exercice</TableCell><TableCell className="text-right font-mono text-xs text-emerald-600">{formatVal(financialData?.tcr.ca || 0)}</TableCell><TableCell className="text-right">-</TableCell><TableCell className="text-right pr-10 font-mono text-xs font-black">{formatVal(financialData?.tcr.ca || 0)}</TableCell></TableRow>
+                  <TableRow><TableCell className="pl-10 text-xs font-bold uppercase">Consommation de l'exercice</TableCell><TableCell className="text-right">-</TableCell><TableCell className="text-right font-mono text-xs text-red-600">{formatVal(financialData?.tcr.achats || 0)}</TableCell><TableCell className="text-right pr-10 font-mono text-xs font-black text-red-600">-{formatVal(financialData?.tcr.achats || 0)}</TableCell></TableRow>
+                  <TableRow className="bg-primary/5 font-black"><TableCell className="pl-10 text-xs uppercase text-primary">Valeur Ajoutée d'Exploitation</TableCell><TableCell colSpan={2}></TableCell><TableCell className="text-right pr-10 font-mono text-base text-primary">{formatVal((financialData?.tcr.ca || 0) - (financialData?.tcr.achats || 0))} DA</TableCell></TableRow>
+                  <TableRow><TableCell className="pl-10 text-xs font-medium">Charges de Personnel (63)</TableCell><TableCell className="text-right">-</TableCell><TableCell className="text-right font-mono text-xs text-red-600">{formatVal(financialData?.tcr.personnel || 0)}</TableCell><TableCell className="text-right pr-10 font-mono text-xs">-{formatVal(financialData?.tcr.personnel || 0)}</TableCell></TableRow>
+                  <TableRow className="bg-slate-900 text-white font-black"><TableCell className="pl-10 text-sm uppercase tracking-tighter">1. Résultat d'Exploitation</TableCell><TableCell colSpan={2}></TableCell><TableCell className="text-right pr-10 font-mono text-lg">{formatVal(totals.resExp)} DA</TableCell></TableRow>
+                  <TableRow><TableCell className="pl-10 text-xs font-bold text-blue-600">2. Résultat Financier</TableCell><TableCell className="text-right font-mono text-xs text-blue-600">{formatVal(financialData?.tcr.financierProd || 0)}</TableCell><TableCell className="text-right font-mono text-xs text-red-600">{formatVal(financialData?.tcr.financierChg || 0)}</TableCell><TableCell className="text-right pr-10 font-mono text-xs font-black">{formatVal(totals.resFin)}</TableCell></TableRow>
                 </TableBody>
                 <TableFooter className="bg-accent text-primary-foreground border-none">
-                  <TableRow className="font-black"><TableCell className="pl-10 text-xl uppercase tracking-tighter">RÉSULTAT NET DE L'EXERCICE</TableCell><TableCell colSpan={2}></TableCell><TableCell className="text-right pr-10 font-mono text-2xl">{formatVal(totals.resNet)} DA</TableCell></TableRow>
+                  <TableRow className="font-black"><TableCell className="pl-10 text-xl uppercase tracking-tighter">Résultat Net de l'Exercice</TableCell><TableCell colSpan={2}></TableCell><TableCell className="text-right pr-10 font-mono text-2xl">{formatVal(totals.resNet)} DA</TableCell></TableRow>
                 </TableFooter>
               </Table>
             </CardContent>
           </Card>
+
+          {tcrObs && (
+            <Card className={`border-none shadow-lg rounded-3xl overflow-hidden ${tcrObs.type === 'success' ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
+              <CardContent className="p-8 flex items-start gap-6">
+                <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 ${tcrObs.type === 'success' ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
+                  <Activity className="h-6 w-6" />
+                </div>
+                <div>
+                  <h4 className={`text-lg font-black uppercase tracking-tighter ${tcrObs.type === 'success' ? 'text-emerald-800' : 'text-red-800'}`}>{tcrObs.title}</h4>
+                  <p className={`text-sm mt-1 leading-relaxed ${tcrObs.type === 'success' ? 'text-emerald-700' : 'text-red-700'}`}>{tcrObs.text}</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
-        <TabsContent value="flux" className="animate-in fade-in duration-500">
+        <TabsContent value="flux" className="animate-in fade-in duration-500 space-y-8">
            <Card className="border-none shadow-2xl ring-1 ring-border rounded-3xl overflow-hidden bg-white">
              <CardHeader className="bg-blue-600 text-white p-8">
                <CardTitle className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3"><ArrowRightLeft className="h-8 w-8" /> Tableau des Flux de Trésorerie (TFT)</CardTitle>
-               <CardDescription className="text-white/70">Méthode indirecte : Analyse réelle des flux de Classe 2 et Classe 5</CardDescription>
              </CardHeader>
              <CardContent className="p-8 space-y-10">
                 <div className="grid md:grid-cols-3 gap-8">
                    <div className="p-6 rounded-3xl bg-emerald-50 border border-emerald-100">
                      <p className="text-[10px] font-black uppercase text-emerald-800 tracking-widest mb-2">Flux d'Exploitation</p>
                      <h3 className="text-xl font-black text-emerald-600">+{formatVal(totals.fluxExp)} DA</h3>
-                     <p className="text-[9px] text-emerald-700 mt-1 italic">Net + Dotations</p>
                    </div>
                    <div className="p-6 rounded-3xl bg-amber-50 border border-amber-100">
                      <p className="text-[10px] font-black uppercase text-amber-800 tracking-widest mb-2">Flux d'Investissement</p>
                      <h3 className={`text-xl font-black ${totals.fluxInv >= 0 ? 'text-blue-600' : 'text-amber-600'}`}>
                        {totals.fluxInv >= 0 ? '+' : ''}{formatVal(totals.fluxInv)} DA
                      </h3>
-                     <p className="text-[9px] text-amber-700 mt-1 italic">Cessions - Acquisitions (Cl. 2)</p>
                    </div>
                    <div className="p-6 rounded-3xl bg-slate-900 text-white">
                      <p className="text-[10px] font-black uppercase text-accent tracking-widest mb-2">Flux de Financement</p>
                      <h3 className="text-xl font-black text-white">{totals.fluxFin >= 0 ? '+' : ''}{formatVal(totals.fluxFin)} DA</h3>
-                     <p className="text-[9px] text-white/50 mt-1 italic">Capital + Emprunts (Cl. 1)</p>
                    </div>
                 </div>
 
@@ -377,35 +460,39 @@ export default function FinancialStatements() {
                       <span className="text-[10px] font-black uppercase text-slate-400">Variation Totale de Trésorerie</span>
                       <span className="text-4xl font-black text-primary">{formatVal(totals.fluxExp + totals.fluxInv + totals.fluxFin)} DA</span>
                    </div>
-                   <div className="h-20 w-px bg-slate-100 hidden md:block" />
                    <div className="flex flex-col text-right">
-                      <span className="text-[10px] font-black uppercase text-slate-400">Solde Trésorerie Final (Cl. 5)</span>
+                      <span className="text-[10px] font-black uppercase text-slate-400">Solde Clôture (Classe 5)</span>
                       <span className="text-4xl font-black text-emerald-600">{formatVal(financialData?.actifCourant.dispo || 0)} DA</span>
                    </div>
                 </div>
-
-                <div className="p-6 bg-slate-50 border border-slate-200 rounded-3xl flex items-start gap-4">
-                   <Info className="h-6 w-6 text-blue-600 mt-1" />
-                   <p className="text-xs leading-relaxed text-slate-600 italic">
-                    Le flux d'investissement est calculé en analysant les mouvements de débit (Acquisitions) et de crédit (Cessions) sur vos comptes d'immobilisations (Classe 2). 
-                    Une valeur négative indique un effort d'investissement pour la croissance future de l'entité.
-                   </p>
-                </div>
              </CardContent>
            </Card>
+
+           {tftObs && (
+            <Card className={`border-none shadow-lg rounded-3xl overflow-hidden ${tftObs.type === 'success' ? 'bg-emerald-50 border-emerald-100' : tftObs.type === 'info' ? 'bg-blue-50 border-blue-100' : 'bg-red-50 border-red-100'}`}>
+              <CardContent className="p-8 flex items-start gap-6">
+                <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 ${tftObs.type === 'success' ? 'bg-emerald-100 text-emerald-600' : tftObs.type === 'info' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'}`}>
+                  <Lightbulb className="h-6 w-6" />
+                </div>
+                <div>
+                  <h4 className={`text-lg font-black uppercase tracking-tighter ${tftObs.type === 'success' ? 'text-emerald-800' : tftObs.type === 'info' ? 'text-blue-800' : 'text-red-800'}`}>{tftObs.title}</h4>
+                  <p className={`text-sm mt-1 leading-relaxed ${tftObs.type === 'success' ? 'text-emerald-700' : tftObs.type === 'info' ? 'text-blue-700' : 'text-red-700'}`}>{tftObs.text}</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="variation" className="animate-in fade-in duration-500">
            <Card className="border-none shadow-2xl ring-1 ring-border rounded-3xl overflow-hidden bg-white">
               <CardHeader className="bg-accent text-primary-foreground p-8">
-                <CardTitle className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3"><Wallet className="h-8 w-8" /> Tableau de Variation des Capitaux Propres</CardTitle>
+                <CardTitle className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3"><Wallet className="h-8 w-8" /> Variation des Capitaux Propres</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <Table>
                   <TableHeader><TableRow className="bg-slate-50"><TableHead className="pl-8">Rubrique</TableHead><TableHead className="text-right">Solde au 01/01</TableHead><TableHead className="text-right">Variation (+)</TableHead><TableHead className="text-right pr-8">Solde au 31/12</TableHead></TableRow></TableHeader>
                   <TableBody>
                     <TableRow><TableCell className="pl-8 text-xs font-bold">Capital Social</TableCell><TableCell className="text-right font-mono text-xs">{formatVal(financialData?.capitauxPropres.capital || 0)}</TableCell><TableCell className="text-right font-mono text-xs">+{formatVal(financialData?.tft.augmentCapital || 0)}</TableCell><TableCell className="text-right pr-8 font-mono text-xs">{formatVal(financialData?.capitauxPropres.capital || 0)}</TableCell></TableRow>
-                    <TableRow><TableCell className="pl-8 text-xs font-bold">Réserves</TableCell><TableCell className="text-right font-mono text-xs">{formatVal(financialData?.capitauxPropres.reserves || 0)}</TableCell><TableCell className="text-right">-</TableCell><TableCell className="text-right pr-8 font-mono text-xs">{formatVal(financialData?.capitauxPropres.reserves || 0)}</TableCell></TableRow>
                     <TableRow><TableCell className="pl-8 text-xs font-bold">Résultat de l'exercice</TableCell><TableCell className="text-right font-mono text-xs">0,00</TableCell><TableCell className="text-right font-mono text-xs text-emerald-600">+{formatVal(totals.resNet)}</TableCell><TableCell className="text-right pr-8 font-mono text-xs font-black text-primary">{formatVal(totals.resNet)}</TableCell></TableRow>
                   </TableBody>
                 </Table>
@@ -417,11 +504,11 @@ export default function FinancialStatements() {
       <div className="p-8 bg-emerald-50 border border-emerald-100 rounded-3xl flex items-start gap-6 shadow-sm">
         <ShieldCheck className="h-10 w-10 text-emerald-600 shrink-0" />
         <div className="text-xs text-emerald-900 leading-relaxed space-y-3">
-          <p className="font-black uppercase tracking-widest text-emerald-800">Certification SCF Master Node :</p>
+          <p className="font-black uppercase tracking-widest text-emerald-800">Note de Certification SCF :</p>
           <p>
-            Ces états financiers sont générés par le moteur de retraitement **ComptaFisc-DZ v2.6**. 
-            Ils respectent les règles de présentation du Système Comptable Financier (SCF) et sont synchronisés avec votre Livre-Journal. 
-            Le total de l'Actif ({formatVal(totals.actif)} DA) est équilibré avec le total du Passif ({formatVal(totals.passif)} DA), validant l'intégrité de vos écritures de fin d'exercice.
+            Ces documents sont générés par le **Moteur de Retraitement ComptaFisc-DZ v2.6**. 
+            Ils respectent les règles de présentation du Système Comptable Financier algérien. 
+            L'intégrité des écritures est vérifiée par la règle : `Actif = Passif` et `Variation Trésorerie TFT = Δ Comptes de Classe 5`.
           </p>
         </div>
       </div>
