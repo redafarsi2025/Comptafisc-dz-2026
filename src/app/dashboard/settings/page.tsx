@@ -15,7 +15,7 @@ import { collection, query, where, limit, doc } from "firebase/firestore"
 import { WILAYAS } from "@/lib/wilaya-data"
 import { 
   Building2, Save, MapPin, ShieldCheck, Zap, Loader2, Info, Landmark, CalendarDays,
-  HardHat, Store, Briefcase, Factory, Gavel, Users, GraduationCap, FileText, Globe, Rocket
+  HardHat, Store, Briefcase, Factory, Gavel, Users, GraduationCap, FileText, Globe, Rocket, Truck, FlaskConical
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
@@ -72,7 +72,7 @@ export default function TenantSettingsPage() {
         ...formData,
         updatedAt: new Date().toISOString()
       })
-      toast({ title: "Configuration Master mise à jour", description: "Les variables RH et fiscales ont été synchronisées." });
+      toast({ title: "Configuration Master mise à jour", description: "Les variables métier ont été synchronisées." });
     } finally { setIsSaving(false); }
   }
 
@@ -83,7 +83,7 @@ export default function TenantSettingsPage() {
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-1">
           <h1 className="text-3xl font-black text-primary flex items-center gap-2 uppercase tracking-tighter">Configuration Master</h1>
-          <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest">Contrôle des variables du noyau SaaS ComptaFisc-DZ</p>
+          <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest">Contrôle des variables métier par dossier</p>
         </div>
         <Button onClick={handleSave} disabled={isSaving} className="shadow-xl bg-primary h-11 px-8 rounded-xl font-bold">
           {isSaving ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Save className="mr-2 h-4 w-4" />}
@@ -95,8 +95,8 @@ export default function TenantSettingsPage() {
         <TabsList className="grid w-full grid-cols-4 h-auto p-1 bg-muted/50 rounded-2xl">
           <TabsTrigger value="identification" className="py-3 text-xs font-bold rounded-xl">Identification</TabsTrigger>
           <TabsTrigger value="fiscal" className="py-3 text-xs font-bold rounded-xl">Profil Fiscal</TabsTrigger>
-          <TabsTrigger value="expert" className="py-3 text-xs font-bold rounded-xl">Variables BTP/Indus</TabsTrigger>
-          <TabsTrigger value="social" className="py-3 text-xs font-bold rounded-xl">Point Indiciaire & RH</TabsTrigger>
+          <TabsTrigger value="expert" className="py-3 text-xs font-bold rounded-xl">Modules Secteurs</TabsTrigger>
+          <TabsTrigger value="social" className="py-3 text-xs font-bold rounded-xl">Social & RH</TabsTrigger>
         </TabsList>
 
         <TabsContent value="identification" className="mt-6 space-y-6">
@@ -130,39 +130,18 @@ export default function TenantSettingsPage() {
                     </Select>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Adresse Siège Social</Label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
-                    <Input value={formData.adresse || ""} onChange={(e) => handleUpdate("adresse", e.target.value)} className="pl-10 h-11 rounded-xl" />
-                  </div>
-                </div>
               </div>
 
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase text-slate-400 px-1">NIF (15 chiffres)</Label>
+                    <Label className="text-[10px] font-black uppercase text-slate-400 px-1">NIF</Label>
                     <Input value={formData.nif || ""} onChange={(e) => handleUpdate("nif", e.target.value)} maxLength={15} className="h-11 rounded-xl font-mono" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase text-slate-400 px-1">N.I.S</Label>
-                    <Input value={formData.nis || ""} onChange={(e) => handleUpdate("nis", e.target.value)} className="h-11 rounded-xl font-mono" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Registre Commerce (RC)</Label>
+                    <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Registre Commerce</Label>
                     <Input value={formData.rc || ""} onChange={(e) => handleUpdate("rc", e.target.value)} className="h-11 rounded-xl font-mono" />
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Article d'Imposition (AI)</Label>
-                    <Input value={formData.ai || ""} onChange={(e) => handleUpdate("ai", e.target.value)} className="h-11 rounded-xl font-mono" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 px-1 flex items-center gap-1"><CalendarDays className="h-3 w-3" /> Date début d'activité (G8)</Label>
-                  <Input type="date" value={formData.debutActivite || ""} onChange={(e) => handleUpdate("debutActivite", e.target.value)} className="h-11 rounded-xl" />
                 </div>
               </div>
             </CardContent>
@@ -172,7 +151,7 @@ export default function TenantSettingsPage() {
         <TabsContent value="fiscal" className="mt-6 space-y-6">
           <Card className="border-none shadow-xl ring-1 ring-border rounded-2xl overflow-hidden bg-white">
             <CardHeader className="bg-slate-50 border-b">
-              <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2"><Gavel className="h-4 w-4 text-primary" /> Régime & Assujettissement</CardTitle>
+              <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2"><Gavel className="h-4 w-4 text-primary" /> Régime & Secteur</CardTitle>
             </CardHeader>
             <CardContent className="pt-6 grid md:grid-cols-2 gap-8">
               <div className="space-y-6">
@@ -187,40 +166,18 @@ export default function TenantSettingsPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400">Secteur d'Activité</Label>
+                  <Label className="text-[10px] font-black uppercase text-slate-400">Secteur Stratégique</Label>
                   <Select value={formData.secteurActivite || "SERVICES"} onValueChange={(v) => handleUpdate("secteurActivite", v)}>
                     <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="COMMERCE">🛒 Commerce & Négoce</SelectItem>
-                      <SelectItem value="BTP">🏗 BTP & Chantier</SelectItem>
-                      <SelectItem value="INDUSTRIE">🏭 Industrie & Production</SelectItem>
+                      <SelectItem value="BTP">🏗 BTPH (Chantiers)</SelectItem>
+                      <SelectItem value="TRANSPORT">🚚 Transport & Logistique</SelectItem>
+                      <SelectItem value="INDUSTRIE">🏭 Agroalimentaire / Industrie</SelectItem>
+                      <SelectItem value="SANTE">🏥 Santé (Pharmacie/Clinique)</SelectItem>
                       <SelectItem value="SERVICES">💼 Services & Conseil</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-              </div>
-              <div className="space-y-6">
-                <div className="p-4 bg-muted/20 rounded-2xl border border-dashed space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label className="text-sm font-bold">Assujetti à la TVA</Label>
-                      <p className="text-[10px] text-muted-foreground">Active les colonnes TVA dans les journaux.</p>
-                    </div>
-                    <Switch 
-                      checked={formData.assujettissementTva} 
-                      onCheckedChange={(v) => handleUpdate("assujettissementTva", v)} 
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label className="text-sm font-bold flex items-center gap-2">Label Startup <Rocket className="h-3 w-3 text-emerald-500" /></Label>
-                      <p className="text-[10px] text-muted-foreground">Exonération IBS/IFU pendant 4 ans.</p>
-                    </div>
-                    <Switch 
-                      checked={formData.isStartup} 
-                      onCheckedChange={(v) => handleUpdate("isStartup", v)} 
-                    />
-                  </div>
                 </div>
               </div>
             </CardContent>
@@ -229,54 +186,50 @@ export default function TenantSettingsPage() {
 
         <TabsContent value="expert" className="mt-6 space-y-6">
           <div className="grid md:grid-cols-2 gap-8">
-            <Card className="border-none shadow-xl ring-1 ring-border rounded-2xl overflow-hidden bg-white">
-              <CardHeader className="bg-slate-50 border-b">
-                <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2"><HardHat className="h-4 w-4 text-primary" /> Spécificités BTP</CardTitle>
-              </CardHeader>
-              <CardContent className="pt-6 space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400">Taux Retenue de Garantie (%)</Label>
-                  <Input 
-                    type="number" 
-                    value={formData.btpConfig?.defaultWarrantyRate || 5} 
-                    onChange={(e) => handleUpdate("btpConfig.defaultWarrantyRate", parseFloat(e.target.value))} 
-                    className="h-11 rounded-xl"
-                  />
-                  <p className="text-[10px] text-muted-foreground italic">Standard Algérie : 5% sur chaque décompte.</p>
-                </div>
-                <div className="flex items-center space-x-2 pt-2">
-                  <Checkbox 
-                    id="cacobatph" 
-                    checked={formData.btpConfig?.cacobatphActive} 
-                    onCheckedChange={(v) => handleUpdate("btpConfig.cacobatphActive", !!v)} 
-                  />
-                  <Label htmlFor="cacobatph" className="text-xs font-bold">Assujetti CACOBATPH (CP & CI)</Label>
-                </div>
-              </CardContent>
-            </Card>
+            {formData.secteurActivite === "TRANSPORT" && (
+              <Card className="border-none shadow-xl ring-1 ring-border rounded-2xl overflow-hidden bg-white">
+                <CardHeader className="bg-blue-50 border-b border-blue-100">
+                  <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2"><Truck className="h-4 w-4 text-blue-600" /> Options Transport</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold">Activer Rentabilité par Véhicule</Label>
+                    <Switch checked={true} disabled />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold">Alertes Agréments Wilayas</Label>
+                    <Switch checked={formData.transportConfig?.permitAlerts} onCheckedChange={(v) => handleUpdate("transportConfig.permitAlerts", v)} />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {formData.secteurActivite === "SANTE" && (
+              <Card className="border-none shadow-xl ring-1 ring-border rounded-2xl overflow-hidden bg-white">
+                <CardHeader className="bg-emerald-50 border-b border-emerald-100">
+                  <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2"><FlaskConical className="h-4 w-4 text-emerald-600" /> Options Santé</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold">Gestion des Lots & Péremption</Label>
+                    <Switch checked={true} disabled />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold">Registre des Psychotropes</Label>
+                    <Switch checked={formData.healthConfig?.psychoRegistry} onCheckedChange={(v) => handleUpdate("healthConfig.psychoRegistry", v)} />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             <Card className="border-none shadow-xl ring-1 ring-border rounded-2xl overflow-hidden bg-white">
               <CardHeader className="bg-slate-50 border-b">
-                <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2"><Factory className="h-4 w-4 text-primary" /> Spécificités Industrie</CardTitle>
+                <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2"><Briefcase className="h-4 w-4 text-primary" /> Paramètres Métier</CardTitle>
               </CardHeader>
               <CardContent className="pt-6 space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400">Méthode de Valorisation Stock</Label>
-                  <Select value={formData.industryConfig?.valuationMethod || "CMUP"} onValueChange={(v) => handleUpdate("industryConfig.valuationMethod", v)}>
-                    <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="CMUP">CMUP (Coût Moyen Pondéré)</SelectItem>
-                      <SelectItem value="FIFO">FIFO (Premier entré, premier sorti)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center space-x-2 pt-2">
-                  <Checkbox 
-                    id="auto-of" 
-                    checked={formData.industryConfig?.autoOfEnabled} 
-                    onCheckedChange={(v) => handleUpdate("industryConfig.autoOfEnabled", !!v)} 
-                  />
-                  <Label htmlFor="auto-of" className="text-xs font-bold">Lancement OF auto sur commande client</Label>
+                <div className="flex items-center space-x-2">
+                  <Checkbox id="startup" checked={formData.isStartup} onCheckedChange={(v) => handleUpdate("isStartup", !!v)} />
+                  <Label htmlFor="startup" className="text-xs font-bold">Label Startup (Exonéré IBS/IFU)</Label>
                 </div>
               </CardContent>
             </Card>
@@ -286,7 +239,7 @@ export default function TenantSettingsPage() {
         <TabsContent value="social" className="mt-6 space-y-6">
           <Card className="border-none shadow-xl ring-1 ring-border rounded-2xl overflow-hidden bg-white">
             <CardHeader className="bg-primary/5 border-b border-primary/10">
-              <CardTitle className="text-sm font-black uppercase tracking-widest text-primary flex items-center gap-2"><GraduationCap className="h-4 w-4" /> Moteur de Paie Indiciaire</CardTitle>
+              <CardTitle className="text-sm font-black uppercase tracking-widest text-primary flex items-center gap-2"><GraduationCap className="h-4 w-4" /> Noyau RH</CardTitle>
             </CardHeader>
             <CardContent className="pt-8 grid md:grid-cols-2 gap-10">
               <div className="space-y-6">
@@ -294,38 +247,8 @@ export default function TenantSettingsPage() {
                   <Label className="text-[10px] font-black uppercase text-primary tracking-[0.2em]">Valeur du point indiciaire (DA)</Label>
                   <div className="relative">
                     <Zap className="absolute left-3 top-3.5 h-4 w-4 text-accent" />
-                    <Input 
-                      type="number" 
-                      value={formData.iepPointValue || 45} 
-                      onChange={(e) => handleUpdate("iepPointValue", parseFloat(e.target.value))} 
-                      className="h-12 pl-10 text-lg font-black rounded-xl border-primary/20 bg-primary/5 text-primary focus-visible:ring-primary"
-                    />
+                    <Input type="number" value={formData.iepPointValue || 45} onChange={(e) => handleUpdate("iepPointValue", parseFloat(e.target.value))} className="h-12 pl-10 text-lg font-black rounded-xl border-primary/20 bg-primary/5 text-primary" />
                   </div>
-                  <p className="text-[10px] text-muted-foreground italic">Cette valeur multiplie l'indice de chaque salarié pour générer le salaire de base.</p>
-                </div>
-                
-                <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-center gap-3">
-                  <ShieldCheck className="h-6 w-6 text-emerald-600" />
-                  <div className="space-y-0.5">
-                    <p className="text-xs font-bold text-emerald-800">Verrouillage SNMG 2026</p>
-                    <p className="text-[9px] text-emerald-600">Le système bloque automatiquement toute paie inférieure à 24 000 DA.</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Primes Activées (Conventions)</p>
-                <div className="grid grid-cols-2 gap-4">
-                  {["Panier", "Transport", "Nuisance", "Zone", "Risque"].map(p => (
-                    <div key={p} className="flex items-center space-x-2 p-3 border rounded-xl hover:bg-slate-50 transition-colors">
-                      <Checkbox 
-                        id={`p-${p}`} 
-                        checked={formData.socialConfig?.[p]} 
-                        onCheckedChange={(v) => handleUpdate(`socialConfig.${p}`, !!v)} 
-                      />
-                      <label htmlFor={`p-${p}`} className="text-xs font-bold cursor-pointer uppercase tracking-tighter">{p}</label>
-                    </div>
-                  ))}
                 </div>
               </div>
             </CardContent>
@@ -336,10 +259,10 @@ export default function TenantSettingsPage() {
       <div className="p-6 bg-slate-900 text-white rounded-3xl flex items-start gap-4 shadow-xl">
         <Info className="h-6 w-6 text-accent shrink-0 mt-1" />
         <div className="text-xs leading-relaxed space-y-2">
-          <p className="font-bold text-accent uppercase tracking-widest">Note sur la Gouvernance des Données :</p>
+          <p className="font-bold text-accent uppercase tracking-widest">Gouvernance ComptaFisc-DZ :</p>
           <p className="opacity-80">
-            La modification du **Régime Fiscal** ou de la **Valeur du Point** impacte rétroactivement les calculs non validés. 
-            Assurez-vous de clôturer vos écritures mensuelles avant tout changement structurel majeur. Toute modification est tracée dans l'historique d'audit du Command Center.
+            L'adaptation du secteur d'activité modifie instantanément les menus et les calculs du noyau. 
+            Pour les secteurs **Transport** et **Santé**, le module analytique est configuré pour isoler les coûts par véhicule ou par lot de médicaments conformément aux normes algériennes.
           </p>
         </div>
       </div>

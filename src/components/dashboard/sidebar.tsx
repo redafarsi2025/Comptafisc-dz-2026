@@ -61,7 +61,10 @@ import {
   ShieldCheck,
   AlertTriangle,
   Layers,
-  PieChart
+  PieChart,
+  Fuel,
+  FlaskConical,
+  Stethoscope
 } from "lucide-react"
 
 import {
@@ -112,14 +115,19 @@ const pilotageNav = [
   { name: "Analyse & Pilotage", href: "/dashboard/financial-analysis", icon: BarChart3 },
 ]
 
-// Menu Ventes (Commerce / Industrie)
+// Menu Ventes
 const salesNav = [
   { name: "Flux de Vente Hub", href: "/dashboard/sales", icon: CircleDollarSign },
   { name: "Commandes Clients", href: "/dashboard/sales/orders", icon: FileSearch },
   { name: "Livraisons (BL)", href: "/dashboard/sales/delivery", icon: Truck },
   { name: "Factures Émises", href: "/dashboard/sales/invoices", icon: Receipt },
-  { name: "Retours Clients", href: "/dashboard/sales/returns", icon: Undo2 },
-  { name: "Avoirs Clients", href: "/dashboard/sales/credit-notes", icon: FileMinus },
+]
+
+// Menu Logistique (Transport)
+const logisticsNav = [
+  { name: "Pilotage Flotte", href: "/dashboard/logistics", icon: Truck },
+  { name: "Consommation (Carburant)", href: "/dashboard/logistics/fuel", icon: Fuel },
+  { name: "Carnet d'Entretien", icon: Settings, href: "#" },
 ]
 
 // Menu BTP
@@ -132,14 +140,20 @@ const btpNav = [
 // Menu Industrie
 const industryNav = [
   { name: "Ordres de Fabrication", href: "/dashboard/industry/production", icon: Factory },
-  { name: "Fiches Recettes / Gammes", href: "/dashboard/industry/recipes", icon: ClipboardList },
+  { name: "Fiches Recettes", href: "/dashboard/industry/recipes", icon: ClipboardList },
+]
+
+// Menu Santé
+const healthNav = [
+  { name: "Traçabilité Lots", href: "/dashboard/health/lots", icon: FlaskConical },
+  { name: "Dossiers Patient", icon: Stethoscope, href: "#" },
+  { name: "Registre Psychotropes", icon: ShieldAlert, href: "#" },
 ]
 
 // Menu Achats
 const purchaseNav = [
   { name: "Flux d'Achat Hub", href: "/dashboard/purchases", icon: ShoppingCart },
   { name: "Demandes d'Achat", href: "/dashboard/purchases/requests", icon: FilePlus2 },
-  { name: "Bons de Commande", href: "/dashboard/purchases/orders", icon: FileSearch },
   { name: "Factures Fournisseurs", href: "/dashboard/purchases/invoices", icon: Receipt },
 ]
 
@@ -147,7 +161,6 @@ const purchaseNav = [
 const accountingNav = [
   { name: "Saisie Journal", href: "/dashboard/accounting", icon: BookText },
   { name: "Grand Livre", href: "/dashboard/accounting/ledger", icon: Library },
-  { name: "Balance Générale", href: "/dashboard/accounting/balance", icon: Scale },
   { name: "États Financiers", href: "/dashboard/accounting/financial-statements", icon: FileBarChart },
 ]
 
@@ -157,30 +170,15 @@ const analyticNav = [
   { name: "Architecture Analytique", href: "/dashboard/accounting/analytic/settings", icon: Layers },
 ]
 
-// Menu Stocks
-const inventoryNav = [
-  { name: "Sessions d'Inventaire", href: "/dashboard/inventory", icon: ClipboardCheck },
-  { name: "Gestion des Stocks", href: "/dashboard/inventory/stock", icon: Boxes },
-]
-
 const payrollNav = [
   { name: "Registre Personnel", href: "/dashboard/payroll", icon: Users },
-  { name: "Simulateur RH", href: "/dashboard/payroll/simulator", icon: Calculator },
   { name: "Audit & Conformité", href: "/dashboard/payroll/compliance", icon: ShieldCheck },
   { name: "Livre de Paie", href: "/dashboard/payroll/ledger", icon: BookOpen },
-  { name: "Bordereau DAC (CNAS)", href: "/dashboard/payroll/dac", icon: CalendarCheck },
 ]
 
 const fiscalNav = [
   { name: "Déclarations (G50/G12)", href: "/dashboard/declarations", icon: FileText },
   { name: "Liasse Fiscale (G4)", href: "/dashboard/declarations/g4", icon: FileText },
-  { name: "Cotisations CASNOS", href: "/dashboard/declarations/casnos", icon: HandCoins },
-]
-
-const aiNav = [
-  { name: "Assistant Fiscal IA", href: "/dashboard/assistant", icon: MessageSquareMore },
-  { name: "Capture OCR (Gemini)", href: "/dashboard/ocr", icon: Camera },
-  { name: "DGI Watch (Veille)", href: "/dashboard/cabinet/dgi-watch", icon: Eye },
 ]
 
 export function DashboardSidebar() {
@@ -214,7 +212,7 @@ export function DashboardSidebar() {
   const { data: tenants, isLoading: isTenantsLoading } = useCollection(tenantsQuery);
 
   const adminDocRef = useMemoFirebase(() => (db && user) ? doc(db, "saas_admins", user.uid) : null, [db, user?.uid]);
-  const { data: adminRecord, isLoading: isAdminLoading } = useDoc(adminDocRef);
+  const { data: adminRecord } = useDoc(adminDocRef);
   const isSaaSAdmin = !!adminRecord;
 
   const tenantIdFromUrl = searchParams.get('tenantId')
@@ -243,7 +241,6 @@ export function DashboardSidebar() {
   const handleCreateTenant = async () => {
     if (!db || !user || !newTenantData.raisonSociale) return;
     setIsCreating(true);
-
     const tenantData = {
       ...newTenantData,
       createdAt: new Date().toISOString(),
@@ -253,18 +250,14 @@ export function DashboardSidebar() {
       plan: 'GRATUIT',
       assujettissementTva: newTenantData.regimeFiscal === 'REGIME_REEL'
     };
-
     try {
       const docRef = await addDocumentNonBlocking(collection(db, "tenants"), tenantData);
       if (docRef) {
-        toast({ title: "Dossier créé", description: `Le dossier ${newTenantData.raisonSociale} est prêt.` });
         setIsCreateDialogOpen(false);
-        setNewTenantData({ raisonSociale: "", formeJuridique: "SARL", regimeFiscal: "REGIME_REEL", secteurActivite: "COMMERCE" });
         handleTenantSelect(docRef.id);
       }
     } catch (e) {
       console.error(e);
-      toast({ variant: "destructive", title: "Erreur", description: "Impossible de créer le dossier." });
     } finally {
       setIsCreating(false);
     }
@@ -328,23 +321,16 @@ export function DashboardSidebar() {
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-72 p-2 shadow-2xl rounded-xl">
-                <div className="px-2 py-1.5 text-[10px] font-black text-muted-foreground uppercase tracking-widest border-b mb-2">Dossiers actifs</div>
                 {tenants?.map((t) => (
                   <DropdownMenuItem key={t.id} onClick={() => handleTenantSelect(t.id)} className="cursor-pointer rounded-lg mb-1">
                     <div className="flex flex-col">
                       <span className="font-bold text-xs uppercase">{t.raisonSociale}</span>
-                      <span className="text-[9px] text-muted-foreground font-mono">NIF: {t.nif || 'Non renseigné'}</span>
+                      <span className="text-[9px] text-muted-foreground font-mono">NIF: {t.nif || 'N/A'}</span>
                     </div>
                   </DropdownMenuItem>
                 ))}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem 
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    setIsCreateDialogOpen(true);
-                  }} 
-                  className="cursor-pointer font-bold text-primary text-xs flex items-center gap-2"
-                >
+                <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setIsCreateDialogOpen(true); }} className="cursor-pointer font-bold text-primary text-xs flex items-center gap-2">
                   <PlusCircle className="h-4 w-4" /> Nouveau Dossier
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -356,43 +342,17 @@ export function DashboardSidebar() {
       <SidebarContent className="px-2">
         <NavGroup label="Pilotage & Décision" items={pilotageNav} />
         
-        <NavGroup 
-          label="Ventes & Clients" 
-          items={salesNav} 
-          visible={secteur === "COMMERCE" || secteur === "INDUSTRIE"} 
-        />
+        <NavGroup label="Ventes & Clients" items={salesNav} visible={secteur === "COMMERCE" || secteur === "INDUSTRIE"} />
+        <NavGroup label="Gestion Flotte" items={logisticsNav} visible={secteur === "TRANSPORT"} />
+        <NavGroup label="Gestion Chantiers" items={btpNav} visible={secteur === "BTP"} />
+        <NavGroup label="Production" items={industryNav} visible={secteur === "INDUSTRIE"} />
+        <NavGroup label="Gestion Santé" items={healthNav} visible={secteur === "SANTE"} />
 
-        <NavGroup 
-          label="Gestion Chantiers" 
-          items={btpNav} 
-          visible={secteur === "BTP"} 
-        />
-
-        <NavGroup 
-          label="Production Industrielle" 
-          items={industryNav} 
-          visible={secteur === "INDUSTRIE"} 
-        />
-
-        <NavGroup 
-          label="Achats & Dépenses" 
-          items={purchaseNav} 
-          visible={secteur !== "PRO_LIBERALE"} 
-        />
-        
+        <NavGroup label="Achats & Dépenses" items={purchaseNav} visible={secteur !== "PRO_LIBERALE"} />
         <NavGroup label="Comptabilité SCF" items={accountingNav} />
-        
         <NavGroup label="Comptabilité Analytique" items={analyticNav} />
-
-        <NavGroup 
-          label="Stocks & Inventaires" 
-          items={inventoryNav} 
-          visible={secteur === "COMMERCE" || secteur === "INDUSTRIE"} 
-        />
-
         <NavGroup label="RH & Paie" items={payrollNav} />
         <NavGroup label="Fiscalité & Sociaux" items={fiscalNav} />
-        <NavGroup label="Innovation & Veille" items={aiNav} />
 
         <SidebarGroup>
           <SidebarGroupLabel className="text-sidebar-foreground/40 uppercase tracking-[0.15em] text-[9px] font-black mt-2">Support & Config</SidebarGroupLabel>
@@ -400,27 +360,15 @@ export function DashboardSidebar() {
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname === "/dashboard/support"} tooltip="Assistance">
                 <Link href={currentTenant ? `/dashboard/support?tenantId=${currentTenant.id}` : "/dashboard/support"}>
-                  <LifeBuoy />
-                  <span>Assistance & Support</span>
+                  <LifeBuoy /><span>Assistance & Support</span>
                 </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
+              </SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname === "/dashboard/settings"} tooltip="Paramètres">
                 <Link href={currentTenant ? `/dashboard/settings?tenantId=${currentTenant.id}` : "/dashboard/settings"}>
-                  <Settings />
-                  <span>Paramètres Dossier</span>
+                  <Settings /><span>Paramètres Dossier</span>
                 </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            
-            {isSaaSAdmin && (
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={pathname.startsWith("/saas-admin")} className="text-accent hover:bg-accent/5">
-                  <Link href="/saas-admin"><ShieldAlert className="text-accent" /><span>Console SaaS Admin</span></Link>
-                </SidebarMenuButton>
               </SidebarMenuItem>
-            )}
+            </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
@@ -466,12 +414,7 @@ export function DashboardSidebar() {
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
             <Label htmlFor="raisonSociale">Raison Sociale</Label>
-            <Input 
-              id="raisonSociale"
-              placeholder="Ex: SARL Ma Nouvelle Entreprise" 
-              value={newTenantData.raisonSociale}
-              onChange={e => setNewTenantData({...newTenantData, raisonSociale: e.target.value})}
-            />
+            <Input id="raisonSociale" placeholder="Ex: SARL Ma Nouvelle Entreprise" value={newTenantData.raisonSociale} onChange={e => setNewTenantData({...newTenantData, raisonSociale: e.target.value})} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
@@ -495,14 +438,16 @@ export function DashboardSidebar() {
             </div>
           </div>
           <div className="grid gap-2">
-            <Label>Profil Métier (Adaptation Interface)</Label>
+            <Label>Secteur Stratégique</Label>
             <Select value={newTenantData.secteurActivite} onValueChange={v => setNewTenantData({...newTenantData, secteurActivite: v})}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="COMMERCE">🛒 Commerce & Négoce</SelectItem>
-                <SelectItem value="BTP">🏗 BTP & Chantier</SelectItem>
-                <SelectItem value="INDUSTRIE">🏭 Industrie & Production</SelectItem>
-                <SelectItem value="PRO_LIBERALE">👨‍⚕️ Profession Libérale</SelectItem>
+                <SelectItem value="BTP">🏗 BTPH (Chantiers)</SelectItem>
+                <SelectItem value="TRANSPORT">🚚 Transport & Logistique</SelectItem>
+                <SelectItem value="INDUSTRIE">🏭 Agroalimentaire / Industrie</SelectItem>
+                <SelectItem value="SANTE">🏥 Santé (Pharmacie/Clinique)</SelectItem>
+                <SelectItem value="PRO_LIBERALE">👨‍⚖️ Profession Libérale</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -510,7 +455,7 @@ export function DashboardSidebar() {
         <DialogFooter>
           <Button onClick={handleCreateTenant} disabled={isCreating || !newTenantData.raisonSociale} className="w-full">
             {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-            Créer le dossier {newTenantData.secteurActivite}
+            Initialiser le Dossier {newTenantData.secteurActivite}
           </Button>
         </DialogFooter>
       </DialogContent>

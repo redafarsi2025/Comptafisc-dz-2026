@@ -1,10 +1,10 @@
 /**
  * @fileOverview Service d'initialisation (Seeding) de l'architecture analytique.
  * Propose des structures par défaut selon le secteur d'activité du tenant.
+ * Enrichi pour 2026 : Transport, Santé et Agroalimentaire.
  */
 
 import { Firestore, collection, addDoc } from 'firebase/firestore';
-import { Secteur, AxeAnalytique } from '@/types/analytique';
 
 interface DefaultStructure {
   axes: Array<{
@@ -37,6 +37,47 @@ const STRUCTURES_PAR_DEFAUT: Record<string, DefaultStructure> = {
         sections: [
           { code: 'ADM', libelle: 'Administration Générale' },
           { code: 'LOG', libelle: 'Logistique & Matériel' }
+        ]
+      }
+    ]
+  },
+  TRANSPORT: {
+    axes: [
+      {
+        code: 'VEH',
+        libelle: 'Flotte de Véhicules',
+        obligatoire: true,
+        ordre: 1,
+        sections: [
+          { code: 'TRK-01', libelle: 'Camion Renault K440 - A' },
+          { code: 'TRK-02', libelle: 'Camion Renault K440 - B' },
+          { code: 'BUS-01', libelle: 'Bus Transport Personnel' }
+        ]
+      },
+      {
+        code: 'LIG',
+        libelle: 'Lignes / Trajets',
+        obligatoire: false,
+        ordre: 2,
+        sections: [
+          { code: 'ALG-ORN', libelle: 'Ligne Alger - Oran' },
+          { code: 'ALG-SET', libelle: 'Ligne Alger - Sétif' }
+        ]
+      }
+    ]
+  },
+  SANTE: {
+    axes: [
+      {
+        code: 'SRV',
+        libelle: 'Services / Départements',
+        obligatoire: true,
+        ordre: 1,
+        sections: [
+          { code: 'URG', libelle: 'Urgences' },
+          { code: 'RAD', libelle: 'Radiologie' },
+          { code: 'LAB', libelle: 'Laboratoire' },
+          { code: 'PHAR', libelle: 'Pharmacie Interne' }
         ]
       }
     ]
