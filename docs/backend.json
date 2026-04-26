@@ -1,73 +1,51 @@
 
 {
   "entities": {
-    "Asset": {
-      "title": "Asset",
+    "FiscalLaw": {
+      "title": "FiscalLaw",
       "type": "object",
-      "description": "Fiche immobilisation experte conforme SCF.",
+      "description": "Référentiel des lois de finances et décrets sources.",
       "properties": {
         "id": { "type": "string" },
-        "code": { "type": "string", "description": "Code unique immo" },
-        "designation": { "type": "string" },
-        "category": { "type": "string", "enum": ["204", "211", "213", "215", "2182", "2183", "2184"] },
-        "serialNumber": { "type": "string" },
-        "acquisitionDate": { "type": "string", "format": "date" },
-        "serviceDate": { "type": "string", "format": "date" },
-        "acquisitionValue": { "type": "number" },
-        "residualValue": { "type": "number", "default": 0 },
-        "amortizationRate": { "type": "number" },
-        "amortizationType": { "type": "string", "enum": ["LINEAR", "DEGRESSIVE"], "default": "LINEAR" },
-        "physicalStatus": { "type": "string", "enum": ["GOOD", "USED", "HS", "REFORM"] },
-        "physicalLocation": { "type": "string" },
-        "assignedEmployee": { "type": "string" },
-        "tenantId": { "type": "string" }
-      }
-    },
-    "Product": {
-      "title": "Product",
-      "type": "object",
-      "description": "Fiche article expert ERP (Logistique + Compta + Inventaire).",
-      "properties": {
-        "id": { "type": "string" },
-        "code": { "type": "string", "description": "Code article unique" },
-        "barcode": { "type": "string" },
         "name": { "type": "string" },
-        "type": { "type": "string", "enum": ["MARCHANDISE", "MATIERE_PREMIERE", "PRODUIT_FINI", "CONSOMMABLE"] },
-        "unit": { "type": "string", "default": "U" },
-        "theoreticalStock": { "type": "number", "default": 0 },
-        "purchasePrice": { "type": "number" },
-        "sellingPrice": { "type": "number" },
-        "tenantId": { "type": "string" }
+        "effectiveStartDate": { "type": "string", "format": "date" },
+        "publicationDate": { "type": "string", "format": "date" },
+        "description": { "type": "string" }
       }
     },
-    "SalesOrder": {
-      "title": "SalesOrder",
+    "FiscalVariableType": {
+      "title": "FiscalVariableType",
       "type": "object",
-      "description": "Commande client (CC).",
+      "description": "Définition d'une variable (ex: SNMG, TVA_STD).",
       "properties": {
-        "id": { "type": "string" },
-        "orderNumber": { "type": "string" },
-        "clientId": { "type": "string" },
-        "clientName": { "type": "string" },
-        "date": { "type": "string", "format": "date" },
-        "status": { "type": "string", "enum": ["DRAFT", "VALIDATED", "SHIPPED", "INVOICED", "CANCELLED"] },
-        "totalHT": { "type": "number" },
-        "totalTVA": { "type": "number" },
-        "totalTTC": { "type": "number" },
-        "items": { "type": "array" }
+        "code": { "type": "string" },
+        "name": { "type": "string" },
+        "unit": { "type": "string" },
+        "dataType": { "type": "string", "enum": ["number", "string", "json"] }
       }
     },
-    "DeliveryNote": {
-      "title": "DeliveryNote",
+    "FiscalVariableValue": {
+      "title": "FiscalVariableValue",
       "type": "object",
-      "description": "Bon de Livraison (BL).",
+      "description": "Valeur historisée d'une variable.",
       "properties": {
-        "id": { "type": "string" },
-        "deliveryNumber": { "type": "string" },
-        "orderId": { "type": "string" },
-        "clientId": { "type": "string" },
-        "date": { "type": "string", "format": "date" },
-        "items": { "type": "array" }
+        "fiscalVariableTypeId": { "type": "string" },
+        "fiscalLawId": { "type": "string" },
+        "value": { "type": "string" },
+        "effectiveStartDate": { "type": "string", "format": "date" }
+      }
+    },
+    "FiscalBusinessRule": {
+      "title": "FiscalBusinessRule",
+      "type": "object",
+      "description": "Règle de calcul complexe (IRG, IFU).",
+      "properties": {
+        "code": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "effectiveStartDate": { "type": "string", "format": "date" },
+        "brackets": { "type": "array" },
+        "formula": { "type": "string" }
       }
     }
   },
@@ -75,10 +53,9 @@
     "providers": ["password", "anonymous"]
   },
   "firestore": {
-    "/tenants/{tenantId}/sales_orders": { "schema": "#/backend/entities/SalesOrder", "description": "Commandes clients" },
-    "/tenants/{tenantId}/delivery_notes": { "schema": "#/backend/entities/DeliveryNote", "description": "Bons de livraison" },
-    "/tenants/{tenantId}/customer_invoices": { "schema": "object", "description": "Factures clients" },
-    "/tenants/{tenantId}/customer_returns": { "schema": "object", "description": "Retours clients" },
-    "/tenants/{tenantId}/customer_credit_notes": { "schema": "object", "description": "Avoirs clients" }
+    "/fiscal_laws/{lawId}": { "schema": "#/backend/entities/FiscalLaw", "description": "Lois sources" },
+    "/fiscal_variable_types/{typeId}": { "schema": "#/backend/entities/FiscalVariableType", "description": "Types de variables" },
+    "/fiscal_variable_values/{valId}": { "schema": "#/backend/entities/FiscalVariableValue", "description": "Historique des valeurs" },
+    "/fiscal_business_rules/{ruleId}": { "schema": "#/backend/entities/FiscalBusinessRule", "description": "Moteur de règles" }
   }
 }
