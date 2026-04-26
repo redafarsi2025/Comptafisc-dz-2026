@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -218,17 +217,8 @@ export default function ProjectDetailPage() {
                     </div>
                   </div>
                 )) : (
-                  <div className="relative flex items-center justify-between md:justify-start md:odd:flex-row-reverse group">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-100 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
-                      <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                    </div>
-                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-slate-100 bg-slate-50/50">
-                      <div className="flex items-center justify-between space-x-2 mb-1">
-                        <div className="font-bold text-slate-900 text-xs">Ouverture du chantier</div>
-                        <time className="font-mono text-[9px] text-primary">{project.startDate}</time>
-                      </div>
-                      <div className="text-[11px] text-slate-500 italic">Initialisation du dossier technique et base de vie.</div>
-                    </div>
+                  <div className="py-12 text-center text-muted-foreground italic text-xs">
+                    Aucun jalon enregistré pour ce chantier.
                   </div>
                 )}
               </div>
