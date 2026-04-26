@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -24,15 +23,14 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, query, where, limit } from "firebase/firestore"
+import { collection, query, where } from "firebase/firestore"
 import { 
-  TrendingUp, TrendingDown, ArrowUpRight, BadgeCheck, 
-  CheckCircle2, Activity, Sparkles, Landmark, History, ShieldCheck, Zap, Loader2,
-  ChevronRight, PlayCircle, Lightbulb, Target, ArrowRight, Pickaxe, Factory, ShoppingCart, Briefcase,
-  Camera, Package, Landmark as BuildingIcon
+  TrendingUp, TrendingDown, Activity, ShieldCheck, Loader2,
+  Camera, Package, Pickaxe, History, Landmark
 } from "lucide-react"
-import { useSearchParams, useRouter } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 import Link from "next/link"
+import { useLocale } from "@/context/LocaleContext"
 
 const REGULATORY_MILESTONES = [
   { 
@@ -62,6 +60,7 @@ export default function DashboardOverview() {
   const db = useFirestore()
   const { user } = useUser()
   const searchParams = useSearchParams()
+  const { t, isRtl } = useLocale()
   const [mounted, setMounted] = React.useState(false)
 
   React.useEffect(() => {
@@ -83,9 +82,7 @@ export default function DashboardOverview() {
 
   const entriesQuery = useMemoFirebase(() => {
     if (!db || !currentTenant || !user) return null;
-    return query(
-      collection(db, "tenants", currentTenant.id, "journal_entries")
-    );
+    return query(collection(db, "tenants", currentTenant.id, "journal_entries"));
   }, [db, currentTenant?.id, user]);
   const { data: entries } = useCollection(entriesQuery);
 
@@ -154,9 +151,9 @@ export default function DashboardOverview() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-primary">Vue d'ensemble</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-primary">{t.Dashboard.overview}</h1>
           <div className="text-muted-foreground flex items-center gap-2 mt-1">
-            <span>Dossier :</span>
+            <span>{t.Dashboard.dossier} :</span>
             <span className="font-semibold text-foreground">{currentTenant?.raisonSociale}</span>
             <Badge variant="outline" className="border-primary/20 bg-primary/5">{currentTenant?.regimeFiscal}</Badge>
           </div>
@@ -166,8 +163,8 @@ export default function DashboardOverview() {
             <ShieldCheck className="h-6 w-6 text-accent" />
           </div>
           <div>
-            <p className="text-[10px] font-bold text-muted-foreground uppercase">Statut Conformité</p>
-            <p className="text-sm font-black text-emerald-600">CERTIFIÉ LF 2026</p>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase">{t.Common.status_compliance}</p>
+            <p className="text-sm font-black text-emerald-600">{t.Common.certified}</p>
           </div>
         </div>
       </div>
@@ -181,8 +178,8 @@ export default function DashboardOverview() {
                   <Pickaxe className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-sm">Nouveau Chantier</h4>
-                  <p className="text-[10px] opacity-70">Ouvrir un nouveau dossier de projet</p>
+                  <h4 className="font-bold text-sm">{t.Dashboard.new_project}</h4>
+                  <p className="text-[10px] opacity-70">{t.Dashboard.open_project}</p>
                 </div>
               </CardContent>
             </Link>
@@ -196,8 +193,8 @@ export default function DashboardOverview() {
                 <Camera className="h-6 w-6 text-accent" />
               </div>
               <div>
-                <h4 className="font-bold text-sm">Scan Facture IA</h4>
-                <p className="text-[10px] opacity-70">Capture intelligente OCR Gemini</p>
+                <h4 className="font-bold text-sm">{t.Dashboard.scan_invoice}</h4>
+                <p className="text-[10px] opacity-70">{t.Dashboard.quick_ocr}</p>
               </div>
             </CardContent>
           </Link>
@@ -210,8 +207,8 @@ export default function DashboardOverview() {
                 <Package className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <h4 className="font-bold text-sm">Gestion de Stock</h4>
-                <p className="text-[10px] opacity-70">Contrôler l'état des références</p>
+                <h4 className="font-bold text-sm">{t.Dashboard.stock_management}</h4>
+                <p className="text-[10px] opacity-70">{t.Dashboard.control_refs}</p>
               </div>
             </CardContent>
           </Link>
@@ -221,18 +218,18 @@ export default function DashboardOverview() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="hover:shadow-md transition-shadow border-l-4 border-l-primary bg-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">CA Annuel (HT)</CardTitle>
+            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">{t.Dashboard.revenue_annual}</CardTitle>
             <TrendingUp className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatAmount(stats.ca)} DZD</div>
-            <p className="text-[10px] text-muted-foreground mt-1">Revenus journalisés.</p>
+            <p className="text-[10px] text-muted-foreground mt-1">{t.Dashboard.revenue_journalized}</p>
           </CardContent>
         </Card>
 
         <Card className="hover:shadow-md transition-shadow border-l-4 border-l-destructive bg-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Charges (Paie incl.)</CardTitle>
+            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">{t.Dashboard.expenses}</CardTitle>
             <TrendingDown className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
@@ -243,23 +240,23 @@ export default function DashboardOverview() {
 
         <Card className="hover:shadow-md transition-shadow border-l-4 border-l-emerald-500 bg-emerald-50/20">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold uppercase text-emerald-800">Résultat Brut</CardTitle>
+            <CardTitle className="text-xs font-bold uppercase text-emerald-800">{t.Dashboard.gross_result}</CardTitle>
             <Activity className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-emerald-600">{formatAmount(stats.ca - stats.charges)} DZD</div>
-            <p className="text-[10px] text-emerald-700 italic mt-1">Performance consolidée.</p>
+            <p className="text-[10px] text-emerald-700 italic mt-1">{t.Dashboard.performance_consolidated}</p>
           </CardContent>
         </Card>
 
         <Card className="hover:shadow-md transition-shadow border-l-4 border-l-blue-400 bg-blue-50/10">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold uppercase text-blue-800">Valeur Patrimoine</CardTitle>
-            <BuildingIcon className="h-4 w-4 text-blue-600" />
+            <CardTitle className="text-xs font-bold uppercase text-blue-800">{t.Dashboard.assets_value}</CardTitle>
+            <Landmark className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-700">{formatAmount(totalAssetsValue)} DZD</div>
-            <p className="text-[10px] text-blue-600 mt-1 uppercase font-bold">Investissements (Classe 2)</p>
+            <p className="text-[10px] text-blue-600 mt-1 uppercase font-bold">{t.Dashboard.investments_class2}</p>
           </CardContent>
         </Card>
       </div>
@@ -268,18 +265,19 @@ export default function DashboardOverview() {
         <Card className="md:col-span-4 shadow-sm border-t-4 border-t-primary bg-white">
           <CardHeader className="bg-muted/10 border-b">
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Activity className="h-5 w-5 text-primary" /> Analyse des Flux (HT)
+              <Activity className="h-5 w-5 text-primary" /> {t.Dashboard.flow_analysis}
             </CardTitle>
-            <CardDescription>Évolution réelle des produits et charges basée sur le Livre-Journal.</CardDescription>
+            <CardDescription>{t.Dashboard.real_evolution}</CardDescription>
           </CardHeader>
           <CardContent className="h-[350px] pt-6">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
-                <XAxis dataKey="month" axisLine={false} tickLine={false} />
+                <XAxis dataKey="month" axisLine={false} tickLine={false} reversed={isRtl} />
                 <YAxis 
                   axisLine={false} 
                   tickLine={false} 
+                  orientation={isRtl ? 'right' : 'left'}
                   tickFormatter={(val) => val >= 1000 ? `${(val / 1000).toFixed(0)}k` : val} 
                 />
                 <Tooltip
@@ -298,7 +296,7 @@ export default function DashboardOverview() {
           <Card className="shadow-lg border-none ring-1 ring-border bg-white overflow-hidden">
             <CardHeader className="bg-primary text-white pb-4">
               <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-wider">
-                <History className="h-4 w-4" /> Veille Réglementaire Active
+                <History className="h-4 w-4" /> {t.Dashboard.regulatory_watch}
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
@@ -325,7 +323,9 @@ export default function DashboardOverview() {
             </CardContent>
             <CardFooter className="bg-muted/20 p-3 flex justify-center border-t">
               <Button variant="ghost" size="sm" className="text-[10px] h-7 text-primary font-bold" asChild>
-                <Link href="/dashboard/assistant">Consulter le Corpus Juridique (RAG)</Link>
+                <Link href={currentTenant ? `/dashboard/assistant?tenantId=${currentTenant.id}` : "/dashboard/assistant"}>
+                  {t.Dashboard.legal_corpus}
+                </Link>
               </Button>
             </CardFooter>
           </Card>

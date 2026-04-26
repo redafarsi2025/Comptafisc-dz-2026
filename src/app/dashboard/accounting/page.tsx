@@ -1,7 +1,3 @@
-/**
- * @fileOverview Journal de Saisie Assistée avec Ventilation Analytique.
- */
-
 "use client"
 
 import * as React from "react"
@@ -9,24 +5,23 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { SCF_ACCOUNTS, JournalEntryLine, JournalType, ACCOUNTING_TEMPLATES } from "@/lib/scf-accounts"
+import { SCF_ACCOUNTS, JournalType } from "@/lib/scf-accounts"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select"
 import { 
   Plus, Trash2, CheckCircle, Calculator, Loader2, BookOpen, 
-  Search, PlusCircle, Zap, ShieldAlert, Sparkles, Briefcase 
+  Search, Briefcase, Sparkles
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useFirestore, useUser, addDocumentNonBlocking, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, query, where, limit, getDocs } from "firebase/firestore"
+import { collection, query, where, doc } from "firebase/firestore"
 import { toast } from "@/hooks/use-toast"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useSearchParams } from "next/navigation"
+import { useLocale } from "@/context/LocaleContext"
 
 export default function AccountingJournal() {
   const db = useFirestore()
   const { user } = useUser()
+  const { t, isRtl } = useLocale()
   const searchParams = useSearchParams()
   const tenantIdFromUrl = searchParams.get('tenantId')
   const [mounted, setMounted] = React.useState(false)
@@ -36,10 +31,6 @@ export default function AccountingJournal() {
   const [journalType, setJournalType] = React.useState<JournalType>("ACHATS")
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [searchAccount, setSearchAccount] = React.useState("")
-  const [duplicateWarning, setDuplicateWarning] = React.useState<string | null>(null)
-
-  const [isAccountDialogOpen, setIsAccountDialogOpen] = React.useState(false)
-  const [newAccountData, setNewAccountData] = React.useState({ code: "", name: "" })
 
   React.useEffect(() => {
     setMounted(true)
@@ -60,36 +51,11 @@ export default function AccountingJournal() {
 
   const currentTenantId = currentTenant?.id;
 
-  // ANALYTIQUE : Charger les sections pour l'imputation
   const sectionsQuery = useMemoFirebase(() => {
     if (!db || !currentTenantId) return null;
     return query(collection(db, "tenants", currentTenantId, "sectionsAnalytiques"), where("actif", "==", true));
   }, [db, currentTenantId]);
   const { data: sections } = useCollection(sectionsQuery);
-
-  const customAccountsQuery = useMemoFirebase(() => {
-    if (!db || !currentTenantId || !user) return null;
-    return query(collection(db, "tenants", currentTenantId, "accounts"));
-  }, [db, currentTenantId, user?.uid]);
-  const { data: customAccounts } = useCollection(customAccountsQuery);
-
-  const allAccounts = React.useMemo(() => {
-    const combined = [...SCF_ACCOUNTS];
-    if (customAccounts) {
-      customAccounts.forEach(acc => {
-        if (!combined.find(c => c.code === acc.code)) {
-          combined.push({
-            code: acc.code,
-            name: acc.name,
-            category: acc.category || "Personnalisé",
-            class: parseInt(acc.code.charAt(0)),
-            isRoot: false
-          });
-        }
-      });
-    }
-    return combined.sort((a, b) => a.code.localeCompare(b.code));
-  }, [customAccounts]);
 
   const [lines, setLines] = React.useState<any[]>([
     { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0, sectionId: "none" },
@@ -113,7 +79,7 @@ export default function AccountingJournal() {
     const newLines = [...lines]
     newLines[index] = { ...newLines[index], [field]: value }
     if (field === "accountCode") {
-      const account = allAccounts.find(a => a.code === value)
+      const account = SCF_ACCOUNTS.find(a => a.code === value)
       if (account) newLines[index].accountName = account.name
     }
     setLines(newLines)
@@ -149,7 +115,6 @@ export default function AccountingJournal() {
     try {
       const glDoc = await addDocumentNonBlocking(journalEntriesRef, entryData);
       
-      // GÉNÉRER LES ÉCRITURES ANALYTIQUES POUR CLASSES 6 ET 7
       for (const line of lines) {
         if ((line.accountCode.startsWith('6') || line.accountCode.startsWith('7')) && line.sectionId !== "none") {
           const section = sections?.find(s => s.id === line.sectionId);
@@ -185,7 +150,7 @@ export default function AccountingJournal() {
         }
       }
 
-      toast({ title: "Écrition enregistrée", description: "Comptabilité générale et analytique mises à jour." });
+      toast({ title: "Écritures validées", description: "Comptabilité mise à jour." });
       setLines([{ accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0, sectionId: "none" }, { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0, sectionId: "none" }]);
       setDescription(""); setReference("");
     } catch (e) { console.error(e); } finally { setIsSubmitting(false) }
@@ -193,14 +158,14 @@ export default function AccountingJournal() {
 
   const groupedAccounts = React.useMemo(() => {
     const search = searchAccount.toLowerCase();
-    const filtered = allAccounts.filter(a => a.code.includes(search) || a.name.toLowerCase().includes(search));
+    const filtered = SCF_ACCOUNTS.filter(a => a.code.includes(search) || a.name.toLowerCase().includes(search));
     const groups: Record<number, typeof SCF_ACCOUNTS> = {};
     filtered.forEach(acc => {
       if (!groups[acc.class]) groups[acc.class] = [];
       groups[acc.class].push(acc);
     });
     return groups;
-  }, [allAccounts, searchAccount]);
+  }, [searchAccount]);
 
   if (!mounted) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>
 
@@ -209,17 +174,17 @@ export default function AccountingJournal() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-primary flex items-center gap-2">
-            <BookOpen className="h-8 w-8 text-accent" /> Saisie Journal Master
+            <BookOpen className="h-8 w-8 text-accent" /> {t.Accounting.journal_master}
           </h1>
-          <p className="text-muted-foreground text-sm">Gestion des imputations SCF avec ventilation analytique par centre de profit.</p>
+          <p className="text-muted-foreground text-sm">{t.Accounting.journal_desc}</p>
         </div>
         <Button 
             disabled={!isBalanced || isSubmitting || !currentTenantId} 
             onClick={handleValidate}
             className="bg-emerald-600 hover:bg-emerald-700 shadow-lg h-11 px-8 rounded-xl font-bold"
           >
-            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-            Valider l'écriture
+            {isSubmitting ? <Loader2 className={cn(isRtl ? "ml-2" : "mr-2", "h-4 w-4 animate-spin")} /> : <CheckCircle className={cn(isRtl ? "ml-2" : "mr-2", "h-4 w-4")} />}
+            {t.Accounting.validate_entry}
           </Button>
       </div>
 
@@ -240,15 +205,15 @@ export default function AccountingJournal() {
               </Select>
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase text-slate-400">Réf. Pièce</label>
+              <label className="text-[10px] font-black uppercase text-slate-400">{t.Accounting.piece_ref}</label>
               <Input placeholder="Ex: FAC-2026-001" value={reference} onChange={(e) => setReference(e.target.value)} className="bg-white rounded-xl" />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase text-slate-400">Libellé</label>
+              <label className="text-[10px] font-black uppercase text-slate-400">{t.Accounting.label}</label>
               <Input placeholder="Description..." value={description} onChange={(e) => setDescription(e.target.value)} className="bg-white rounded-xl" />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase text-slate-400">Date</label>
+              <label className="text-[10px] font-black uppercase text-slate-400">{t.Accounting.entry_date}</label>
               <Input type="date" value={entryDate} onChange={(e) => setEntryDate(e.target.value)} className="bg-white rounded-xl" />
             </div>
           </div>
@@ -256,14 +221,14 @@ export default function AccountingJournal() {
         <CardContent className="pt-6">
           <div className="mb-4 flex items-center gap-2 max-w-sm">
             <Search className="h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Chercher compte..." value={searchAccount} onChange={(e) => setSearchAccount(e.target.value)} className="h-8 text-xs bg-muted/20 border-none rounded-lg" />
+            <Input placeholder={t.Common.search} value={searchAccount} onChange={(e) => setSearchAccount(e.target.value)} className="h-8 text-xs bg-muted/20 border-none rounded-lg" />
           </div>
           <Table>
             <TableHeader><TableRow className="bg-slate-50">
-              <TableHead className="font-black text-[10px] uppercase">Compte SCF</TableHead>
-              <TableHead className="text-right font-black text-[10px] uppercase">Débit</TableHead>
-              <TableHead className="text-right font-black text-[10px] uppercase">Crédit</TableHead>
-              <TableHead className="font-black text-[10px] uppercase">Analytique (Section)</TableHead>
+              <TableHead className="font-black text-[10px] uppercase">{t.Accounting.account_scf}</TableHead>
+              <TableHead className={cn("text-right font-black text-[10px] uppercase", isRtl && "text-left")}>{t.Accounting.debit}</TableHead>
+              <TableHead className={cn("text-right font-black text-[10px] uppercase", isRtl && "text-left")}>{t.Accounting.credit}</TableHead>
+              <TableHead className="font-black text-[10px] uppercase">{t.Accounting.analytic_section}</TableHead>
               <TableHead className="w-[50px]"></TableHead>
             </TableRow></TableHeader>
             <TableBody>
@@ -280,7 +245,7 @@ export default function AccountingJournal() {
                             <SelectLabel className="bg-muted/50 py-1 text-[10px] font-bold uppercase">Classe {cls}</SelectLabel>
                             {accounts.map(acc => (
                               <SelectItem key={acc.code} value={acc.code}>
-                                <span className="font-mono font-bold mr-2 text-primary">{acc.code}</span>
+                                <span className={cn("font-mono font-bold text-primary", isRtl ? "ml-2" : "mr-2")}>{acc.code}</span>
                                 <span className="text-xs opacity-70">{acc.name}</span>
                               </SelectItem>
                             ))}
@@ -300,7 +265,7 @@ export default function AccountingJournal() {
                         <SelectItem value="none">Aucune section</SelectItem>
                         {sections?.map(s => (
                           <SelectItem key={s.id} value={s.id} className="text-[10px]">
-                            <span className="font-black mr-2">[{s.axeCode}] {s.code}</span>
+                            <span className={cn("font-black", isRtl ? "ml-2" : "mr-2")}>[{s.axeCode}] {s.code}</span>
                             <span>{s.libelle}</span>
                           </SelectItem>
                         ))}
@@ -315,7 +280,7 @@ export default function AccountingJournal() {
             </TableBody>
           </Table>
           <Button variant="outline" size="sm" onClick={addLine} className="mt-4 border-dashed w-full rounded-xl h-10 font-bold">
-            <Plus className="mr-2 h-4 w-4" /> Ajouter une ligne d'imputation
+            <Plus className={cn(isRtl ? "ml-2" : "mr-2", "h-4 w-4")} /> {t.Accounting.add_line}
           </Button>
         </CardContent>
         <CardFooter className="flex justify-between items-center border-t bg-muted/20 p-6">
@@ -324,33 +289,18 @@ export default function AccountingJournal() {
               {isBalanced ? <CheckCircle className="h-6 w-6" /> : <Calculator className="h-6 w-6" />}
             </div>
             <div>
-              <p className="text-[10px] font-black uppercase text-slate-400">Statut Équilibre</p>
+              <p className="text-[10px] font-black uppercase text-slate-400">{t.Accounting.balance_status}</p>
               <p className={`text-sm font-black ${isBalanced ? 'text-emerald-600' : 'text-destructive'}`}>
-                {isBalanced ? "ÉQUILIBRÉ" : `ÉCART: ${Math.abs(totals.debit - totals.credit).toLocaleString()} DA`}
+                {isBalanced ? t.Accounting.balanced : `ÉCART: ${Math.abs(totals.debit - totals.credit).toLocaleString()} DA`}
               </p>
             </div>
           </div>
           <div className="flex gap-12">
-            <div className="text-right"><p className="text-[10px] font-black text-slate-400 uppercase">Total Débit</p><p className="text-xl font-black text-primary">{totals.debit.toLocaleString()} DA</p></div>
-            <div className="text-right"><p className="text-[10px] font-black text-slate-400 uppercase">Total Crédit</p><p className="text-xl font-black text-primary">{totals.credit.toLocaleString()} DA</p></div>
+            <div className="text-right"><p className="text-[10px] font-black text-slate-400 uppercase">{t.Accounting.total_debit}</p><p className="text-xl font-black text-primary">{totals.debit.toLocaleString()} DA</p></div>
+            <div className="text-right"><p className="text-[10px] font-black text-slate-400 uppercase">{t.Accounting.total_credit}</p><p className="text-xl font-black text-primary">{totals.credit.toLocaleString()} DA</p></div>
           </div>
         </CardFooter>
       </Card>
-
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card className="bg-primary/5 border-primary/20 rounded-3xl">
-          <CardHeader><CardTitle className="text-sm flex items-center gap-2 text-primary font-black uppercase tracking-tighter"><Sparkles className="h-4 w-4" /> Aide Master Analytique</CardTitle></CardHeader>
-          <CardContent className="text-xs text-slate-500 italic leading-relaxed">
-            Pour les comptes de charges (6) et produits (7), sélectionnez une section analytique. Le système générera automatiquement les écritures de ventilation pour vos tableaux de bord de rentabilité.
-          </CardContent>
-        </Card>
-        <Card className="border-dashed flex items-center justify-center p-6 border-l-4 border-l-accent bg-accent/5 rounded-3xl">
-          <div className="flex flex-col items-center gap-2">
-            <Briefcase className="h-8 w-8 text-accent" />
-            <span className="text-[10px] font-black uppercase text-accent tracking-widest">Moteur Analytique Synchronisé</span>
-          </div>
-        </Card>
-      </div>
     </div>
   )
 }

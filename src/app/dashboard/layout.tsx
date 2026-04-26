@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -9,18 +8,14 @@ import { Button } from "@/components/ui/button"
 import { Bell, Search, Languages, Loader2 } from "lucide-react"
 import { useUser, useFirestore } from "@/firebase"
 import { doc, setDoc } from "firebase/firestore"
-import { TRANSLATIONS, Locale } from "@/lib/translations"
+import { LocaleProvider, useLocale } from "@/context/LocaleContext"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser()
   const db = useFirestore()
-  const [locale, setLocale] = React.useState<Locale>('fr')
+  const { locale, setLocale, t, isRtl } = useLocale()
 
   // Sync user profile to Firestore
   React.useEffect(() => {
@@ -36,15 +31,12 @@ export default function DashboardLayout({
     }
   }, [user, isUserLoading, db])
 
-  const t = TRANSLATIONS[locale];
-  const isRtl = locale === 'ar';
-
   return (
     <div 
       dir={isRtl ? 'rtl' : 'ltr'} 
       lang={locale}
       className={cn(
-        "min-h-screen transition-all duration-300",
+        "min-h-screen transition-all duration-300 bg-background text-foreground",
         isRtl ? 'font-arabic' : 'font-body'
       )}
     >
@@ -53,17 +45,20 @@ export default function DashboardLayout({
           <React.Suspense fallback={<div className="w-64 bg-white border-r border-e flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
             <DashboardSidebar locale={locale} />
           </React.Suspense>
-          <SidebarInset className="bg-background">
+          <SidebarInset className="bg-transparent">
             <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-2 border-b bg-card px-4 shadow-sm transition-[width,height] ease-linear">
               <div className="flex items-center gap-4">
                 <SidebarTrigger className="-ms-1" />
                 <Separator orientation="vertical" className="mx-2 h-4" />
                 <div className="relative hidden md:block">
-                  <Search className="absolute start-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Search className={cn("absolute top-2.5 h-4 w-4 text-muted-foreground", isRtl ? "right-2.5" : "left-2.5")} />
                   <input
                     type="search"
                     placeholder={t.Common.search}
-                    className="w-72 rounded-full border bg-muted ps-9 pe-4 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    className={cn(
+                      "w-72 rounded-full border bg-muted py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20",
+                      isRtl ? "pr-9 pl-4" : "pl-9 pr-4"
+                    )}
                   />
                 </div>
               </div>
@@ -85,7 +80,7 @@ export default function DashboardLayout({
                   <Bell className="h-5 w-5" />
                   <span className={cn(
                     "absolute top-2.5 h-2 w-2 rounded-full bg-destructive border-2 border-white",
-                    isRtl ? "start-2.5" : "end-2.5"
+                    isRtl ? "right-2.5" : "left-2.5"
                   )} />
                 </Button>
               </div>
@@ -99,5 +94,13 @@ export default function DashboardLayout({
         </div>
       </SidebarProvider>
     </div>
+  )
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <LocaleProvider>
+      <DashboardLayoutContent>{children}</DashboardLayoutContent>
+    </LocaleProvider>
   )
 }
