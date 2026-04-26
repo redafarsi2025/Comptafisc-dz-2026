@@ -65,7 +65,8 @@ import {
   Fuel,
   FlaskConical,
   Stethoscope,
-  ChevronRight
+  ChevronRight,
+  Wrench
 } from "lucide-react"
 
 import {
@@ -128,7 +129,7 @@ const salesNav = [
 const logisticsNav = [
   { name: "Pilotage Flotte", href: "/dashboard/logistics", icon: Truck },
   { name: "Consommation (Carburant)", href: "/dashboard/logistics/fuel", icon: Fuel },
-  { name: "Carnet d'Entretien", icon: Settings, href: "#" },
+  { name: "Carnet d'Entretien", href: "/dashboard/logistics/maintenance", icon: Wrench },
 ]
 
 // Menu BTP
@@ -382,16 +383,16 @@ export function DashboardSidebar() {
                 <Link href={currentTenant ? `/dashboard/support?tenantId=${currentTenant.id}` : "/dashboard/support"}>
                   <LifeBuoy /><span>Assistance & Support</span>
                 </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+              </SidebarMenuItem>
+            </SidebarMenu>
+            <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname === "/dashboard/settings"} tooltip="Paramètres">
                 <Link href={currentTenant ? `/dashboard/settings?tenantId=${currentTenant.id}` : "/dashboard/settings"}>
                   <Settings /><span>Paramètres Dossier</span>
                 </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
+              </SidebarMenuItem>
+            </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
 
