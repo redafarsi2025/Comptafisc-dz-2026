@@ -1,4 +1,3 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -7,9 +6,12 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Vérifie si l'utilisateur est présent dans la collection technique des admins
     function isAdmin() {
       return isSignedIn() && exists(/databases/$(database)/documents/saas_admins/$(request.auth.uid));
+    }
+
+    function isMember(tenantId) {
+      return isSignedIn() && (isAdmin() || request.auth.uid in get(/databases/$(database)/documents/tenants/$(tenantId)).data.members);
     }
 
     // --- User Profiles ---
@@ -18,81 +20,47 @@ service cloud.firestore {
       allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
     }
 
-    // --- Support Tickets ---
-    match /support_tickets/{ticketId} {
-      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow delete: if isAdmin();
-    }
-
-    // --- System Configuration (Billing, Engine Params, etc.) ---
-    match /system_config/{configId} {
-      allow read: if isSignedIn() && isAdmin();
-      allow write: if isSignedIn() && isAdmin();
-    }
-
-    // --- DGI Publications & Templates ---
-    match /dgi_publications/{pubId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    match /dgi_templates/{templateId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    match /fiscal_laws/{lawId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    match /fiscal_variable_types/{typeId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    match /fiscal_variable_values/{valId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-    
-    match /fiscal_business_rules/{ruleId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    // --- Plans ---
-    match /plans/{planId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    // --- SaaS Admin Records (ACCÈS CRITIQUE) ---
+    // --- SaaS Admin Records ---
     match /saas_admins/{userId} {
-      // Un utilisateur doit pouvoir lire son propre statut
       allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      // Seuls les admins peuvent lister
       allow list: if isAdmin();
-      // Un utilisateur peut créer son propre record s'il connaît le chemin (via clé d'admin en UI)
       allow create: if isSignedIn() && request.auth.uid == userId; 
       allow update, delete: if isAdmin();
     }
 
+    // --- System Config ---
+    match /system_config/{configId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // --- DGI Publications & Templates ---
+    match /dgi_publications/{pubId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /dgi_templates/{templateId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /fiscal_laws/{lawId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /fiscal_variable_types/{typeId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /fiscal_variable_values/{valId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /fiscal_business_rules/{ruleId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /plans/{planId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /support_tickets/{ticketId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+
     // --- Tenant Multi-Tenancy Rules ---
     match /tenants/{tenantId} {
-      allow get: if isSignedIn() && (isAdmin() || (resource != null && request.auth.uid in resource.data.members));
-      allow list: if isSignedIn() && (isAdmin() || (resource != null && request.auth.uid in resource.data.members));
+      allow get, list: if isMember(tenantId);
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && (isAdmin() || request.auth.uid in resource.data.members);
+      allow update: if isMember(tenantId);
       allow delete: if isAdmin();
 
+      // Analytic Subcollections
+      match /axesAnalytiques/{docId} { allow read: if isMember(tenantId); allow write: if isMember(tenantId); }
+      match /sectionsAnalytiques/{docId} { allow read: if isMember(tenantId); allow write: if isMember(tenantId); }
+      match /plansAnalytiques/{docId} { allow read: if isMember(tenantId); allow write: if isMember(tenantId); }
+      match /ecrituresAnalytiques/{docId} { allow read: if isMember(tenantId); allow write: if isMember(tenantId); }
+      match /reglesVentilation/{docId} { allow read: if isMember(tenantId); allow write: if isMember(tenantId); }
+      match /budgetsAnalytiques/{docId} { allow read: if isMember(tenantId); allow write: if isMember(tenantId); }
+
       match /{allSubcollections=**} {
-        allow read, write: if isSignedIn() && (
-          isAdmin() || 
-          request.auth.uid in get(/databases/$(database)/documents/tenants/$(tenantId)).data.members
-        );
+        allow read, write: if isMember(tenantId);
       }
     }
   }
