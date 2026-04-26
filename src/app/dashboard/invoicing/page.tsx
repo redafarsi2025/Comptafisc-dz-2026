@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { 
   Plus, Trash2, FileText, Save, Loader2, Info, ShieldCheck, 
-  CheckCircle, QrCode, Truck, MapPin, Navigation, TrendingUp, Calculator
+  CheckCircle, QrCode, Truck, MapPin, Navigation, TrendingUp, Calculator,
+  PlusCircle, UserPlus
 } from "lucide-react"
 import { useFirestore, useUser, addDocumentNonBlocking, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { collection, query, where, limit, doc } from "firebase/firestore"
@@ -16,6 +17,8 @@ import { toast } from "@/hooks/use-toast"
 import { calculateStampDuty, calculateTVA } from "@/lib/calculations"
 import { Badge } from "@/components/ui/badge"
 import { useSearchParams, useRouter } from "next/navigation"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 
 export default function InvoicingPage() {
   const db = useFirestore()
@@ -28,6 +31,11 @@ export default function InvoicingPage() {
   const [paymentMethod, setPaymentMethod] = React.useState("Virement")
   const [items, setItems] = React.useState([{ description: "", quantity: 1, unitPrice: 0 }])
   const [isSubmitting, setIsSubmitting] = React.useState(false)
+
+  // Quick Client Creation States
+  const [isClientDialogOpen, setIsClientDialogOpen] = React.useState(false)
+  const [isCreatingClient, setIsCreatingClient] = React.useState(false)
+  const [newClientData, setNewClientData] = React.useState({ name: "", nif: "", email: "" })
 
   // Transport Specific States
   const [selectedVehicleId, setSelectedVehicleId] = React.useState("")
@@ -73,6 +81,30 @@ export default function InvoicingPage() {
     const newItems = [...items];
     (newItems[idx] as any)[field] = value;
     setItems(newItems);
+  };
+
+  const handleQuickCreateClient = async () => {
+    if (!db || !currentTenant || !newClientData.name) return;
+    setIsCreatingClient(true);
+    try {
+      const docRef = await addDocumentNonBlocking(collection(db, "tenants", currentTenant.id, "clients"), {
+        ...newClientData,
+        type: "Client",
+        tenantId: currentTenant.id,
+        createdAt: new Date().toISOString()
+      });
+      if (docRef) {
+        toast({ title: "Client créé", description: newClientData.name });
+        setClientId(docRef.id);
+        setIsClientDialogOpen(false);
+        setNewClientData({ name: "", nif: "", email: "" });
+      }
+    } catch (e) {
+      console.error(e);
+      toast({ variant: "destructive", title: "Erreur lors de la création" });
+    } finally {
+      setIsCreatingClient(false);
+    }
   };
 
   const handleSaveInvoice = async () => {
@@ -213,14 +245,67 @@ export default function InvoicingPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-slate-400 px-1">Client Destinataire*</label>
-                  <Select value={clientId} onValueChange={setClientId}>
-                    <SelectTrigger className="h-11 rounded-xl bg-white">
-                      <SelectValue placeholder="Choisir un client" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clients?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex gap-2">
+                    <Select value={clientId} onValueChange={setClientId}>
+                      <SelectTrigger className="h-11 rounded-xl bg-white flex-1">
+                        <SelectValue placeholder="Choisir un client" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {clients?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Dialog open={isClientDialogOpen} onOpenChange={setIsClientDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl border-primary/20 text-primary">
+                          <PlusCircle className="h-5 w-5" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Nouveau Client</DialogTitle>
+                          <DialogDescription>Créez rapidement un nouveau partenaire commercial.</DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                          <div className="space-y-2">
+                            <Label>Raison Sociale / Nom*</Label>
+                            <Input 
+                              value={newClientData.name} 
+                              onChange={e => setNewClientData({...newClientData, name: e.target.value})}
+                              placeholder="Ex: SARL Grans Travaux"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>NIF (15 chiffres)</Label>
+                            <Input 
+                              value={newClientData.nif} 
+                              onChange={e => setNewClientData({...newClientData, nif: e.target.value})}
+                              placeholder="001..."
+                              maxLength={15}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Email</Label>
+                            <Input 
+                              type="email"
+                              value={newClientData.email} 
+                              onChange={e => setNewClientData({...newClientData, email: e.target.value})}
+                              placeholder="contact@client.dz"
+                            />
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button 
+                            onClick={handleQuickCreateClient} 
+                            disabled={isCreatingClient || !newClientData.name}
+                            className="w-full"
+                          >
+                            {isCreatingClient ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
+                            Créer et sélectionner
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-slate-400 px-1">Mode de Règlement</label>
