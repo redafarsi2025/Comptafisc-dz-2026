@@ -25,16 +25,16 @@ export const PAYROLL_CONSTANTS = {
 
 /**
  * Calcule la retenue de garantie (spécifique BTP).
- * Hiérarchie : ACTIVITÉ (BTP)
+ * Supporte le paramétrage spécifique du client (5% ou 10%).
  */
-export function calculateRetenueGarantie(amount: number, sector: string = 'BTP'): number {
+export function calculateRetenueGarantie(amount: number, sector: string = 'BTP', overrideRate?: number): number {
   if (sector !== 'BTP') return 0;
-  return Math.round(amount * DEFAULTS_2026.RETENUE_BTP);
+  const rate = overrideRate !== undefined ? (overrideRate / 100) : DEFAULTS_2026.RETENUE_BTP;
+  return Math.round(amount * rate);
 }
 
 /**
  * Calcule la TVA selon le régime et le taux.
- * Hiérarchie : CLIENT (IFU/Réel) -> DOCUMENT
  */
 export function calculateTVA(amount: number, rateCode: string = 'TVA_19', isIFU: boolean = false): number {
   if (isIFU) return 0;
@@ -44,7 +44,6 @@ export function calculateTVA(amount: number, rateCode: string = 'TVA_19', isIFU:
 
 /**
  * Calcule l'IFU (Impôt Forfaitaire Unique).
- * Hiérarchie : CLIENT (Auto-entrepreneur / Startup)
  */
 export function calculateIFU(ca: number, rate: number, isAuto: boolean = false, isStartup: boolean = false): number {
   if (isStartup) return 0; 
@@ -55,17 +54,17 @@ export function calculateIFU(ca: number, rate: number, isAuto: boolean = false, 
 
 /**
  * Calcule l'IBS (Impôt sur les Bénéfices des Sociétés).
- * Hiérarchie : ACTIVITÉ (Secteur) -> CLIENT (Réinvestissement)
+ * Intègre les exonérations spécifiques (Startup, ANADE).
  */
-export function calculateIBS(profit: number, rate: number, reinvestedAmount: number = 0): number {
-  if (profit <= 0) return 0;
+export function calculateIBS(profit: number, rate: number, reinvestedAmount: number = 0, isExempt: boolean = false): number {
+  if (isExempt || profit <= 0) return 0;
   const baseImposable = Math.max(0, profit - reinvestedAmount);
   return Math.round(baseImposable * rate);
 }
 
 /**
  * Calcule l'IRG (Impôt sur le Revenu Global) Traitements et Salaires.
- * Hiérarchie : GLOBAL (Barème) -> CLIENT (Zone Sud / Handicapé)
+ * Supporte l'abattement spécifique Zone Sud et Handicapé.
  */
 export function calculateIRG(salairePoste: number, isGrandSud: boolean = false, isHandicapped: boolean = false): number {
   const cnasSalariale = salairePoste * 0.09;
@@ -82,10 +81,27 @@ export function calculateIRG(salairePoste: number, isGrandSud: boolean = false, 
   else if (baseIRG <= 360000) tax = (120000 - 30000) * 0.20 + (baseIRG - 120000) * 0.30;
   else tax = (120000 - 30000) * 0.20 + (360000 - 120000) * 0.30 + (baseIRG - 360000) * 0.35;
 
+  // Lissage pour tranches spécifiques LF 2026
   if (isHandicapped && baseIRG <= 42500) tax *= 0.5;
   if (isGrandSud) tax *= 0.5;
 
   return Math.round(tax);
+}
+
+/**
+ * Calcule l'assiette annuelle pour le versement CASNOS.
+ */
+export const CASNOS_CONSTANTS = {
+  MIN_AMOUNT: 32400,
+  MAX_AMOUNT: 324000,
+  BASE_RATE: 0.15
+};
+
+export function calculateCASNOS(annualBase: number): number {
+  const calculated = annualBase * CASNOS_CONSTANTS.BASE_RATE;
+  if (calculated < CASNOS_CONSTANTS.MIN_AMOUNT) return CASNOS_CONSTANTS.MIN_AMOUNT;
+  if (calculated > CASNOS_CONSTANTS.MAX_AMOUNT) return CASNOS_CONSTANTS.MAX_AMOUNT;
+  return Math.round(calculated);
 }
 
 /**
@@ -109,19 +125,12 @@ export function calculateRHMetrics(input: { brut: number, primes: number, avanta
   };
 }
 
-/**
- * Détermine le taux IFU applicable.
- */
 export function getIFURate(sector: string, forme: string): number {
   if (forme === "Auto-entrepreneur") return 0.005; 
   if (sector === "PRODUCTION") return 0.05;
   return 0.12; 
 }
 
-/**
- * Détermine le taux IBS applicable selon le secteur.
- * Hiérarchie : ACTIVITÉ
- */
 export function getIBSRate(sector: string): number {
   if (sector === 'INDUSTRIE' || sector === 'PRODUCTION') return DEFAULTS_2026.IBS_PROD;
   if (sector === 'BTP') return DEFAULTS_2026.IBS_BTP;
@@ -137,9 +146,6 @@ export function calculateLiquidityRatio(currentAssets: number, currentLiabilitie
   return currentAssets / currentLiabilities;
 }
 
-/**
- * Simulateur d'investissement (Tax Shield).
- */
 export function simulateInvestmentScenarios(amount: number, years: number, ibsRate: number) {
   const annualAmort = amount / years;
   const annualTaxSaving = annualAmort * ibsRate;
@@ -167,3 +173,12 @@ export function simulateInvestmentScenarios(amount: number, years: number, ibsRa
     }
   };
 }
+
+export const TAX_RATES = {
+  IFU_THRESHOLD: 8000000,
+  IFU_AUTO_THRESHOLD: 5000000,
+  IFU_MIN_STANDARD: 10000,
+  IFU_MIN_AUTO: 10000,
+  TAXE_APPRENTISSAGE: 0.01,
+  TAXE_FORMATION_CONT: 0.01
+};
