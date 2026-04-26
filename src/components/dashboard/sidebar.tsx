@@ -66,7 +66,8 @@ import {
   FlaskConical,
   Stethoscope,
   ChevronRight,
-  Wrench
+  Wrench,
+  FilePlus
 } from "lucide-react"
 
 import {
@@ -119,6 +120,7 @@ const pilotageNav = [
 
 // Menu Ventes
 const salesNav = [
+  { name: "Saisie Facture / CA", href: "/dashboard/invoicing", icon: FilePlus },
   { name: "Flux de Vente Hub", href: "/dashboard/sales", icon: CircleDollarSign },
   { name: "Commandes Clients", href: "/dashboard/sales/orders", icon: FileSearch },
   { name: "Livraisons (BL)", href: "/dashboard/sales/delivery", icon: Truck },
@@ -361,7 +363,7 @@ export function DashboardSidebar() {
       <SidebarContent className="px-2">
         <NavGroup label="Pilotage & Décision" items={pilotageNav} />
         
-        <NavGroup label="Ventes & Clients" items={salesNav} visible={secteur === "COMMERCE" || secteur === "INDUSTRIE"} />
+        <NavGroup label="Ventes & Clients" items={salesNav} visible={secteur === "COMMERCE" || secteur === "INDUSTRIE" || secteur === "TRANSPORT"} />
         <NavGroup label="Gestion Flotte" items={logisticsNav} visible={secteur === "TRANSPORT"} />
         <NavGroup label="Gestion Chantiers" items={btpNav} visible={secteur === "BTP"} />
         <NavGroup label="Production" items={industryNav} visible={secteur === "INDUSTRIE"} />
@@ -383,15 +385,14 @@ export function DashboardSidebar() {
                 <Link href={currentTenant ? `/dashboard/support?tenantId=${currentTenant.id}` : "/dashboard/support"}>
                   <LifeBuoy /><span>Assistance & Support</span>
                 </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname === "/dashboard/settings"} tooltip="Paramètres">
-                <Link href={currentTenant ? `/dashboard/settings?tenantId=${currentTenant.id}` : "/dashboard/settings"}>
-                  <Settings /><span>Paramètres Dossier</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === "/dashboard/settings"} tooltip="Paramètres">
+                  <Link href={currentTenant ? `/dashboard/settings?tenantId=${currentTenant.id}` : "/dashboard/settings"}>
+                    <Settings /><span>Paramètres Dossier</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
