@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Trash2, Calculator, TrendingDown, Calendar, Building2, ShieldCheck, Loader2, BarChart3, User, MapPin, Fingerprint } from "lucide-react"
+import { Plus, Trash2, Building2, ShieldCheck, Loader2, Calendar, User, MapPin, Fingerprint, Receipt } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -46,7 +46,9 @@ export default function AssetsPage() {
     amortizationRate: 10,
     serialNumber: "",
     physicalLocation: "Siège",
-    assignedEmployee: ""
+    assignedEmployee: "",
+    supplier: "",
+    invoiceNumber: ""
   })
 
   React.useEffect(() => {
@@ -62,7 +64,7 @@ export default function AssetsPage() {
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
-  }, [db, user]);
+  }, [db, user?.uid]);
   const { data: tenants } = useCollection(tenantsQuery);
   
   const currentTenant = React.useMemo(() => {
@@ -85,7 +87,6 @@ export default function AssetsPage() {
     const baseAmort = value - residual;
     const rate = (asset.amortizationRate || 0) / 100;
     
-    // Début amortissement à la date de mise en service (SCF)
     const serviceDate = new Date(asset.serviceDate || asset.acquisitionDate);
     const currentDate = new Date();
     
@@ -124,6 +125,7 @@ export default function AssetsPage() {
       });
       toast({ title: "Actif enregistré", description: `${newAsset.designation} ajouté au registre.` });
       setIsDialogOpen(false);
+      setNewAsset(prev => ({ ...prev, designation: "", code: "", serialNumber: "" }));
     } finally {
       setIsSaving(false);
     }
@@ -144,15 +146,15 @@ export default function AssetsPage() {
           <DialogTrigger asChild>
             <Button className="bg-primary shadow-lg" disabled={!currentTenant}><Plus className="mr-2 h-4 w-4" /> Nouvel Actif</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-3xl">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Fiche Immobilisation SCF</DialogTitle>
-              <DialogDescription>Définition des paramètres d'acquisition et d'amortissement.</DialogDescription>
+              <DialogTitle>Fiche Immobilisation SCF Expert</DialogTitle>
+              <DialogDescription>Définition des paramètres d'acquisition et d'amortissement conforme au CIDTA.</DialogDescription>
             </DialogHeader>
             <div className="grid gap-6 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label>Code Immo / Réf</Label>
+                  <Label>Code Immo (Unique)</Label>
                   <Input value={newAsset.code} onChange={e => setNewAsset({...newAsset, code: e.target.value})} placeholder="IMM-2026-001" />
                 </div>
                 <div className="grid gap-2">
@@ -160,6 +162,7 @@ export default function AssetsPage() {
                   <Input value={newAsset.designation} onChange={e => setNewAsset({...newAsset, designation: e.target.value})} placeholder="Ex: Serveur Dell PowerEdge" />
                 </div>
               </div>
+
               <div className="grid grid-cols-3 gap-4">
                 <div className="grid gap-2">
                   <Label>Catégorie SCF</Label>
@@ -174,17 +177,33 @@ export default function AssetsPage() {
                   </Select>
                 </div>
                 <div className="grid gap-2">
+                  <Label>N° Série / Châssis</Label>
+                  <Input value={newAsset.serialNumber} onChange={e => setNewAsset({...newAsset, serialNumber: e.target.value})} placeholder="SN-123456789" />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Fournisseur</Label>
+                  <Input value={newAsset.supplier} onChange={e => setNewAsset({...newAsset, supplier: e.target.value})} placeholder="Ex: IT Solutions DZ" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4 border-t pt-4">
+                <div className="grid gap-2">
                   <Label>Date Acquisition</Label>
                   <Input type="date" value={newAsset.acquisitionDate} onChange={e => setNewAsset({...newAsset, acquisitionDate: e.target.value})} />
                 </div>
                 <div className="grid gap-2">
-                  <Label>Mise en service</Label>
+                  <Label>Mise en service (Début Amort.)</Label>
                   <Input type="date" value={newAsset.serviceDate} onChange={e => setNewAsset({...newAsset, serviceDate: e.target.value})} />
                 </div>
+                <div className="grid gap-2">
+                  <Label>N° Facture</Label>
+                  <Input value={newAsset.invoiceNumber} onChange={e => setNewAsset({...newAsset, invoiceNumber: e.target.value})} placeholder="F-2026-X" />
+                </div>
               </div>
+
               <div className="grid grid-cols-3 gap-4 border-t pt-4">
                 <div className="grid gap-2">
-                  <Label>Valeur Brut (HT)</Label>
+                  <Label className="text-primary font-bold">Valeur Brut HT (DA)</Label>
                   <Input type="number" value={newAsset.acquisitionValue} onChange={e => setNewAsset({...newAsset, acquisitionValue: parseFloat(e.target.value) || 0})} />
                 </div>
                 <div className="grid gap-2">
@@ -196,20 +215,27 @@ export default function AssetsPage() {
                   <Input type="number" value={newAsset.amortizationRate} onChange={e => setNewAsset({...newAsset, amortizationRate: parseFloat(e.target.value) || 0})} />
                 </div>
               </div>
+
               <div className="grid grid-cols-2 gap-4 border-t pt-4">
                 <div className="grid gap-2">
                   <Label>Localisation Physique</Label>
-                  <Input value={newAsset.physicalLocation} onChange={e => setNewAsset({...newAsset, physicalLocation: e.target.value})} />
+                  <div className="relative">
+                    <MapPin className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input className="pl-9" value={newAsset.physicalLocation} onChange={e => setNewAsset({...newAsset, physicalLocation: e.target.value})} />
+                  </div>
                 </div>
                 <div className="grid gap-2">
                   <Label>Employé Responsable</Label>
-                  <Input value={newAsset.assignedEmployee} onChange={e => setNewAsset({...newAsset, assignedEmployee: e.target.value})} />
+                  <div className="relative">
+                    <User className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input className="pl-9" value={newAsset.assignedEmployee} onChange={e => setNewAsset({...newAsset, assignedEmployee: e.target.value})} />
+                  </div>
                 </div>
               </div>
             </div>
-            <DialogFooter>
-              <Button onClick={handleAddAsset} disabled={isSaving} className="w-full">
-                {isSaving ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
+            <DialogFooter className="bg-muted/30 p-4 -mx-6 -mb-6 border-t">
+              <Button onClick={handleAddAsset} disabled={isSaving} className="w-full h-12 text-lg shadow-xl bg-primary">
+                {isSaving ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : <ShieldCheck className="mr-2 h-5 w-5" />}
                 Valider l'Immobilisation
               </Button>
             </DialogFooter>
