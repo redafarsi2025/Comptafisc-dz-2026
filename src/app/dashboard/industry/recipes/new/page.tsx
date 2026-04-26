@@ -13,12 +13,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { 
   FlaskConical, Plus, Trash2, Save, Loader2, 
   ChevronLeft, Beaker, Calculator, ShieldCheck,
-  Database, Package, Layers, Info, TrendingUp, Sparkles
+  Database, Package, Layers, Info, TrendingUp, Sparkles, PlusCircle
 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 
 interface RecipeComponent {
   productId: string;
@@ -38,6 +39,11 @@ export default function NewRecipePage() {
   const [mounted, setMounted] = React.useState(false)
   const [isSaving, setIsSaving] = React.useState(false)
 
+  // Modals state
+  const [isProductModalOpen, setIsProductModalOpen] = React.useState(false)
+  const [isComponentModalOpen, setIsComponentModalOpen] = React.useState(false)
+  const [isCreatingQuickProduct, setIsCreatingQuickProduct] = React.useState(false)
+
   const [formData, setFormData] = React.useState({
     code: `BOM-${Math.floor(1000 + Math.random() * 9000)}`,
     productId: "",
@@ -46,6 +52,21 @@ export default function NewRecipePage() {
   })
 
   const [components, setComponents] = React.useState<RecipeComponent[]>([])
+
+  // Quick Create State
+  const [quickProduct, setQuickProduct] = React.useState({
+    code: "",
+    name: "",
+    sellingPrice: 0,
+    unit: "U"
+  })
+
+  const [quickComponent, setQuickComponent] = React.useState({
+    code: "",
+    name: "",
+    purchasePrice: 0,
+    unit: "U"
+  })
 
   React.useEffect(() => { setMounted(true) }, [])
 
@@ -133,6 +154,53 @@ export default function NewRecipePage() {
     }
   };
 
+  const handleQuickCreateProduct = async () => {
+    if (!db || !tenantId || !quickProduct.name || !quickProduct.code) return;
+    setIsCreatingQuickProduct(true);
+    try {
+      const docRef = await addDocumentNonBlocking(collection(db, "tenants", tenantId, "products"), {
+        ...quickProduct,
+        type: "PRODUIT_FINI",
+        theoreticalStock: 0,
+        valuationMethod: "CMUP",
+        stockAccount: "35",
+        createdAt: new Date().toISOString()
+      });
+      if (docRef) {
+        toast({ title: "Produit créé", description: quickProduct.name });
+        setFormData({ ...formData, productId: docRef.id });
+        setIsProductModalOpen(false);
+        setQuickProduct({ code: "", name: "", sellingPrice: 0, unit: "U" });
+      }
+    } finally {
+      setIsCreatingQuickProduct(false);
+    }
+  };
+
+  const handleQuickCreateComponent = async () => {
+    if (!db || !tenantId || !quickComponent.name || !quickComponent.code) return;
+    setIsCreatingQuickProduct(true);
+    try {
+      const docRef = await addDocumentNonBlocking(collection(db, "tenants", tenantId, "products"), {
+        ...quickComponent,
+        type: "MATIERE_PREMIERE",
+        theoreticalStock: 0,
+        valuationMethod: "CMUP",
+        stockAccount: "31",
+        createdAt: new Date().toISOString()
+      });
+      if (docRef) {
+        toast({ title: "Composant créé", description: quickComponent.name });
+        // Automatically add to current recipe components
+        addComponent(docRef.id);
+        setIsComponentModalOpen(false);
+        setQuickComponent({ code: "", name: "", purchasePrice: 0, unit: "U" });
+      }
+    } finally {
+      setIsCreatingQuickProduct(false);
+    }
+  };
+
   if (!mounted) return null;
 
   return (
@@ -166,16 +234,57 @@ export default function NewRecipePage() {
             <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase text-slate-400">Produit Fini à valoriser*</Label>
-                <Select value={formData.productId} onValueChange={v => setFormData({...formData, productId: v})}>
-                  <SelectTrigger className="h-11 rounded-xl bg-white shadow-sm">
-                    <SelectValue placeholder="Choisir un produit fini" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {finishedProducts.map(p => (
-                      <SelectItem key={p.id} value={p.id}>{p.name} ({p.code})</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Select value={formData.productId} onValueChange={v => setFormData({...formData, productId: v})}>
+                    <SelectTrigger className="h-11 rounded-xl bg-white shadow-sm flex-1">
+                      <SelectValue placeholder="Choisir un produit fini" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {finishedProducts.map(p => (
+                        <SelectItem key={p.id} value={p.id}>{p.name} ({p.code})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Dialog open={isProductModalOpen} onOpenChange={setIsProductModalOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl border-primary/20 text-primary">
+                        <PlusCircle className="h-5 w-5" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Nouveau Produit Fini (PF)</DialogTitle>
+                        <DialogDescription>Créez l'article qui sera le résultat de cette production.</DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Code Article</Label>
+                            <Input value={quickProduct.code} onChange={e => setQuickProduct({...quickProduct, code: e.target.value})} placeholder="PF-001" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Unité</Label>
+                            <Input value={quickProduct.unit} onChange={e => setQuickProduct({...quickProduct, unit: e.target.value})} placeholder="U, KG, L..." />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Désignation</Label>
+                          <Input value={quickProduct.name} onChange={e => setQuickProduct({...quickProduct, name: e.target.value})} placeholder="Ex: Produit fini premium" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Prix de Vente HT (Est.)</Label>
+                          <Input type="number" value={quickProduct.sellingPrice} onChange={e => setQuickProduct({...quickProduct, sellingPrice: parseFloat(e.target.value) || 0})} />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button onClick={handleQuickCreateProduct} disabled={isCreatingQuickProduct} className="w-full">
+                          {isCreatingQuickProduct ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                          Créer et sélectionner
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase text-slate-400">Code Recette / Version</Label>
@@ -189,20 +298,61 @@ export default function NewRecipePage() {
           </Card>
 
           <Card className="shadow-xl border-none ring-1 ring-border rounded-2xl overflow-hidden bg-white">
-            <CardHeader className="bg-primary/5 border-b border-primary/10 flex flex-row items-center justify-between py-4">
+            <CardHeader className="bg-primary/5 border-b border-primary/10 flex flex-col md:flex-row items-center justify-between py-4 gap-4">
               <CardTitle className="text-sm font-black uppercase tracking-widest text-primary flex items-center gap-2">
-                <Layers className="h-4 w-4" /> Nomenclature Technique
+                <Layers className="h-4 w-4 text-primary" /> Nomenclature Technique
               </CardTitle>
-              <Select onValueChange={addComponent}>
-                <SelectTrigger className="w-64 h-9 text-[10px] font-black uppercase bg-white border-primary/20 text-primary">
-                  <Plus className="h-3 w-3 mr-2" /> Ajouter un composant
-                </SelectTrigger>
-                <SelectContent>
-                  {rawMaterials.map(m => (
-                    <SelectItem key={m.id} value={m.id}>{m.name} ({m.code})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2 w-full md:w-auto">
+                <Select onValueChange={addComponent}>
+                  <SelectTrigger className="w-full md:w-64 h-9 text-[10px] font-black uppercase bg-white border-primary/20 text-primary">
+                    <Plus className="h-3 w-3 mr-2" /> Ajouter un composant
+                  </SelectTrigger>
+                  <SelectContent>
+                    {rawMaterials.map(m => (
+                      <SelectItem key={m.id} value={m.id}>{m.name} ({m.code})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Dialog open={isComponentModalOpen} onOpenChange={setIsComponentModalOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-9 rounded-xl border-primary/20 text-primary px-3 text-[10px] font-black uppercase">
+                      <PlusCircle className="h-3 w-3 mr-1.5" /> Nouveau
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Nouvelle Matière Première (MP)</DialogTitle>
+                      <DialogDescription>Créez un composant qui manque à votre catalogue.</DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Code</Label>
+                          <Input value={quickComponent.code} onChange={e => setQuickComponent({...quickComponent, code: e.target.value})} placeholder="MP-001" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Unité</Label>
+                          <Input value={quickComponent.unit} onChange={e => setQuickComponent({...quickComponent, unit: e.target.value})} placeholder="KG, L..." />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Désignation</Label>
+                        <Input value={quickComponent.name} onChange={e => setQuickComponent({...quickComponent, name: e.target.value})} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>P.U Achat HT (PAMP)</Label>
+                        <Input type="number" value={quickComponent.purchasePrice} onChange={e => setQuickComponent({...quickComponent, purchasePrice: parseFloat(e.target.value) || 0})} />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button onClick={handleQuickCreateComponent} disabled={isCreatingQuickProduct} className="w-full">
+                         {isCreatingQuickProduct ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                         Créer et ajouter
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
@@ -328,4 +478,8 @@ export default function NewRecipePage() {
       </div>
     </div>
   )
+}
+
+function calculateSalaireBase(indice: number, valeurPoint: number): number {
+  return Math.round(indice * valeurPoint);
 }
