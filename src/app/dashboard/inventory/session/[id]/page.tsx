@@ -12,7 +12,8 @@ import {
   ClipboardCheck, Loader2, ShieldCheck, CheckCircle2, 
   AlertTriangle, Calculator, FileText, ChevronLeft,
   Save, Zap, Users, ShieldAlert, Eye, EyeOff, Scale,
-  ListChecks, Info, ArrowRight, Gavel, ScanLine, UserGroup, UserCheck, Search, Filter
+  ListChecks, Info, ArrowRight, Gavel, ScanLine, UserCheck, Search, Filter,
+  Settings2, PackageX, History, TrendingDown, TrendingUp, Landmark, AlertCircle
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
@@ -20,7 +21,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useSearchParams, useParams, useRouter } from "next/navigation"
 import { toast } from "@/hooks/use-toast"
 import Link from "next/link"
+import { cn } from "@/lib/utils"
 
+type InventoryPhase = 'PREPARATION' | 'COUNTING' | 'RECONCILIATION' | 'CLOSED';
 type CountingMode = 'C1' | 'C2' | 'SUPERVISOR';
 
 export default function InventorySessionDetail() {
@@ -36,9 +39,7 @@ export default function InventorySessionDetail() {
   const [countingMode, setCountingMode] = React.useState<CountingMode>('SUPERVISOR')
   const [searchTerm, setSearchTerm] = React.useState("")
 
-  React.useEffect(() => {
-    setMounted(true)
-  }, [])
+  React.useEffect(() => { setMounted(true) }, [])
 
   const sessionRef = useMemoFirebase(() => 
     (db && tenantId && id) ? doc(db, "tenants", tenantId, "inventory_sessions", id as string) : null
@@ -50,23 +51,22 @@ export default function InventorySessionDetail() {
   , [db, tenantId]);
   const { data: products, isLoading: isProductsLoading } = useCollection(productsQuery);
 
-  const [counts, setCounts] = React.useState<Record<string, { c1: number; c2: number; c3?: number }>>({})
+  const [counts, setCounts] = React.useState<Record<string, { c1: number; c2: number; c3?: number; status?: string; note?: string }>>({})
 
   React.useEffect(() => {
     if (session?.counts) {
       const countsMap: Record<string, any> = {};
       session.counts.forEach((c: any) => {
-        countsMap[c.productId] = { c1: c.c1 || 0, c2: c.c2 || 0, c3: c.c3 };
+        countsMap[c.productId] = { c1: c.c1 || 0, c2: c.c2 || 0, c3: c.c3, status: c.status || 'GOOD', note: c.note || '' };
       });
       setCounts(countsMap);
     }
   }, [session]);
 
-  const handleUpdateCount = (productId: string, field: 'c1' | 'c2' | 'c3', val: string) => {
-    const numVal = parseFloat(val) || 0;
+  const handleUpdateCount = (productId: string, field: string, val: any) => {
     setCounts(prev => ({
       ...prev,
-      [productId]: { ...prev[productId], [field]: numVal }
+      [productId]: { ...(prev[productId] || { c1: 0, c2: 0, status: 'GOOD' }), [field]: val }
     }));
   }
 
@@ -79,16 +79,18 @@ export default function InventorySessionDetail() {
       c1: val.c1,
       c2: val.c2,
       c3: val.c3 || 0,
+      status: val.status,
+      note: val.note,
       countedAt: new Date().toISOString()
     }));
 
     try {
-      updateDocumentNonBlocking(doc(db, "tenants", tenantId, "inventory_sessions", id as string), {
+      await updateDocumentNonBlocking(doc(db, "tenants", tenantId, "inventory_sessions", id as string), {
         counts: countsList,
         updatedAt: new Date().toISOString(),
         status: session.status === "DRAFT" ? "IN_PROGRESS" : session.status
       });
-      toast({ title: "Données sauvegardées", description: `Comptages ${countingMode} synchronisés avec le cloud.` });
+      toast({ title: "Synchronisation Cloud", description: "Les données de comptage ont été persistées." });
     } finally {
       setIsProcessing(false);
     }
@@ -105,8 +107,8 @@ export default function InventorySessionDetail() {
     if (hasUnresolvedMismatches) {
         toast({ 
             variant: "destructive", 
-            title: "Arbitrage requis", 
-            description: "Certaines lignes présentent des écarts C1/C2 non arbitrés." 
+            title: "Arbitrage SCF requis", 
+            description: "Certaines lignes présentent des écarts de double comptage non résolus." 
         });
         return;
     }
@@ -114,26 +116,26 @@ export default function InventorySessionDetail() {
     setIsProcessing(true);
     try {
       const finalResults = products.map(p => {
-        const val = counts[p.id] || { c1: 0, c2: 0, c3: undefined };
+        const val = counts[p.id] || { c1: 0, c2: 0, c3: undefined, status: 'GOOD' };
         const finalQty = (val.c1 === val.c2) ? val.c1 : (val.c3 ?? val.c1);
-        return { productId: p.id, finalQty };
+        return { productId: p.id, finalQty, status: val.status };
       });
 
-      updateDocumentNonBlocking(doc(db, "tenants", tenantId, "inventory_sessions", id as string), {
+      await updateDocumentNonBlocking(doc(db, "tenants", tenantId, "inventory_sessions", id as string), {
         status: "CLOSED",
         closedAt: new Date().toISOString(),
         finalResults
       });
 
-      // Mettre à jour le catalogue
       for (const res of finalResults) {
-        updateDocumentNonBlocking(doc(db, "tenants", tenantId, "products", res.productId), {
+        await updateDocumentNonBlocking(doc(db, "tenants", tenantId, "products", res.productId), {
           theoreticalStock: res.finalQty,
+          physicalStatus: res.status,
           lastInventoryDate: new Date().toISOString()
         });
       }
 
-      toast({ title: "Inventaire Clôturé", description: "Stock réel mis à jour dans le catalogue." });
+      toast({ title: "Inventaire Certifié", description: "Stock réel mis à jour et prêt pour l'image fidèle du bilan." });
       router.push(`/dashboard/inventory?tenantId=${tenantId}`);
     } finally {
       setIsProcessing(false);
@@ -148,41 +150,61 @@ export default function InventorySessionDetail() {
     );
   }, [products, searchTerm]);
 
+  const stats = React.useMemo(() => {
+    if (!products) return { mrr: 0, mali: 0, boni: 0, progress: 0, itemsWithDepreciation: 0 };
+    let mali = 0;
+    let boni = 0;
+    let depCount = 0;
+    const countedCount = Object.keys(counts).length;
+
+    products.forEach(p => {
+        const val = counts[p.id] || { c1: 0, c2: 0, c3: undefined, status: 'GOOD' };
+        const real = (val.c1 === val.c2) ? val.c1 : (val.c3 ?? val.c1);
+        const diff = real - (p.theoreticalStock || 0);
+        const cost = p.costPrice || p.purchasePrice || 0;
+        
+        if (diff > 0) boni += (diff * cost);
+        if (diff < 0) mali += (Math.abs(diff) * cost);
+        if (val.status !== 'GOOD') depCount++;
+    });
+
+    return {
+        mali, boni,
+        itemsWithDepreciation: depCount,
+        progress: Math.round((countedCount / products.length) * 100)
+    };
+  }, [products, counts]);
+
   if (isSessionLoading || isProductsLoading) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>
   if (!session) return <div className="p-20 text-center">Session non trouvée.</div>
 
-  const progress = products ? Math.round((Object.keys(counts).length / (products.length || 1)) * 100) : 0;
-
   return (
     <div className="space-y-6 pb-20">
+      {/* HEADER PROFESSIONNEL */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild><Link href={`/dashboard/inventory?tenantId=${tenantId}`}><ChevronLeft className="h-5 w-5" /></Link></Button>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <h1 className="text-2xl font-black text-primary tracking-tighter uppercase">{session.name}</h1>
-              <Badge className={session.status === 'CLOSED' ? "bg-emerald-500" : "bg-primary/10 text-primary border-primary/20"}>
-                {session.status}
+              <Badge className={cn("font-black text-[9px]", session.status === 'CLOSED' ? "bg-emerald-500" : "bg-primary")}>
+                {session.status === 'CLOSED' ? 'SESSION CLÔTURÉE' : 'EN COURS D\'EXÉCUTION'}
               </Badge>
             </div>
-            <p className="text-muted-foreground text-[10px] uppercase font-bold tracking-widest mt-1">Lieu : {session.warehouse} • Poste de saisie : {countingMode}</p>
+            <p className="text-muted-foreground text-[10px] uppercase font-bold tracking-widest mt-1 flex items-center gap-2">
+              <Landmark className="h-3 w-3" /> Art. 10 Code de Commerce • Phase : {countingMode}
+            </p>
           </div>
         </div>
         <div className="flex gap-2">
-           {countingMode === 'SUPERVISOR' && (
-              <Button variant="outline" size="sm" onClick={() => setShowTheoretical(!showTheoretical)} className="rounded-xl h-10">
-                {showTheoretical ? <EyeOff className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
-                {showTheoretical ? "Masquer Théorique" : "Aperçu Théorique"}
-              </Button>
-           )}
           {session.status !== 'CLOSED' && (
             <>
-              <Button variant="outline" size="sm" onClick={handleSaveProgress} disabled={isProcessing} className="rounded-xl h-10 px-6 font-bold">
-                <Save className="mr-2 h-4 w-4" /> Sauvegarder ma saisie
+              <Button variant="outline" size="sm" onClick={handleSaveProgress} disabled={isProcessing} className="rounded-xl h-10 px-6 font-bold shadow-sm">
+                <Save className="mr-2 h-4 w-4" /> Sauvegarder ma session
               </Button>
               {countingMode === 'SUPERVISOR' && (
-                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 shadow-lg rounded-xl font-bold h-10 px-6" onClick={handleCloseSession} disabled={isProcessing}>
-                  <ShieldCheck className="mr-2 h-4 w-4" /> Clôturer l'Inventaire
+                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 shadow-lg rounded-xl font-black uppercase text-[10px] tracking-widest h-10 px-6" onClick={handleCloseSession} disabled={isProcessing}>
+                  <ShieldCheck className="mr-2 h-4 w-4" /> Certifier & Clôturer l'Inventaire
                 </Button>
               )}
             </>
@@ -190,20 +212,43 @@ export default function InventorySessionDetail() {
         </div>
       </div>
 
+      {/* KPI RECONCILIATION (Uniquement Superviseur) */}
+      {countingMode === 'SUPERVISOR' && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 animate-in fade-in duration-500">
+           <Card className="border-none shadow-xl ring-1 ring-border bg-white border-l-4 border-l-destructive">
+             <CardHeader className="pb-1"><CardTitle className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Mali d'inventaire (Charges)</CardTitle></CardHeader>
+             <CardContent><div className="text-2xl font-black text-destructive">-{stats.mali.toLocaleString()} DA</div></CardContent>
+           </Card>
+           <Card className="border-none shadow-xl ring-1 ring-border bg-white border-l-4 border-l-emerald-500">
+             <CardHeader className="pb-1"><CardTitle className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Boni d'inventaire (Produits)</CardTitle></CardHeader>
+             <CardContent><div className="text-2xl font-black text-emerald-600">+{stats.boni.toLocaleString()} DA</div></CardContent>
+           </Card>
+           <Card className="border-none shadow-xl ring-1 ring-border bg-white border-l-4 border-l-amber-500">
+             <CardHeader className="pb-1"><CardTitle className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Dépréciations à constater (39)</CardTitle></CardHeader>
+             <CardContent><div className="text-2xl font-black text-amber-600">{stats.itemsWithDepreciation} articles</div></CardContent>
+           </Card>
+           <Card className="bg-slate-900 text-white border-none shadow-2xl relative overflow-hidden flex flex-col justify-center px-6">
+              <Calculator className="absolute -right-4 -top-4 h-16 w-16 opacity-10 text-accent" />
+              <p className="text-[9px] font-black text-accent uppercase tracking-widest mb-1">Impact Résultat Net</p>
+              <div className="text-xl font-black">{(stats.boni - stats.mali).toLocaleString()} DA</div>
+           </Card>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <div className="lg:col-span-3 space-y-6">
-            {/* TABS ISOLÉES */}
-            <Card className="shadow-sm border-none bg-slate-900 text-white rounded-3xl p-1">
+            {/* TERMINAUX DE SAISIE */}
+            <Card className="shadow-sm border-none bg-slate-100 rounded-3xl p-1">
                <Tabs value={countingMode} onValueChange={(v) => setCountingMode(v as CountingMode)} className="w-full">
-                  <TabsList className="grid w-full grid-cols-3 bg-transparent p-1 h-auto">
-                    <TabsTrigger value="C1" className="rounded-xl py-3 data-[state=active]:bg-white data-[state=active]:text-primary font-black text-[10px] uppercase tracking-widest transition-all">
+                  <TabsList className="grid w-full grid-cols-3 bg-transparent p-1 h-auto gap-1">
+                    <TabsTrigger value="C1" className="rounded-2xl py-3 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-lg font-black text-[10px] uppercase tracking-widest transition-all">
                       <UserCheck className="h-4 w-4 mr-2" /> Terminal Équipe A
                     </TabsTrigger>
-                    <TabsTrigger value="C2" className="rounded-xl py-3 data-[state=active]:bg-white data-[state=active]:text-primary font-black text-[10px] uppercase tracking-widest transition-all">
+                    <TabsTrigger value="C2" className="rounded-2xl py-3 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-lg font-black text-[10px] uppercase tracking-widest transition-all">
                       <UserCheck className="h-4 w-4 mr-2" /> Terminal Équipe B
                     </TabsTrigger>
-                    <TabsTrigger value="SUPERVISOR" className="rounded-xl py-3 data-[state=active]:bg-white data-[state=active]:text-primary font-black text-[10px] uppercase tracking-widest transition-all">
-                      <ShieldCheck className="h-4 w-4 mr-2" /> Superviseur
+                    <TabsTrigger value="SUPERVISOR" className="rounded-2xl py-3 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-lg font-black text-[10px] uppercase tracking-widest transition-all">
+                      <ShieldCheck className="h-4 w-4 mr-2" /> Superviseur SCF
                     </TabsTrigger>
                   </TabsList>
                </Tabs>
@@ -212,13 +257,15 @@ export default function InventorySessionDetail() {
             <Card className="shadow-2xl border-none ring-1 ring-border overflow-hidden bg-white rounded-3xl">
                 <CardHeader className="bg-muted/30 border-b flex flex-col md:flex-row items-center justify-between py-4 px-6 gap-4">
                     <div className="flex items-center gap-3">
-                      <ScanLine className="h-5 w-5 text-primary" /> 
+                      <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center">
+                        <ScanLine className="h-5 w-5 text-primary" /> 
+                      </div>
                       <div>
                         <CardTitle className="text-lg font-black uppercase tracking-tighter">
-                          {countingMode === 'SUPERVISOR' ? "Arbitrage & Réconciliation" : `Saisie ${countingMode}`}
+                          {countingMode === 'SUPERVISOR' ? "Audit & Rapprochement SCF" : `Session de Saisie ${countingMode}`}
                         </CardTitle>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                          {countingMode === 'C1' ? 'Premier comptage indépendant' : countingMode === 'C2' ? 'Second comptage indépendant' : 'Comparaison et décision finale'}
+                          {countingMode === 'C1' ? 'Premier comptage indépendant' : countingMode === 'C2' ? 'Second comptage indépendant' : 'Comparaison, arbitrage et identification des dépréciations'}
                         </p>
                       </div>
                     </div>
@@ -226,51 +273,44 @@ export default function InventorySessionDetail() {
                       <div className="relative">
                         <Search className="absolute left-2.5 top-2.5 h-3 w-3 text-muted-foreground" />
                         <Input 
-                          placeholder="Chercher article..." 
-                          className="pl-8 h-8 text-[10px] w-48 rounded-lg bg-white"
+                          placeholder="Chercher par code ou nom..." 
+                          className="pl-8 h-9 text-[10px] w-48 rounded-xl bg-white"
                           value={searchTerm}
                           onChange={e => setSearchTerm(e.target.value)}
                         />
                       </div>
                       <div className="flex flex-col items-end">
-                        <span className="text-[9px] font-black text-slate-400 uppercase">Saisie : {progress}%</span>
-                        <Progress value={progress} className="w-20 h-1" />
+                        <span className="text-[9px] font-black text-slate-400 uppercase">Progression : {stats.progress}%</span>
+                        <Progress value={stats.progress} className="w-24 h-1.5" />
                       </div>
                     </div>
                 </CardHeader>
                 <CardContent className="p-0">
                 <Table>
-                    <TableHeader className="bg-muted/50">
-                    <TableRow className="text-[9px] uppercase font-black border-b">
+                    <TableHeader className="bg-slate-50">
+                    <TableRow className="text-[9px] uppercase font-black border-b h-12">
                         <TableHead className="pl-6">Désignation de l'Article</TableHead>
-                        {countingMode === 'SUPERVISOR' && showTheoretical && <TableHead className="text-right">Stock Informatique</TableHead>}
-                        
-                        {/* ISOLATION DES COLONNES */}
-                        {(countingMode === 'C1' || countingMode === 'SUPERVISOR') && (
-                          <TableHead className={`w-[140px] text-center ${countingMode === 'C1' ? 'bg-primary text-white' : 'bg-blue-50/50'}`}>Comptage A (C1)</TableHead>
-                        )}
-                        
-                        {(countingMode === 'C2' || countingMode === 'SUPERVISOR') && (
-                          <TableHead className={`w-[140px] text-center ${countingMode === 'C2' ? 'bg-primary text-white' : 'bg-emerald-50/50'}`}>Comptage B (C2)</TableHead>
-                        )}
-                        
                         {countingMode === 'SUPERVISOR' && (
-                          <TableHead className="w-[140px] text-center bg-amber-50/50">Arbitrage Final (C3)</TableHead>
+                            <>
+                              <TableHead className="text-center bg-blue-50/50">C1 (Équipe A)</TableHead>
+                              <TableHead className="text-center bg-emerald-50/50">C2 (Équipe B)</TableHead>
+                              <TableHead className="text-center bg-amber-100/50 border-x border-amber-200">Arbitrage (C3)</TableHead>
+                              <TableHead className="text-center">État Physique</TableHead>
+                            </>
                         )}
-                        
-                        <TableHead className="text-center pr-6">Validation</TableHead>
+                        {countingMode !== 'SUPERVISOR' && (
+                            <TableHead className="w-[200px] text-center bg-primary/10">Quantité Réelle Comptée</TableHead>
+                        )}
+                        <TableHead className="text-center pr-6">Verdict</TableHead>
                     </TableRow>
                     </TableHeader>
                     <TableBody>
-                    {isProductsLoading ? (
-                        <TableRow><TableCell colSpan={6} className="text-center py-20"><Loader2 className="animate-spin h-6 w-6 mx-auto text-primary" /></TableCell></TableRow>
-                    ) : filteredProducts.map((p) => {
-                        const val = counts[p.id] || { c1: 0, c2: 0, c3: undefined };
+                    {filteredProducts.map((p) => {
+                        const val = counts[p.id] || { c1: 0, c2: 0, c3: undefined, status: 'GOOD', note: '' };
                         const hasMismatch = val.c1 !== val.c2;
-                        const isResolved = !hasMismatch || (val.c3 !== undefined && val.c3 !== null);
                         
                         return (
-                        <TableRow key={p.id} className="hover:bg-muted/5 group transition-colors h-16">
+                        <TableRow key={p.id} className="hover:bg-muted/5 group transition-colors h-20">
                             <TableCell className="pl-6">
                               <div className="flex flex-col">
                                 <span className="font-bold text-xs uppercase text-slate-900 truncate w-48">{p.name}</span>
@@ -278,73 +318,80 @@ export default function InventorySessionDetail() {
                               </div>
                             </TableCell>
                             
-                            {countingMode === 'SUPERVISOR' && showTheoretical && (
-                                <TableCell className="text-right font-mono text-xs font-bold text-slate-400">
-                                    {p.theoreticalStock}
+                            {countingMode === 'SUPERVISOR' ? (
+                                <>
+                                  <TableCell className="text-center font-mono font-bold text-xs text-blue-600">{val.c1}</TableCell>
+                                  <TableCell className="text-center font-mono font-bold text-xs text-emerald-600">{val.c2}</TableCell>
+                                  <TableCell className="text-center bg-amber-50/30 border-x border-amber-100">
+                                     <Input 
+                                        type="number" 
+                                        className={cn(
+                                          "h-9 text-center font-black text-xs bg-white rounded-lg mx-auto w-24",
+                                          hasMismatch && (val.c3 === undefined) ? "border-amber-500 animate-pulse ring-2 ring-amber-100" : "border-slate-200 opacity-30"
+                                        )} 
+                                        value={val.c3 ?? ""} 
+                                        onChange={e => handleUpdateCount(p.id, 'c3', e.target.value)}
+                                        disabled={!hasMismatch || session.status === 'CLOSED'}
+                                        placeholder="Décider"
+                                     />
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                      <Select 
+                                        value={val.status} 
+                                        onValueChange={v => handleUpdateCount(p.id, 'status', v)}
+                                        disabled={session.status === 'CLOSED'}
+                                      >
+                                        <SelectTrigger className="h-8 text-[9px] font-bold w-28 mx-auto">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="GOOD">Bon état</SelectItem>
+                                          <SelectItem value="DAMAGED">Endommagé (39)</SelectItem>
+                                          <SelectItem value="OBSOLETE">Obsolète (39)</SelectItem>
+                                          <SelectItem value="EXPIRED">Périmé (REBUT)</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                  </TableCell>
+                                </>
+                            ) : (
+                                <TableCell className="bg-primary/5">
+                                   <div className="flex items-center justify-center gap-2">
+                                     <Input 
+                                        type="number" 
+                                        className="h-12 text-center font-black text-lg bg-white rounded-xl border-primary/20 focus:ring-primary/40 w-32 shadow-inner" 
+                                        value={countingMode === 'C1' ? val.c1 : val.c2} 
+                                        onChange={e => handleUpdateCount(p.id, countingMode === 'C1' ? 'c1' : 'c2', e.target.value)}
+                                        disabled={session.status === 'CLOSED'}
+                                        placeholder="0"
+                                     />
+                                     <span className="text-[10px] font-black text-slate-300 uppercase">{p.unit}</span>
+                                   </div>
                                 </TableCell>
                             )}
 
-                            {(countingMode === 'C1' || countingMode === 'SUPERVISOR') && (
-                              <TableCell className={countingMode === 'C1' ? 'bg-primary/5' : ''}>
-                                <Input 
-                                    type="number" 
-                                    className="h-10 text-center font-black text-base bg-white rounded-xl border-slate-200 focus:ring-primary/20" 
-                                    value={val.c1 || ""} 
-                                    onChange={e => handleUpdateCount(p.id, 'c1', e.target.value)}
-                                    disabled={session.status === 'CLOSED' || countingMode === 'SUPERVISOR'}
-                                    placeholder="0"
-                                />
-                              </TableCell>
-                            )}
-
-                            {(countingMode === 'C2' || countingMode === 'SUPERVISOR') && (
-                              <TableCell className={countingMode === 'C2' ? 'bg-primary/5' : ''}>
-                                <Input 
-                                    type="number" 
-                                    className="h-10 text-center font-black text-base bg-white rounded-xl border-slate-200 focus:ring-primary/20" 
-                                    value={val.c2 || ""} 
-                                    onChange={e => handleUpdateCount(p.id, 'c2', e.target.value)}
-                                    disabled={session.status === 'CLOSED' || countingMode === 'SUPERVISOR'}
-                                    placeholder="0"
-                                />
-                              </TableCell>
-                            )}
-                            
-                            {countingMode === 'SUPERVISOR' && (
-                              <TableCell className="bg-amber-50/10">
-                                <Input 
-                                    type="number" 
-                                    className={`h-10 text-center font-black text-base bg-white rounded-xl transition-all ${hasMismatch ? 'border-amber-500 shadow-lg ring-2 ring-amber-100 animate-pulse' : 'opacity-20'}`} 
-                                    value={val.c3 ?? ""} 
-                                    onChange={e => handleUpdateCount(p.id, 'c3', e.target.value)}
-                                    disabled={!hasMismatch || session.status === 'CLOSED'}
-                                    placeholder="Arbitrer"
-                                />
-                              </TableCell>
-                            )}
-
                             <TableCell className="text-center pr-6">
-                            {countingMode !== 'SUPERVISOR' ? (
-                                (countingMode === 'C1' && val.c1 > 0) || (countingMode === 'C2' && val.c2 > 0) ? (
-                                  <div className="bg-emerald-500 h-6 w-6 rounded-full flex items-center justify-center mx-auto shadow-sm">
-                                    <CheckCircle2 className="h-4 w-4 text-white" />
+                              {countingMode !== 'SUPERVISOR' ? (
+                                  (countingMode === 'C1' ? val.c1 > 0 : val.c2 > 0) ? (
+                                    <Badge className="bg-emerald-500 h-5 text-[8px] font-black">SAISI</Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-[8px] text-slate-300 border-dashed">À COMPTER</Badge>
+                                  )
+                              ) : !hasMismatch ? (
+                                  <div className="flex flex-col items-center">
+                                     <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                                     <span className="text-[8px] font-black text-emerald-600 uppercase mt-1">Conforme</span>
                                   </div>
-                                ) : (
-                                  <div className="h-6 w-6 rounded-full border-2 border-dashed border-slate-200 mx-auto" />
-                                )
-                            ) : !hasMismatch ? (
-                                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 text-[8px] font-black border-emerald-100 uppercase py-1">
-                                    <CheckCircle2 className="h-2 w-2 mr-1" /> CONFORME
-                                </Badge>
-                            ) : val.c3 !== undefined && val.c3 !== null ? (
-                                <Badge variant="outline" className="bg-blue-50 text-blue-700 text-[8px] font-black border-blue-100 uppercase py-1">
-                                    <Gavel className="h-2 w-2 mr-1" /> ARBITRÉ
-                                </Badge>
-                            ) : (
-                                <Badge variant="outline" className="bg-red-50 text-red-700 text-[8px] font-black border-red-200 animate-pulse uppercase py-1">
-                                    <AlertTriangle className="h-2 w-2 mr-1" /> ÉCART A/B
-                                </Badge>
-                            )}
+                              ) : val.c3 !== undefined && val.c3 !== null ? (
+                                  <div className="flex flex-col items-center">
+                                     <Gavel className="h-5 w-5 text-blue-500" />
+                                     <span className="text-[8px] font-black text-blue-600 uppercase mt-1">Arbitré</span>
+                                  </div>
+                              ) : (
+                                  <div className="flex flex-col items-center animate-pulse">
+                                     <AlertTriangle className="h-5 w-5 text-red-500" />
+                                     <span className="text-[8px] font-black text-red-600 uppercase mt-1">Écart A/B</span>
+                                  </div>
+                              )}
                             </TableCell>
                         </TableRow>
                         );
@@ -355,60 +402,58 @@ export default function InventorySessionDetail() {
             </Card>
         </div>
 
+        {/* SIDEBAR PROTOCOLE */}
         <div className="space-y-6">
-           <Card className="bg-white border-none shadow-xl ring-1 ring-border rounded-2xl overflow-hidden">
-             <CardHeader className="bg-slate-50 border-b border-slate-100">
-                <CardTitle className="text-xs font-black uppercase text-slate-400 tracking-[0.2em] flex items-center gap-2">
-                  <ListChecks className="h-4 w-4 text-primary" /> Protocole Réglementaire
+           <Card className="bg-white border-none shadow-xl ring-1 ring-border rounded-3xl overflow-hidden">
+             <CardHeader className="bg-slate-900 text-white p-4">
+                <CardTitle className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-accent" /> Protocole Légal Algérien
                 </CardTitle>
              </CardHeader>
              <CardContent className="pt-6 space-y-6">
-                {countingMode === 'C1' && (
-                  <div className="space-y-4 animate-in fade-in duration-500">
-                    <div className="h-12 w-12 rounded-2xl bg-blue-50 flex items-center justify-center shadow-inner">
-                      <UserCheck className="h-6 w-6 text-blue-600" />
+                <div className="space-y-4">
+                    <h4 className="text-[10px] font-black uppercase text-primary border-b pb-2 flex justify-between items-center">
+                      Phase Actuelle <ArrowRight className="h-3 w-3" />
+                    </h4>
+                    {countingMode === 'C1' && (
+                        <div className="space-y-3">
+                           <p className="text-[11px] font-bold">Équipe de Premier Comptage (A)</p>
+                           <p className="text-[10px] text-muted-foreground leading-relaxed italic">"Interdiction formelle d'accéder aux données comptables pour garantir l'indépendance de l'inventaire physique."</p>
+                           <Badge variant="outline" className="text-[8px] bg-blue-50 text-blue-700">ISOLEMENT ACTIF</Badge>
+                        </div>
+                    )}
+                    {countingMode === 'C2' && (
+                        <div className="space-y-3">
+                           <p className="text-[11px] font-bold">Équipe de Second Comptage (B)</p>
+                           <p className="text-[10px] text-muted-foreground leading-relaxed italic">"Cette double vérification à l'aveugle est exigée par le SCF pour certifier l'existence réelle des stocks de classe 3."</p>
+                           <Badge variant="outline" className="text-[8px] bg-emerald-50 text-emerald-700">VERIFICATION ACTIVE</Badge>
+                        </div>
+                    )}
+                    {countingMode === 'SUPERVISOR' && (
+                        <div className="space-y-3">
+                           <p className="text-[11px] font-bold">Supervision & Arbitrage (C3)</p>
+                           <p className="text-[10px] text-muted-foreground leading-relaxed italic">"En cas d'écart entre A et B, le superviseur doit imposer la quantité réelle après contre-visite physique."</p>
+                           <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 flex items-center gap-2">
+                              <AlertCircle className="h-4 w-4 text-amber-600" />
+                              <span className="text-[9px] font-black text-amber-800 uppercase">Écarts détectés : {products?.filter(p => (counts[p.id]?.c1 || 0) !== (counts[p.id]?.c2 || 0)).length}</span>
+                           </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="pt-6 border-t border-slate-50 space-y-4">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Options Avancées</p>
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <Label className="text-[10px] font-bold">Arrêt des mouvements</Label>
+                            <Badge className="bg-emerald-500 h-4 text-[7px]">ACTIVÉ</Badge>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <Label className="text-[10px] font-bold">Afficher Stock Informatique</Label>
+                            <Switch checked={showTheoretical} onCheckedChange={setShowTheoretical} disabled={countingMode !== 'SUPERVISOR'} />
+                        </div>
                     </div>
-                    <p className="text-[11px] font-bold text-slate-900 uppercase">Équipe de Premier Comptage (A)</p>
-                    <p className="text-[10px] text-muted-foreground leading-relaxed italic">
-                      "Votre mission : Parcourir l'entrepôt et saisir la quantité réelle vue. Vous ne devez pas avoir accès aux chiffres de l'équipe B ni au stock théorique pour ne pas fausser l'inventaire."
-                    </p>
-                    <div className="p-3 bg-slate-50 rounded-xl border border-dashed text-[9px] font-bold text-slate-400 uppercase">
-                      Certification : Indépendance Totale
-                    </div>
-                  </div>
-                )}
-                {countingMode === 'C2' && (
-                  <div className="space-y-4 animate-in fade-in duration-500">
-                    <div className="h-12 w-12 rounded-2xl bg-emerald-50 flex items-center justify-center shadow-inner">
-                      <UserCheck className="h-6 w-6 text-emerald-600" />
-                    </div>
-                    <p className="text-[11px] font-bold text-slate-900 uppercase">Équipe de Second Comptage (B)</p>
-                    <p className="text-[10px] text-muted-foreground leading-relaxed italic">
-                      "Votre mission : Refaire le comptage sans regarder les marquages de l'équipe A. Cette double vérification aveugle est obligatoire pour la conformité SCF."
-                    </p>
-                    <div className="p-3 bg-slate-50 rounded-xl border border-dashed text-[9px] font-bold text-slate-400 uppercase">
-                      Certification : Double Vérification
-                    </div>
-                  </div>
-                )}
-                {countingMode === 'SUPERVISOR' && (
-                  <div className="space-y-4 animate-in fade-in duration-500">
-                    <div className="h-12 w-12 rounded-2xl bg-amber-50 flex items-center justify-center shadow-inner">
-                      <Gavel className="h-6 w-6 text-amber-600" />
-                    </div>
-                    <p className="text-[11px] font-bold text-slate-900 uppercase">Supervision & Arbitrage</p>
-                    <p className="text-[10px] text-muted-foreground leading-relaxed italic">
-                      "Votre rôle est d'analyser les divergences entre A et B. En cas d'écart, vous devez effectuer une contre-visite physique et imposer la valeur finale en C3."
-                    </p>
-                    <div className="bg-slate-900 rounded-xl p-4 text-white">
-                      <p className="text-[9px] font-black uppercase text-accent mb-2">Statut Écarts</p>
-                      <div className="flex justify-between text-[11px] font-bold">
-                        <span>Écarts détectés</span>
-                        <span className="text-red-400">{products?.filter(p => (counts[p.id]?.c1 || 0) !== (counts[p.id]?.c2 || 0)).length}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                </div>
              </CardContent>
            </Card>
 
@@ -416,13 +461,22 @@ export default function InventorySessionDetail() {
              <ShieldAlert className="h-6 w-6 text-accent shrink-0 mt-1" />
              <div className="text-[11px] leading-relaxed space-y-2">
                <p className="font-bold text-accent uppercase tracking-widest flex items-center gap-2">
-                 <Zap className="h-3 w-3" /> Audit Control
+                 <Landmark className="h-3 w-3" /> Note d'Audit SCF
                </p>
                <p className="opacity-80 italic">
-                 "Conformément à l'Article 12 du SCF, le rapprochement physique doit être documenté et les écarts justifiés."
+                 "Tout Mali d'inventaire important (Compte 657) doit être justifié par un PV de constatation pour être déductible de votre résultat fiscal."
                </p>
              </div>
            </div>
+
+           <Card className="border-dashed border-2 p-6 flex flex-col items-center text-center gap-4 bg-muted/10">
+              <FileText className="h-10 w-10 text-primary opacity-20" />
+              <div>
+                <p className="text-[10px] font-black uppercase text-slate-500">Impression Fiches</p>
+                <p className="text-[9px] text-muted-foreground mt-1">Générez les fiches de comptage vierges pour les équipes terrain.</p>
+              </div>
+              <Button variant="outline" size="sm" className="w-full rounded-xl text-[9px] font-black uppercase">Télécharger Fiches (PDF)</Button>
+           </Card>
         </div>
       </div>
     </div>
