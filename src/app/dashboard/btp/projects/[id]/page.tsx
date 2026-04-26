@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -15,7 +14,7 @@ import {
   MapPin, Users, TrendingUp, Calculator, 
   ShieldCheck, AlertTriangle, Clock, History,
   FileText, HardHat, Loader2, Edit3, CheckCircle2, Plus, 
-  Save, Trash2, PieChart, ArrowUpRight, ArrowDownRight, Wallet, Link2, Search, Link2Off
+  Save, Trash2, PieChart, ArrowUpRight, ArrowDownRight, Wallet, Link2, Search, Link2Off, Info
 } from "lucide-react"
 import { useRouter, useSearchParams, useParams } from "next/navigation"
 import Link from "next/link"
@@ -62,7 +61,11 @@ export default function ProjectDetailPage() {
     let charges = 0;
     let revenus = 0;
 
-    if (!allEntries || !id) return { linkedEntries: [], unlinkedEntries: [], analyticMetrics: { charges: 0, revenus: 0, marge: 0, tauxMarge: 0 } };
+    if (!allEntries || !id) return { 
+      linkedEntries: [], 
+      unlinkedEntries: [], 
+      analyticMetrics: { charges: 0, revenus: 0, marge: 0, tauxMarge: 0 } 
+    };
 
     allEntries.forEach(entry => {
       let isLinkedToThisProject = false;
