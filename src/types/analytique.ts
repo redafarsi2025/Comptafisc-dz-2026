@@ -29,10 +29,6 @@ export interface SectionAnalytique {
   actif: boolean;
 }
 
-export interface SectionTree extends SectionAnalytique {
-  enfants: SectionTree[];
-}
-
 export interface Ventilation {
   sectionId: string;
   sectionCode: string;
@@ -63,33 +59,6 @@ export interface EcritureAnalytique {
   ventilationComplete: boolean;
   createdAt: string;
   createdBy: string;
-}
-
-export interface RegleVentilation {
-  id: string;
-  libelle: string;
-  compteDebut: string;
-  compteFin: string;
-  axeId: string;
-  actif: boolean;
-  priorite: number;
-  cles: Array<{
-    sectionId: string;
-    sectionCode: string;
-    sectionLibelle: string;
-    pourcentage: number;
-  }>;
-}
-
-export interface BudgetAnalytique {
-  id: string;
-  sectionId: string;
-  sectionCode: string;
-  axeId: string;
-  exercice: string;
-  periode: string | null;
-  type: BudgetType;
-  montant: number;
 }
 
 export interface ResultatSection {

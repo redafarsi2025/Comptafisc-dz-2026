@@ -12,8 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table"
 import { 
-  BarChart3, PieChart, TrendingUp, TrendingDown, 
-  Printer, FileDown, ShieldCheck, Loader2, ArrowRight,
+  PieChart, Printer, FileDown, ShieldCheck, Loader2,
   Target, Activity, Layers, Landmark
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -178,7 +177,7 @@ export default function AnalyticReporting() {
         <Card className="bg-slate-900 text-white border-none shadow-xl rounded-3xl p-8 relative overflow-hidden">
            <Activity className="absolute -right-4 -bottom-4 h-32 w-32 opacity-10 text-accent" />
            <h4 className="text-[10px] font-black text-accent uppercase tracking-[0.2em] mb-4">Master Audit Trail</h4>
-           <p className="text-[11px] leading-relaxed opacity-80 italic italic">
+           <p className="text-[11px] leading-relaxed opacity-80 italic">
              "Le rapprochement entre la Comptabilité Générale et l'Analytique est vérifié. La somme des marges par section est égale au résultat net provisoire du TCR."
            </p>
         </Card>

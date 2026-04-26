@@ -1,3 +1,6 @@
+/**
+ * @fileOverview Journal de Saisie Assistée avec Ventilation Analytique.
+ */
 
 "use client"
 
@@ -6,11 +9,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { SCF_ACCOUNTS, JournalEntryLine, JournalType, ACCOUNTING_TEMPLATES, JournalEntry } from "@/lib/scf-accounts"
+import { SCF_ACCOUNTS, JournalEntryLine, JournalType, ACCOUNTING_TEMPLATES } from "@/lib/scf-accounts"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select"
 import { 
   Plus, Trash2, CheckCircle, Calculator, Loader2, BookOpen, 
-  Search, PlusCircle, Zap, ShieldAlert, Sparkles, FileDown, Briefcase 
+  Search, PlusCircle, Zap, ShieldAlert, Sparkles, Briefcase 
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useFirestore, useUser, addDocumentNonBlocking, useCollection, useMemoFirebase } from "@/firebase"
@@ -50,19 +53,19 @@ export default function AccountingJournal() {
   const { data: tenants } = useCollection(tenantsQuery);
   
   const currentTenant = React.useMemo(() => {
-    if (!tenants) return null;
+    if (!tenants || tenants.length === 0) return null;
     if (tenantIdFromUrl) return tenants.find(t => t.id === tenantIdFromUrl) || tenants[0];
     return tenants[0];
   }, [tenants, tenantIdFromUrl]);
 
   const currentTenantId = currentTenant?.id;
 
-  // Analytique : Charger les projets pour le BTP/Industrie
-  const projectsQuery = useMemoFirebase(() => {
+  // ANALYTIQUE : Charger les sections pour l'imputation
+  const sectionsQuery = useMemoFirebase(() => {
     if (!db || !currentTenantId) return null;
-    return collection(db, "tenants", currentTenantId, "projects");
+    return query(collection(db, "tenants", currentTenantId, "sectionsAnalytiques"), where("actif", "==", true));
   }, [db, currentTenantId]);
-  const { data: projects } = useCollection(projectsQuery);
+  const { data: sections } = useCollection(sectionsQuery);
 
   const customAccountsQuery = useMemoFirebase(() => {
     if (!db || !currentTenantId || !user) return null;
@@ -79,7 +82,7 @@ export default function AccountingJournal() {
             code: acc.code,
             name: acc.name,
             category: acc.category || "Personnalisé",
-            class: acc.class,
+            class: parseInt(acc.code.charAt(0)),
             isRoot: false
           });
         }
@@ -89,30 +92,9 @@ export default function AccountingJournal() {
   }, [customAccounts]);
 
   const [lines, setLines] = React.useState<any[]>([
-    { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0, projectId: "none" },
-    { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0, projectId: "none" },
+    { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0, sectionId: "none" },
+    { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0, sectionId: "none" },
   ])
-
-  React.useEffect(() => {
-    const checkDuplicate = async () => {
-      if (!db || !currentTenantId || !reference || reference.length < 3) {
-        setDuplicateWarning(null);
-        return;
-      }
-      const q = query(
-        collection(db, "tenants", currentTenantId, "journal_entries"),
-        where("documentReference", "==", reference),
-        limit(1)
-      );
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        setDuplicateWarning(`Attention : Une pièce avec la référence "${reference}" existe déjà.`);
-      } else {
-        setDuplicateWarning(null);
-      }
-    };
-    checkDuplicate();
-  }, [db, currentTenantId, reference]);
 
   const totals = React.useMemo(() => {
     return lines.reduce((acc, line) => ({
@@ -124,11 +106,7 @@ export default function AccountingJournal() {
   const isBalanced = Math.abs(totals.debit - totals.credit) < 0.01 && totals.debit > 0
 
   const addLine = () => {
-    setLines([...lines, { accountCode: "", accountName: "Nouveau compte", debit: 0, credit: 0, projectId: "none" }])
-  }
-
-  const removeLine = (index: number) => {
-    setLines(lines.filter((_, i) => i !== index))
+    setLines([...lines, { accountCode: "", accountName: "Nouveau compte", debit: 0, credit: 0, sectionId: "none" }])
   }
 
   const updateLine = (index: number, field: string, value: any) => {
@@ -141,63 +119,14 @@ export default function AccountingJournal() {
     setLines(newLines)
   }
 
-  const handleAutoTva = (index: number) => {
-    const line = lines[index];
-    const amount = Number(line.debit) || Number(line.credit);
-    if (amount <= 0) return;
-
-    const tva = Math.round(amount * 0.19 * 100) / 100;
-    const isPurchase = line.accountCode.startsWith('6');
-    const tvaAccount = isPurchase ? '4456' : '4457';
-    const counterAccount = isPurchase ? '401' : '411';
-
-    const newLines = [...lines];
-    newLines.push({ 
-      accountCode: tvaAccount, 
-      accountName: allAccounts.find(a => a.code === tvaAccount)?.name || "TVA", 
-      debit: isPurchase ? tva : 0, 
-      credit: isPurchase ? 0 : tva,
-      projectId: line.projectId || "none"
-    });
-    newLines.push({ 
-      accountCode: counterAccount, 
-      accountName: allAccounts.find(a => a.code === counterAccount)?.name || "Tiers", 
-      debit: isPurchase ? 0 : amount + tva, 
-      credit: isPurchase ? amount + tva : 0,
-      projectId: line.projectId || "none"
-    });
-    
-    setLines(newLines);
-    toast({ title: "Auto-Ventilation SCF", description: "TVA 19% et Tiers ajoutés automatiquement." });
-  }
-
-  const applyTemplate = (templateId: string) => {
-    const template = ACCOUNTING_TEMPLATES.find(t => t.id === templateId);
-    if (!template) return;
-
-    setJournalType(template.journal as JournalType);
-    setDescription(template.description);
-    
-    const newLines = template.lines.map(l => {
-      const account = allAccounts.find(a => a.code === l.accountCode);
-      return {
-        accountCode: l.accountCode,
-        accountName: account?.name || "Compte",
-        debit: 0,
-        credit: 0,
-        projectId: "none"
-      };
-    });
-    setLines(newLines);
-    toast({ title: "Modèle appliqué", description: `Structure pour "${template.name}" chargée.` });
-  }
-
   const handleValidate = async () => {
     if (!db || !user || !currentTenantId || !isBalanced) return
     
     setIsSubmitting(true)
     const journalEntriesRef = collection(db, "tenants", currentTenantId, "journal_entries")
+    const analyticEntriesRef = collection(db, "tenants", currentTenantId, "ecrituresAnalytiques")
     
+    const timestamp = new Date().toISOString()
     const entryData = {
       tenantId: currentTenantId,
       tenantMembers: currentTenant.members,
@@ -206,71 +135,61 @@ export default function AccountingJournal() {
       documentReference: reference,
       journalType,
       status: 'Validated',
-      createdAt: new Date().toISOString(),
+      createdAt: timestamp,
       createdByUserId: user.uid,
       lines: lines.map(l => ({ 
         accountCode: l.accountCode, 
         accountName: l.accountName, 
         debit: Number(l.debit) || 0, 
         credit: Number(l.credit) || 0,
-        projectId: l.projectId === "none" ? "" : (l.projectId || "") 
+        sectionId: l.sectionId === "none" ? "" : l.sectionId
       }))
     }
 
     try {
-      addDocumentNonBlocking(journalEntriesRef, entryData);
-      toast({
-        title: "Écritures enregistrée",
-        description: `L'écriture a été ajoutée au journal ${journalType} avec succès.`,
-      });
-      setLines([
-        { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0, projectId: "none" },
-        { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0, projectId: "none" },
-      ]);
-      setDescription("");
-      setReference("");
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsSubmitting(false)
-    }
+      const glDoc = await addDocumentNonBlocking(journalEntriesRef, entryData);
+      
+      // GÉNÉRER LES ÉCRITURES ANALYTIQUES POUR CLASSES 6 ET 7
+      for (const line of lines) {
+        if ((line.accountCode.startsWith('6') || line.accountCode.startsWith('7')) && line.sectionId !== "none") {
+          const section = sections?.find(s => s.id === line.sectionId);
+          const montantNet = Math.abs((Number(line.debit) || 0) - (Number(line.credit) || 0));
+          
+          await addDocumentNonBlocking(analyticEntriesRef, {
+            ecritureGLId: glDoc?.id || "",
+            journalCode: journalType,
+            dateEcriture: new Date(entryDate).toISOString(),
+            compteCode: line.accountCode,
+            compteLibelle: line.accountName,
+            classeCompte: line.accountCode.charAt(0),
+            debit: Number(line.debit) || 0,
+            credit: Number(line.credit) || 0,
+            montantNet,
+            libelle: description,
+            periode: entryDate.substring(0, 7),
+            exercice: entryDate.substring(0, 4),
+            origine: "MANUEL",
+            ventilations: [{
+              sectionId: line.sectionId,
+              sectionCode: section?.code || "",
+              sectionLibelle: section?.libelle || "",
+              axeId: section?.axeId || "",
+              axeCode: section?.axeCode || "",
+              pourcentage: 100,
+              montant: montantNet
+            }],
+            ventilationComplete: true,
+            createdAt: timestamp,
+            createdBy: user.uid
+          });
+        }
+      }
+
+      toast({ title: "Écriture enregistrée", description: "Comptabilité générale et analytique mises à jour." });
+      setLines([{ accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0, sectionId: "none" }, { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0, sectionId: "none" }]);
+      setDescription(""); setReference("");
+    } catch (e) { console.error(e); } finally { setIsSubmitting(false) }
   }
-
-  const handleCreateAccount = async () => {
-    if (!db || !currentTenantId || !newAccountData.code || !newAccountData.name) return;
-
-    const rootCode = newAccountData.code.substring(0, 2);
-    const rootAccount = SCF_ACCOUNTS.find(a => a.code === rootCode && a.isRoot);
-
-    if (!rootAccount) {
-      toast({
-        variant: "destructive",
-        title: "Racine invalide",
-        description: "Le compte doit commencer par une racine SCF valide (2 chiffres).",
-      });
-      return;
-    }
-
-    const accountRef = collection(db, "tenants", currentTenantId, "accounts");
-    const accountData = {
-      code: newAccountData.code,
-      name: newAccountData.name,
-      rootCode,
-      class: rootAccount.class,
-      tenantId: currentTenantId,
-      tenantMembers: currentTenant.members,
-      category: rootAccount.category
-    };
-
-    try {
-      addDocumentNonBlocking(accountRef, accountData);
-      toast({ title: "Compte créé", description: `Le compte ${newAccountData.code} a été ajouté.` });
-      setIsAccountDialogOpen(false);
-      setNewAccountData({ code: "", name: "" });
-    } catch (e) {
-      console.error(e);
-    }
-  };
 
   const groupedAccounts = React.useMemo(() => {
     const search = searchAccount.toLowerCase();
@@ -290,61 +209,27 @@ export default function AccountingJournal() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-primary flex items-center gap-2">
-            <BookOpen className="h-8 w-8 text-accent" /> Saisie Assistée SCF
+            <BookOpen className="h-8 w-8 text-accent" /> Saisie Journal Master
           </h1>
-          <p className="text-muted-foreground text-sm">Automatisation des écritures et ventilation intelligente de la TVA.</p>
+          <p className="text-muted-foreground text-sm">Gestion des imputations SCF avec ventilation analytique par centre de profit.</p>
         </div>
-        <div className="flex gap-2">
-          <Select onValueChange={applyTemplate}>
-            <SelectTrigger className="w-[200px] border-accent text-accent">
-              <Zap className="mr-2 h-4 w-4" />
-              <SelectValue placeholder="Saisie Rapide" />
-            </SelectTrigger>
-            <SelectContent>
-              {ACCOUNTING_TEMPLATES.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          
-          <Dialog open={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline"><PlusCircle className="mr-2 h-4 w-4" /> Nouveau Compte</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>Créer un sous-compte PCE</DialogTitle></DialogHeader>
-              <div className="grid gap-4 py-4 text-foreground">
-                <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Code</Label><Input className="col-span-3" value={newAccountData.code} onChange={(e) => setNewAccountData({...newAccountData, code: e.target.value})} /></div>
-                <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Intitulé</Label><Input className="col-span-3" value={newAccountData.name} onChange={(e) => setNewAccountData({...newAccountData, name: e.target.value})} /></div>
-              </div>
-              <DialogFooter><Button onClick={handleCreateAccount}>Enregistrer</Button></DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          <Button 
+        <Button 
             disabled={!isBalanced || isSubmitting || !currentTenantId} 
             onClick={handleValidate}
-            className="bg-emerald-600 hover:bg-emerald-700 shadow-lg"
+            className="bg-emerald-600 hover:bg-emerald-700 shadow-lg h-11 px-8 rounded-xl font-bold"
           >
             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
             Valider l'écriture
           </Button>
-        </div>
       </div>
 
-      {duplicateWarning && (
-        <Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive">
-          <ShieldAlert className="h-4 w-4" />
-          <AlertTitle>Risque de Doublon</AlertTitle>
-          <AlertDescription>{duplicateWarning}</AlertDescription>
-        </Alert>
-      )}
-
-      <Card className="border-t-4 border-t-primary shadow-xl">
+      <Card className="border-t-4 border-t-primary shadow-xl rounded-3xl overflow-hidden">
         <CardHeader className="bg-muted/30 pb-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
             <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase text-muted-foreground">Journal</label>
+              <label className="text-[10px] font-black uppercase text-slate-400">Journal</label>
               <Select value={journalType} onValueChange={(v: JournalType) => setJournalType(v)}>
-                <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="bg-white rounded-xl"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ACHATS">ACHATS</SelectItem>
                   <SelectItem value="VENTES">VENTES</SelectItem>
@@ -354,39 +239,39 @@ export default function AccountingJournal() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="md:col-span-1 space-y-1">
-              <label className="text-[10px] font-bold uppercase text-muted-foreground">Réf. Pièce</label>
-              <Input placeholder="Ex: FAC-2026-001" value={reference} onChange={(e) => setReference(e.target.value)} className="bg-white" />
-            </div>
-            <div className="md:col-span-1 space-y-1">
-              <label className="text-[10px] font-bold uppercase text-muted-foreground">Libellé</label>
-              <Input placeholder="Description..." value={description} onChange={(e) => setDescription(e.target.value)} className="bg-white" />
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase text-slate-400">Réf. Pièce</label>
+              <Input placeholder="Ex: FAC-2026-001" value={reference} onChange={(e) => setReference(e.target.value)} className="bg-white rounded-xl" />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase text-muted-foreground">Date</label>
-              <Input type="date" value={entryDate} onChange={(e) => setEntryDate(e.target.value)} className="bg-white" />
+              <label className="text-[10px] font-black uppercase text-slate-400">Libellé</label>
+              <Input placeholder="Description..." value={description} onChange={(e) => setDescription(e.target.value)} className="bg-white rounded-xl" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase text-slate-400">Date</label>
+              <Input type="date" value={entryDate} onChange={(e) => setEntryDate(e.target.value)} className="bg-white rounded-xl" />
             </div>
           </div>
         </CardHeader>
         <CardContent className="pt-6">
           <div className="mb-4 flex items-center gap-2 max-w-sm">
             <Search className="h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Filtrer les comptes..." value={searchAccount} onChange={(e) => setSearchAccount(e.target.value)} className="h-8 text-xs bg-muted/20 border-none" />
+            <Input placeholder="Chercher compte..." value={searchAccount} onChange={(e) => setSearchAccount(e.target.value)} className="h-8 text-xs bg-muted/20 border-none rounded-lg" />
           </div>
           <Table>
-            <TableHeader><TableRow className="bg-muted/50">
-              <TableHead>Compte PCE</TableHead>
-              <TableHead className="text-right">Débit</TableHead>
-              <TableHead className="text-right">Crédit</TableHead>
-              <TableHead>Analytique (Projet)</TableHead>
-              <TableHead className="w-[100px]"></TableHead>
+            <TableHeader><TableRow className="bg-slate-50">
+              <TableHead className="font-black text-[10px] uppercase">Compte SCF</TableHead>
+              <TableHead className="text-right font-black text-[10px] uppercase">Débit</TableHead>
+              <TableHead className="text-right font-black text-[10px] uppercase">Crédit</TableHead>
+              <TableHead className="font-black text-[10px] uppercase">Analytique (Section)</TableHead>
+              <TableHead className="w-[50px]"></TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {lines.map((line, index) => (
-                <TableRow key={index} className="hover:bg-muted/10">
+                <TableRow key={index} className="hover:bg-muted/5 h-16">
                   <TableCell>
                     <Select value={line.accountCode} onValueChange={(val) => updateLine(index, "accountCode", val)}>
-                      <SelectTrigger className="h-9 font-mono">
+                      <SelectTrigger className="h-10 font-mono rounded-xl">
                         <SelectValue placeholder="Code PCE" />
                       </SelectTrigger>
                       <SelectContent className="max-h-[300px]">
@@ -404,36 +289,32 @@ export default function AccountingJournal() {
                       </SelectContent>
                     </Select>
                   </TableCell>
-                  <TableCell><Input type="number" className="text-right font-mono" value={line.debit || ""} onChange={(e) => updateLine(index, "debit", e.target.value)} /></TableCell>
-                  <TableCell><Input type="number" className="text-right font-mono" value={line.credit || ""} onChange={(e) => updateLine(index, "credit", e.target.value)} /></TableCell>
+                  <TableCell><Input type="number" className="text-right font-mono rounded-xl h-10" value={line.debit || ""} onChange={(e) => updateLine(index, "debit", e.target.value)} /></TableCell>
+                  <TableCell><Input type="number" className="text-right font-mono rounded-xl h-10" value={line.credit || ""} onChange={(e) => updateLine(index, "credit", e.target.value)} /></TableCell>
                   <TableCell>
-                    <Select value={line.projectId} onValueChange={(val) => updateLine(index, "projectId", val)}>
-                      <SelectTrigger className="h-9 text-[10px] bg-white border-dashed">
-                        <SelectValue placeholder="Aucun projet" />
+                    <Select value={line.sectionId} onValueChange={(val) => updateLine(index, "sectionId", val)}>
+                      <SelectTrigger className="h-10 text-[10px] bg-white border-dashed rounded-xl">
+                        <SelectValue placeholder="Aucune section" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">Aucun projet</SelectItem>
-                        {projects?.map(p => (
-                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                        <SelectItem value="none">Aucune section</SelectItem>
+                        {sections?.map(s => (
+                          <SelectItem key={s.id} value={s.id} className="text-[10px]">
+                            <span className="font-black mr-2">[{s.axeCode}] {s.code}</span>
+                            <span>{s.libelle}</span>
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </TableCell>
                   <TableCell>
-                    <div className="flex gap-1">
-                      {(line.accountCode.startsWith('6') || line.accountCode.startsWith('7')) && (
-                        <Button variant="ghost" size="icon" onClick={() => handleAutoTva(index)} className="text-accent hover:bg-accent/10" title="Calculer TVA auto">
-                          <Calculator className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => removeLine(index)}><Trash2 className="h-4 w-4" /></Button>
-                    </div>
+                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setLines(lines.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4" /></Button>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-          <Button variant="outline" size="sm" onClick={addLine} className="mt-4 border-dashed w-full">
+          <Button variant="outline" size="sm" onClick={addLine} className="mt-4 border-dashed w-full rounded-xl h-10 font-bold">
             <Plus className="mr-2 h-4 w-4" /> Ajouter une ligne d'imputation
           </Button>
         </CardContent>
@@ -443,37 +324,33 @@ export default function AccountingJournal() {
               {isBalanced ? <CheckCircle className="h-6 w-6" /> : <Calculator className="h-6 w-6" />}
             </div>
             <div>
-              <p className="text-xs font-bold uppercase text-muted-foreground">Statut d'Équilibre</p>
+              <p className="text-[10px] font-black uppercase text-slate-400">Statut Équilibre</p>
               <p className={`text-sm font-black ${isBalanced ? 'text-emerald-600' : 'text-destructive'}`}>
                 {isBalanced ? "ÉQUILIBRÉ" : `ÉCART: ${Math.abs(totals.debit - totals.credit).toLocaleString()} DA`}
               </p>
             </div>
           </div>
           <div className="flex gap-12">
-            <div className="text-right"><p className="text-[10px] font-bold text-muted-foreground uppercase">Total Débit</p><p className="text-xl font-black text-primary">{totals.debit.toLocaleString()} DA</p></div>
-            <div className="text-right"><p className="text-[10px] font-bold text-muted-foreground uppercase">Total Crédit</p><p className="text-xl font-black text-primary">{totals.credit.toLocaleString()} DA</p></div>
+            <div className="text-right"><p className="text-[10px] font-black text-slate-400 uppercase">Total Débit</p><p className="text-xl font-black text-primary">{totals.debit.toLocaleString()} DA</p></div>
+            <div className="text-right"><p className="text-[10px] font-black text-slate-400 uppercase">Total Crédit</p><p className="text-xl font-black text-primary">{totals.credit.toLocaleString()} DA</p></div>
           </div>
         </CardFooter>
       </Card>
 
       <div className="grid md:grid-cols-2 gap-6">
-        <Card className="bg-primary/5 border-primary/20">
-          <CardHeader><CardTitle className="text-sm flex items-center gap-2 text-primary"><Sparkles className="h-4 w-4" /> Aide SCF Analytique</CardTitle></CardHeader>
-          <CardContent className="text-xs text-muted-foreground italic leading-relaxed">
-            La ventilation par projet permet de calculer votre marge analytique chantier par chantier. Les comptes de charges (Classe 6) affectés à un projet seront déduits du résultat spécifique de celui-ci.
+        <Card className="bg-primary/5 border-primary/20 rounded-3xl">
+          <CardHeader><CardTitle className="text-sm flex items-center gap-2 text-primary font-black uppercase tracking-tighter"><Sparkles className="h-4 w-4" /> Aide Master Analytique</CardTitle></CardHeader>
+          <CardContent className="text-xs text-slate-500 italic leading-relaxed">
+            Pour les comptes de charges (6) et produits (7), sélectionnez une section analytique. Le système générera automatiquement les écritures de ventilation pour vos tableaux de bord de rentabilité.
           </CardContent>
         </Card>
-        <Card className="border-dashed flex items-center justify-center p-6 border-l-4 border-l-accent bg-accent/5">
+        <Card className="border-dashed flex items-center justify-center p-6 border-l-4 border-l-accent bg-accent/5 rounded-3xl">
           <div className="flex flex-col items-center gap-2">
             <Briefcase className="h-8 w-8 text-accent" />
-            <span className="text-[10px] font-black uppercase text-accent">Analyse Analytique Active</span>
+            <span className="text-[10px] font-black uppercase text-accent tracking-widest">Moteur Analytique Synchronisé</span>
           </div>
         </Card>
       </div>
     </div>
   )
-}
-
-function calculateSalaireBase(indice: number, valeurPoint: number): number {
-  return Math.round(indice * valeurPoint);
 }

@@ -66,7 +66,7 @@ export function calculateVentilationAmounts(
         amount = Math.round((totalAmount * v.pourcentage / 100) * 100) / 100;
         runningSum += amount;
       }
-      results.push({ ...v, montant: amount });
+      results.push({ ...v, montant: amount } as Ventilation);
     });
   });
 

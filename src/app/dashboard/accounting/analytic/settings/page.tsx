@@ -7,11 +7,10 @@
 import * as React from "react"
 import { useFirestore, useUser, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase"
 import { collection, query, orderBy, doc } from "firebase/firestore"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { 
   Layers, Plus, Search, Settings2, 
@@ -22,6 +21,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label"
 import { useSearchParams } from "next/navigation"
 import { toast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
 
 export default function AnalyticSettings() {
   const db = useFirestore()
@@ -90,7 +90,6 @@ export default function AnalyticSettings() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* AXES ANALYTIQUES */}
         <Card className="lg:col-span-1 shadow-xl border-none ring-1 ring-border bg-white rounded-3xl overflow-hidden">
           <CardHeader className="bg-slate-50 border-b p-6 flex flex-row items-center justify-between">
             <div>
@@ -100,7 +99,7 @@ export default function AnalyticSettings() {
               <DialogTrigger asChild><Button size="icon" variant="ghost" className="h-8 w-8 text-primary"><Plus className="h-4 w-4" /></Button></DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>Nouvel Axe de Analyse</DialogTitle></DialogHeader>
-                <div className="grid gap-4 py-4">
+                <div className="grid gap-4 py-4 text-foreground">
                   <div className="grid gap-2"><Label>Code (CC, PRJ...)</Label><Input value={newAxe.code} onChange={e => setNewAxe({...newAxe, code: e.target.value})} /></div>
                   <div className="grid gap-2"><Label>Libellé</Label><Input value={newAxe.libelle} onChange={e => setNewAxe({...newAxe, libelle: e.target.value})} /></div>
                 </div>
@@ -130,7 +129,6 @@ export default function AnalyticSettings() {
           </CardContent>
         </Card>
 
-        {/* SECTIONS / CENTRES DE COUTS */}
         <Card className="lg:col-span-2 shadow-2xl border-none ring-1 ring-border bg-white rounded-3xl overflow-hidden">
           <CardHeader className="bg-slate-50 border-b p-6 flex flex-row items-center justify-between">
             <div className="flex items-center gap-3">
@@ -149,7 +147,7 @@ export default function AnalyticSettings() {
                 <DialogTrigger asChild><Button size="sm" className="h-9 px-4 rounded-xl"><Plus className="h-4 w-4 mr-2" /> Nouvelle Section</Button></DialogTrigger>
                 <DialogContent>
                   <DialogHeader><DialogTitle>Ajouter un Centre de Coût</DialogTitle></DialogHeader>
-                  <div className="grid gap-4 py-4">
+                  <div className="grid gap-4 py-4 text-foreground">
                     <div className="grid gap-2"><Label>Code Section</Label><Input value={newSection.code} onChange={e => setNewSection({...newSection, code: e.target.value})} /></div>
                     <div className="grid gap-2"><Label>Libellé complet</Label><Input value={newSection.libelle} onChange={e => setNewSection({...newSection, libelle: e.target.value})} /></div>
                   </div>
