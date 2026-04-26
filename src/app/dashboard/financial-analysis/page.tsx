@@ -359,7 +359,7 @@ export default function FinancialAnalysisPage() {
         </Card>
       </div>
 
-      <div className="p-6 bg-blue-50 border border-blue-100 rounded-3xl flex items-start gap-4 shadow-sm">
+      <div className="p-6 bg-blue-50 border border-blue-200 rounded-3xl flex items-start gap-4 shadow-sm">
         <div className="h-10 w-10 rounded-2xl bg-white border border-blue-200 flex items-center justify-center shrink-0 shadow-sm">
           <Info className="h-5 w-5 text-blue-600" />
         </div>
