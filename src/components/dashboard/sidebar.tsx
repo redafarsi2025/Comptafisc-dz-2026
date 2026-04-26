@@ -63,7 +63,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator
-} from "@/components/ui/dropdown-menu"
+} from "@/dropdown-menu"
 import {
   Dialog,
   DialogContent,
@@ -374,7 +374,7 @@ export function DashboardSidebar() {
                   <LifeBuoy />
                   <span>Assistance & Support</span>
                 </Link>
-              </SidebarMenuItem>
+              </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname === "/dashboard/settings"} tooltip="Paramètres">
@@ -382,7 +382,7 @@ export function DashboardSidebar() {
                   <Settings />
                   <span>Paramètres Dossier</span>
                 </Link>
-              </SidebarMenuItem>
+              </SidebarMenuButton>
             </SidebarMenuItem>
             
             {isSaaSAdmin && (

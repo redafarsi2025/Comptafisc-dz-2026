@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -5,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { SCF_ACCOUNTS, JournalEntryLine, JournalType, ACCOUNTING_TEMPLATES } from "@/lib/scf-accounts"
+import { SCF_ACCOUNTS, JournalEntryLine, JournalType, ACCOUNTING_TEMPLATES, JournalEntry } from "@/lib/scf-accounts"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select"
 import { 
   Plus, Trash2, CheckCircle, Calculator, Loader2, BookOpen, 
