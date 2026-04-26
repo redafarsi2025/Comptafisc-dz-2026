@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -12,7 +11,7 @@ import {
   Pickaxe, ChevronLeft, CalendarDays, 
   MapPin, Users, TrendingUp, Calculator, 
   ShieldCheck, AlertTriangle, Clock, History,
-  FileText, HardHat, Loader2, Edit3
+  FileText, HardHat, Loader2, Edit3, CheckCircle2, Plus
 } from "lucide-react"
 import { useRouter, useSearchParams, useParams } from "next/navigation"
 import Link from "next/link"
