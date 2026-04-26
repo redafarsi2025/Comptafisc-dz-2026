@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { 
   Layers, Plus, Search, Settings2, 
   Database, ShieldCheck, Loader2, 
-  Trash2, Edit3, ChevronRight, FolderTree
+  Trash2, Edit3, ChevronRight, FolderTree, Landmark
 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
@@ -100,8 +100,12 @@ export default function AnalyticSettings() {
               <DialogContent>
                 <DialogHeader><DialogTitle>Nouvel Axe de Analyse</DialogTitle></DialogHeader>
                 <div className="grid gap-4 py-4 text-foreground">
-                  <div className="grid gap-2"><Label>Code (CC, PRJ...)</Label><Input value={newAxe.code} onChange={e => setNewAxe({...newAxe, code: e.target.value})} /></div>
-                  <div className="grid gap-2"><Label>Libellé</Label><Input value={newAxe.libelle} onChange={e => setNewAxe({...newAxe, libelle: e.target.value})} /></div>
+                  <div className="grid gap-2"><Label>Code (CC, PRJ, ACT...)</Label><Input value={newAxe.code} onChange={e => setNewAxe({...newAxe, code: e.target.value})} placeholder="Ex: CC" /></div>
+                  <div className="grid gap-2"><Label>Libellé</Label><Input value={newAxe.libelle} onChange={e => setNewAxe({...newAxe, libelle: e.target.value})} placeholder="Ex: Centre de Coût" /></div>
+                  <div className="flex items-center space-x-2 pt-2">
+                    <input type="checkbox" id="ob" checked={newAxe.obligatoire} onChange={e => setNewAxe({...newAxe, obligatoire: e.target.checked})} />
+                    <Label htmlFor="ob">Saisie obligatoire pour les comptes 6 et 7</Label>
+                  </div>
                 </div>
                 <DialogFooter><Button onClick={handleAddAxe} className="w-full">Créer l'Axe</Button></DialogFooter>
               </DialogContent>
@@ -120,7 +124,7 @@ export default function AnalyticSettings() {
                 >
                   <div>
                     <p className="text-xs font-black uppercase text-slate-900">{a.libelle}</p>
-                    <p className="text-[9px] font-mono text-slate-400 mt-1 uppercase">CODE: {a.code}</p>
+                    <p className="text-[9px] font-mono text-slate-400 mt-1 uppercase">CODE: {a.code} {a.obligatoire && <span className="text-red-500 ml-2">• OBLIGATOIRE</span>}</p>
                   </div>
                   <ChevronRight className={cn("h-4 w-4 transition-transform", activeAxeId === a.id ? "text-primary translate-x-1" : "text-slate-200")} />
                 </button>
@@ -148,8 +152,8 @@ export default function AnalyticSettings() {
                 <DialogContent>
                   <DialogHeader><DialogTitle>Ajouter un Centre de Coût</DialogTitle></DialogHeader>
                   <div className="grid gap-4 py-4 text-foreground">
-                    <div className="grid gap-2"><Label>Code Section</Label><Input value={newSection.code} onChange={e => setNewSection({...newSection, code: e.target.value})} /></div>
-                    <div className="grid gap-2"><Label>Libellé complet</Label><Input value={newSection.libelle} onChange={e => setNewSection({...newSection, libelle: e.target.value})} /></div>
+                    <div className="grid gap-2"><Label>Code Section</Label><Input value={newSection.code} onChange={e => setNewSection({...newSection, code: e.target.value})} placeholder="Ex: ADM-RH" /></div>
+                    <div className="grid gap-2"><Label>Libellé complet</Label><Input value={newSection.libelle} onChange={e => setNewSection({...newSection, libelle: e.target.value})} placeholder="Ex: Ressources Humaines" /></div>
                   </div>
                   <DialogFooter><Button onClick={handleAddSection} className="w-full">Valider la Section</Button></DialogFooter>
                 </DialogContent>
@@ -201,7 +205,7 @@ export default function AnalyticSettings() {
           <p className="font-black text-accent uppercase tracking-[0.2em]">Doctrine Analytique SCF :</p>
           <p className="opacity-80">
             Le découpage en <strong>Axes</strong> (Nature du coût) et <strong>Sections</strong> (Lieu de responsabilité) permet d'isoler les marges par projet ou atelier. 
-            Conformément à la Loi de Finances 2026, cette structure est indispensable pour justifier les investissements réinvestis lors du calcul de l'IBS réduit.
+            Conformément à la Loi de Finances 2026, cette structure est indispensable pour justifier les investissements réinvestis lors du calcul de l'IBS réduit (Art. 150 CIDTA).
           </p>
         </div>
       </div>

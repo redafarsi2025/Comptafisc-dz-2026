@@ -185,7 +185,7 @@ export default function AccountingJournal() {
         }
       }
 
-      toast({ title: "Écriture enregistrée", description: "Comptabilité générale et analytique mises à jour." });
+      toast({ title: "Écrition enregistrée", description: "Comptabilité générale et analytique mises à jour." });
       setLines([{ accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0, sectionId: "none" }, { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0, sectionId: "none" }]);
       setDescription(""); setReference("");
     } catch (e) { console.error(e); } finally { setIsSubmitting(false) }
