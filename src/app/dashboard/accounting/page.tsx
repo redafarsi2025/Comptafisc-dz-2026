@@ -89,8 +89,8 @@ export default function AccountingJournal() {
   }, [customAccounts]);
 
   const [lines, setLines] = React.useState<any[]>([
-    { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0, projectId: "" },
-    { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0, projectId: "" },
+    { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0, projectId: "none" },
+    { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0, projectId: "none" },
   ])
 
   React.useEffect(() => {
@@ -124,7 +124,7 @@ export default function AccountingJournal() {
   const isBalanced = Math.abs(totals.debit - totals.credit) < 0.01 && totals.debit > 0
 
   const addLine = () => {
-    setLines([...lines, { accountCode: "", accountName: "Nouveau compte", debit: 0, credit: 0, projectId: "" }])
+    setLines([...lines, { accountCode: "", accountName: "Nouveau compte", debit: 0, credit: 0, projectId: "none" }])
   }
 
   const removeLine = (index: number) => {
@@ -157,14 +157,14 @@ export default function AccountingJournal() {
       accountName: allAccounts.find(a => a.code === tvaAccount)?.name || "TVA", 
       debit: isPurchase ? tva : 0, 
       credit: isPurchase ? 0 : tva,
-      projectId: line.projectId
+      projectId: line.projectId || "none"
     });
     newLines.push({ 
       accountCode: counterAccount, 
       accountName: allAccounts.find(a => a.code === counterAccount)?.name || "Tiers", 
       debit: isPurchase ? 0 : amount + tva, 
       credit: isPurchase ? amount + tva : 0,
-      projectId: line.projectId
+      projectId: line.projectId || "none"
     });
     
     setLines(newLines);
@@ -185,7 +185,7 @@ export default function AccountingJournal() {
         accountName: account?.name || "Compte",
         debit: 0,
         credit: 0,
-        projectId: ""
+        projectId: "none"
       };
     });
     setLines(newLines);
@@ -213,7 +213,7 @@ export default function AccountingJournal() {
         accountName: l.accountName, 
         debit: Number(l.debit) || 0, 
         credit: Number(l.credit) || 0,
-        projectId: l.projectId || "" 
+        projectId: l.projectId === "none" ? "" : (l.projectId || "") 
       }))
     }
 
@@ -224,8 +224,8 @@ export default function AccountingJournal() {
         description: `L'écriture a été ajoutée au journal ${journalType} avec succès.`,
       });
       setLines([
-        { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0, projectId: "" },
-        { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0, projectId: "" },
+        { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0, projectId: "none" },
+        { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0, projectId: "none" },
       ]);
       setDescription("");
       setReference("");
@@ -412,7 +412,7 @@ export default function AccountingJournal() {
                         <SelectValue placeholder="Aucun projet" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Aucun projet</SelectItem>
+                        <SelectItem value="none">Aucun projet</SelectItem>
                         {projects?.map(p => (
                           <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                         ))}
@@ -472,4 +472,8 @@ export default function AccountingJournal() {
       </div>
     </div>
   )
+}
+
+function calculateSalaireBase(indice: number, valeurPoint: number): number {
+  return Math.round(indice * valeurPoint);
 }
