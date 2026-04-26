@@ -118,6 +118,12 @@ const pilotageNav = [
   { name: "Analyse & Pilotage", href: "/dashboard/financial-analysis", icon: BarChart3 },
 ]
 
+// Menu Relations (Nouveau)
+const relationsNav = [
+  { name: "Registre des Tiers", href: "/dashboard/contacts", icon: Users },
+  { name: "Pipeline (CRM)", href: "/dashboard/crm", icon: Target },
+]
+
 // Menu Ventes
 const salesNav = [
   { name: "Saisie Facture / CA", href: "/dashboard/invoicing", icon: FilePlus },
@@ -362,6 +368,8 @@ export function DashboardSidebar() {
 
       <SidebarContent className="px-2">
         <NavGroup label="Pilotage & Décision" items={pilotageNav} />
+
+        <NavGroup label="Relations & CRM" items={relationsNav} />
         
         <NavGroup label="Ventes & Clients" items={salesNav} visible={secteur === "COMMERCE" || secteur === "INDUSTRIE" || secteur === "TRANSPORT"} />
         <NavGroup label="Gestion Flotte" items={logisticsNav} visible={secteur === "TRANSPORT"} />
@@ -385,14 +393,14 @@ export function DashboardSidebar() {
                 <Link href={currentTenant ? `/dashboard/support?tenantId=${currentTenant.id}` : "/dashboard/support"}>
                   <LifeBuoy /><span>Assistance & Support</span>
                 </Link>
-              </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname === "/dashboard/settings"} tooltip="Paramètres">
                 <Link href={currentTenant ? `/dashboard/settings?tenantId=${currentTenant.id}` : "/dashboard/settings"}>
                   <Settings /><span>Paramètres Dossier</span>
                 </Link>
-              </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
