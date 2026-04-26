@@ -43,6 +43,9 @@
         "code": { "type": "string" },
         "name": { "type": "string" },
         "type": { "type": "string" },
+        "category": { "type": "string", "enum": ["COMPTA", "SOCIAL", "FISCAL"] },
+        "order": { "type": "number", "description": "Priorité d'exécution (le plus bas en premier)." },
+        "dependsOn": { "type": "array", "items": { "type": "string" }, "description": "Codes des règles dont cette règle dépend." },
         "effectiveStartDate": { "type": "string", "format": "date" },
         "brackets": { "type": "array" },
         "formula": { "type": "string" }
