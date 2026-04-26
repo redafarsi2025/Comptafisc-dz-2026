@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { 
   DatabaseZap, Loader2, Sparkles, RefreshCcw, BrainCircuit, Check,
   Code2, Calculator, ShieldCheck, Play, FlaskConical, Beaker,
-  TrendingUp, ArrowRight, Database, History, Gavel
+  TrendingUp, ArrowRight, Database, History, Gavel, Users, Banknote
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -28,7 +28,8 @@ export default function FiscalEngineAdmin() {
   const [isAiProcessing, setIsAiProcessing] = React.useState(false)
   const [aiProposals, setAiProposals] = React.useState<any[] | null>(null)
 
-  const [simBase, setSimBase] = React.useState("4500000")
+  const [simBase, setSimBase] = React.useState("100000")
+  const [simMode, setSimBaseMode] = React.useState("PAIE") // PAIE or IBS
   const [simSector, setSimSector] = React.useState("PRODUCTION")
   const [simResult, setSimResult] = React.useState<any>(null)
   const [isSimulating, setIsSimulating] = React.useState(false)
@@ -56,10 +57,14 @@ export default function FiscalEngineAdmin() {
     if (!db) return;
     setIsSimulating(true);
     try {
+      const input = simMode === "PAIE" 
+        ? { salaire_brut: parseFloat(simBase), heures_sup: 0, jours_absence: 0 }
+        : { resultat_fiscal: parseFloat(simBase), secteur: simSector, multi_activite: false };
+
       const { results, traces } = await executeFiscalPipeline(
         { db, date: "2026-01-01" },
         undefined,
-        { resultat_fiscal: parseFloat(simBase), secteur: simSector, multi_activite: false }
+        input
       );
       setSimResult({ results, traces });
     } catch (e: any) {
@@ -75,7 +80,7 @@ export default function FiscalEngineAdmin() {
     try {
       const lawId = "LF_2026";
       
-      // 1. Règle IBS 2026 (Taux différentiés)
+      // --- BLOC FISCALITÉ ENTREPRISE ---
       await setDocumentNonBlocking(doc(db, "fiscal_business_rules", "RULE_IBS_2026"), {
         id: "RULE_IBS_2026",
         code: "IBS_TAUX",
@@ -95,58 +100,79 @@ export default function FiscalEngineAdmin() {
         justify: "Application des taux IBS différentiés selon l'activité (Art. 150 CIDTA)."
       }, { merge: true });
 
-      // 2. Règle IRG Dividendes 10%
-      await setDocumentNonBlocking(doc(db, "fiscal_business_rules", "RULE_IRG_DIV_2026"), {
-        id: "RULE_IRG_DIV_2026",
-        code: "IRG_DIVIDENDES",
-        name: "IRG : Dividendes (Taux réduit)",
-        category: "FISCAL",
-        priority: 150,
-        active: true,
-        effectiveStartDate: "2026-01-01",
-        sourceLawId: lawId,
-        when: "distribution_dividendes > 0",
-        then: [
-          { set: "IRG_DIV = distribution_dividendes * 0.10" }
-        ],
-        justify: "Réduction du taux IRG sur dividendes à 10% (Mesure LF 2026)."
-      }, { merge: true });
-
-      // 3. Règle TVA Réduite 9% étendue
-      await setDocumentNonBlocking(doc(db, "fiscal_business_rules", "RULE_TVA_REDUITE_2026"), {
-        id: "RULE_TVA_REDUITE_2026",
-        code: "TVA_REDUITE",
-        name: "TVA : Extension Taux 9%",
-        category: "FISCAL",
-        priority: 50,
-        active: true,
-        effectiveStartDate: "2026-01-01",
-        sourceLawId: lawId,
-        when: "secteur IN ['SANTE', 'TRANSPORT', 'FORMATION', 'LOGEMENT']",
-        then: [
-          { set: "taux_tva = 0.09" }
-        ],
-        justify: "Extension du taux réduit de TVA à 9% (Mesure LF 2026)."
-      }, { merge: true });
-
-      // 4. Suppression TAP
-      await setDocumentNonBlocking(doc(db, "fiscal_business_rules", "RULE_TAP_SUPPRESSION"), {
-        id: "RULE_TAP_SUPPRESSION",
-        code: "TAP_SUPPRESSION",
-        name: "TAP : Suppression Totale",
-        category: "FISCAL",
+      // --- BLOC PAIE & IRG 2026 ---
+      await setDocumentNonBlocking(doc(db, "fiscal_business_rules", "RULE_BASE_IRG"), {
+        id: "RULE_BASE_IRG",
+        code: "BASE_IRG",
+        name: "Paie : Détermination Base IRG",
+        category: "SOCIAL",
         priority: 10,
         active: true,
-        effectiveStartDate: "2024-01-01",
-        sourceLawId: "LF_2024",
-        when: "TRUE",
+        effectiveStartDate: "2026-01-01",
+        sourceLawId: lawId,
+        when: "salaire_brut > 0",
         then: [
-          { set: "TAP = 0" }
+          { set: "cnas_salariale = salaire_brut * 0.09" },
+          { set: "salaire_imposable = salaire_brut - cnas_salariale" }
         ],
-        justify: "Suppression de la Taxe sur l'Activité Professionnelle (TAP)."
+        justify: "Déduction CNAS ouvrière (9%) pour obtenir le revenu imposable."
       }, { merge: true });
 
-      toast({ title: "Noyau DSL 2026 Opérationnel" });
+      await setDocumentNonBlocking(doc(db, "fiscal_business_rules", "RULE_ABATTEMENT_IRG"), {
+        id: "RULE_ABATTEMENT_IRG",
+        code: "ABATTEMENT_IRG",
+        name: "Paie : Abattement 40% (2026)",
+        category: "SOCIAL",
+        priority: 20,
+        active: true,
+        effectiveStartDate: "2026-01-01",
+        sourceLawId: lawId,
+        when: "salaire_imposable > 0",
+        then: [
+          { set: "val_abattement = salaire_imposable * 0.40" },
+          { if: "val_abattement > 12000", set: "val_abattement = 12000" },
+          { set: "base_IRG_net = salaire_imposable - val_abattement" }
+        ],
+        justify: "Application de l'abattement 40% plafonné à 12 000 DA (Art. 104 CIDTA)."
+      }, { merge: true });
+
+      await setDocumentNonBlocking(doc(db, "fiscal_business_rules", "RULE_IRG_PROGRESSIF"), {
+        id: "RULE_IRG_PROGRESSIF",
+        code: "IRG_FINAL",
+        name: "Paie : Barème Progressif IRG",
+        category: "SOCIAL",
+        priority: 30,
+        active: true,
+        effectiveStartDate: "2026-01-01",
+        sourceLawId: lawId,
+        when: "base_IRG_net > 0",
+        then: [
+          { if: "base_IRG_net <= 30000", set: "IRG = 0" },
+          { if: "base_IRG_net > 30000 && base_IRG_net <= 120000", set: "IRG = (base_IRG_net - 30000) * 0.20" },
+          { if: "base_IRG_net > 120000 && base_IRG_net <= 360000", set: "IRG = 18000 + (base_IRG_net - 120000) * 0.30" },
+          { if: "base_IRG_net > 360000", set: "IRG = 90000 + (base_IRG_net - 360000) * 0.35" }
+        ],
+        justify: "Barème progressif 2026 : Exonération jusqu'à 30 000 DA."
+      }, { merge: true });
+
+      await setDocumentNonBlocking(doc(db, "fiscal_business_rules", "RULE_CNAS_PATRONALE"), {
+        id: "RULE_CNAS_PATRONALE",
+        code: "CNAS_PATRONALE",
+        name: "Charges : CNAS Patronale (26%)",
+        category: "SOCIAL",
+        priority: 5,
+        active: true,
+        effectiveStartDate: "2026-01-01",
+        sourceLawId: lawId,
+        when: "salaire_brut > 0",
+        then: [
+          { set: "cotisation_patronale = salaire_brut * 0.26" },
+          { set: "cout_total_employeur = salaire_brut + cotisation_patronale" }
+        ],
+        justify: "Charges sociales à la charge de l'employeur."
+      }, { merge: true });
+
+      toast({ title: "Noyau DSL 2026 (Fiscal & Paie) Opérationnel" });
     } finally { setIsInitializing(false); }
   }
 
@@ -176,23 +202,30 @@ export default function FiscalEngineAdmin() {
             <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Test du pipeline de calcul</CardDescription>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
+            <Tabs value={simMode} onValueChange={setSimBaseMode} className="w-full">
+               <TabsList className="grid grid-cols-2 mb-4">
+                 <TabsTrigger value="PAIE" className="text-[10px] font-black">PAIE & IRG</TabsTrigger>
+                 <TabsTrigger value="IBS" className="text-[10px] font-black">FISCALITÉ IBS</TabsTrigger>
+               </TabsList>
+            </Tabs>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase">Résultat Fiscal (DA)</Label>
+                <Label className="text-[10px] font-bold uppercase">{simMode === "PAIE" ? "Salaire Brut (DA)" : "Résultat Fiscal (DA)"}</Label>
                 <Input type="number" value={simBase} onChange={e => setSimBase(e.target.value)} className="rounded-xl" />
               </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase">Secteur</Label>
-                <Select value={simSector} onValueChange={setSimSector}>
-                  <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PRODUCTION">Production (19%)</SelectItem>
-                    <SelectItem value="BTP">BTP (23%)</SelectItem>
-                    <SelectItem value="SERVICES">Services (26%)</SelectItem>
-                    <SelectItem value="SANTE">Santé (TVA 9%)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {simMode === "IBS" && (
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase">Secteur</Label>
+                  <Select value={simSector} onValueChange={setSimSector}>
+                    <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PRODUCTION">Production (19%)</SelectItem>
+                      <SelectItem value="BTP">BTP (23%)</SelectItem>
+                      <SelectItem value="SERVICES">Services (26%)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
             <Button className="w-full bg-slate-900 text-white font-black uppercase tracking-widest text-[10px] h-12 rounded-2xl shadow-lg" onClick={handleRunFullSimulation} disabled={isSimulating}>
               {isSimulating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
@@ -204,9 +237,17 @@ export default function FiscalEngineAdmin() {
                 <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10">
                   <p className="text-[9px] font-black text-primary uppercase mb-1">Impact Calculé</p>
                   <div className="flex justify-between items-baseline">
-                    <span className="text-2xl font-black text-slate-900">{(simResult.results.IBS || 0).toLocaleString()} DA</span>
-                    <Badge className="bg-primary text-white text-[8px]">IBS FINAL</Badge>
+                    <span className="text-2xl font-black text-slate-900">
+                      {simMode === "PAIE" ? (simResult.results.IRG || 0).toLocaleString() : (simResult.results.IBS || 0).toLocaleString()} DA
+                    </span>
+                    <Badge className="bg-primary text-white text-[8px] uppercase">{simMode === "PAIE" ? "IRG FINAL" : "IBS FINAL"}</Badge>
                   </div>
+                  {simMode === "PAIE" && (
+                    <div className="mt-2 text-[10px] font-bold text-slate-500 flex justify-between">
+                       <span>Coût Total Employeur :</span>
+                       <span>{Math.round(simResult.results.cout_total_employeur || 0).toLocaleString()} DA</span>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <p className="text-[9px] font-black text-slate-400 uppercase">Traces d'Audit :</p>
@@ -234,11 +275,13 @@ export default function FiscalEngineAdmin() {
                 <Card key={rule.id} className="border-none shadow-xl shadow-slate-200/50 bg-white rounded-3xl border-l-4 border-l-primary group">
                   <CardHeader className="py-4 px-8 bg-slate-50/50 border-b border-slate-100 flex flex-row justify-between items-center">
                     <div className="space-y-1">
-                      <CardTitle className="text-sm font-black text-slate-900 uppercase tracking-tighter flex items-center gap-3">
-                        {rule.name}
-                        <Badge variant="outline" className="text-[8px] h-4 font-mono">{rule.code}</Badge>
-                      </CardTitle>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Priorité: {rule.priority} • Actif</p>
+                      <div className="flex items-center gap-2">
+                         <CardTitle className="text-sm font-black text-slate-900 uppercase tracking-tighter">
+                          {rule.name}
+                        </CardTitle>
+                        {rule.category === 'SOCIAL' ? <Users className="h-3 w-3 text-blue-500" /> : <Banknote className="h-3 w-3 text-emerald-500" />}
+                      </div>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Priorité: {rule.priority} • {rule.category}</p>
                     </div>
                     <Badge className="bg-emerald-100 text-emerald-700 text-[8px] font-black h-5">DSL 2026</Badge>
                   </CardHeader>

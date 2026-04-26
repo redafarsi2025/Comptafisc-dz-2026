@@ -1,6 +1,6 @@
 /**
- * @fileOverview Moteur de Calcul (Refactoré v2.8)
- * Alignement total sur les mesures de la Loi de Finances 2026.
+ * @fileOverview Moteur de Calcul (Refactoré v3.0 - LF 2026)
+ * Alignement total sur le DSL Paie et Fiscalité 2026 Algérie.
  */
 
 export const TAX_RATES = {
@@ -9,8 +9,8 @@ export const TAX_RATES = {
   IBS_NORMAL: 0.26,
   IBS_PRODUCTION: 0.19,
   IBS_SERVICES: 0.23,
-  IBS_BTP: 0.23, // Réduit selon LF 2026
-  IRG_DIVIDENDES: 0.10, // Réduction LF 2026
+  IBS_BTP: 0.23, 
+  IRG_DIVIDENDES: 0.10,
   IFU_THRESHOLD: 8000000,
   IFU_AUTO_THRESHOLD: 5000000,
   IFU_MIN_STANDARD: 10000,
@@ -24,6 +24,7 @@ export const PAYROLL_CONSTANTS = {
   CNAS_EMPLOYEE: 0.09,
   CNAS_EMPLOYER: 0.26,
   IRG_EXEMPT_THRESHOLD: 30000,
+  MAX_ABATEMENT_IRG: 12000, // LF 2026
 };
 
 export const CASNOS_CONSTANTS = {
@@ -33,31 +34,35 @@ export const CASNOS_CONSTANTS = {
 };
 
 /**
- * Calculateur IRG Salarié - Version 2026
- * Applique le barème progressif avec lissage pour les bas salaires.
+ * Calculateur IRG Salarié - Version DSL 2026
+ * Processus : Salaire Poste -> Déduction CNAS -> Abattement 40% -> Barème Progressif.
  */
-export function calculateIRG(netImposable: number, isGrandSud: boolean = false, isHandicapped: boolean = false): number {
-  const amount = Math.floor(netImposable / 10) * 10;
-  if (amount <= 30000) return 0;
+export function calculateIRG(salairePoste: number, isGrandSud: boolean = false, isHandicapped: boolean = false): number {
+  // 1. Cotisations sociales (9%)
+  const cnasSalariale = salairePoste * PAYROLL_CONSTANTS.CNAS_EMPLOYEE;
+  const salaireImposable = salairePoste - cnasSalariale;
 
+  // 2. Abattement IRG 40% plafonné à 12 000 DA (LF 2026)
+  let abattement = salaireImposable * 0.40;
+  if (abattement > PAYROLL_CONSTANTS.MAX_ABATEMENT_IRG) {
+    abattement = PAYROLL_CONSTANTS.MAX_ABATEMENT_IRG;
+  }
+  const baseIRG = Math.max(0, salaireImposable - abattement);
+
+  // 3. Barème Progressif 2026
   let tax = 0;
-  if (amount > 20000) tax += (Math.min(amount, 40000) - 20000) * 0.23;
-  if (amount > 40000) tax += (Math.min(amount, 80000) - 40000) * 0.27;
-  if (amount > 80000) tax += (Math.min(amount, 160000) - 80000) * 0.30;
-  if (amount > 160000) tax += (Math.min(amount, 320000) - 160000) * 0.33;
-  if (amount > 320000) tax += (amount - 320000) * 0.35;
-
-  let abatement = tax * 0.4;
-  if (abatement < 1000) abatement = 1000;
-  if (abatement > 1500) abatement = 1500;
-  tax = Math.max(0, tax - abatement);
-
-  // Lissage pour tranches 30 000 - 35 000 DA
-  if (amount > 30000 && amount <= 35000) {
-    tax = tax * (137/51) - (27925/8);
+  if (baseIRG <= 30000) {
+    tax = 0;
+  } else if (baseIRG <= 120000) {
+    tax = (baseIRG - 30000) * 0.20;
+  } else if (baseIRG <= 360000) {
+    tax = (120000 - 30000) * 0.20 + (baseIRG - 120000) * 0.30;
+  } else {
+    tax = (120000 - 30000) * 0.20 + (360000 - 120000) * 0.30 + (baseIRG - 360000) * 0.35;
   }
 
-  if (isHandicapped && amount <= 42500) tax = tax * 0.5;
+  // 4. Avantages spécifiques
+  if (isHandicapped && baseIRG <= 42500) tax = tax * 0.5;
   if (isGrandSud) tax *= 0.5;
 
   return Math.max(0, Math.round(tax));
@@ -74,8 +79,6 @@ export function calculateStampDuty(totalTTC: number, isCash: boolean): number {
   const duty = Math.ceil(totalTTC * 0.01);
   return Math.max(5, Math.min(2500, duty));
 }
-
-// --- Fonctions de Pilotage Financier ---
 
 export function calculateBFR(stocks: number, receivables: number, payables: number): number {
   return stocks + receivables - payables;
@@ -104,4 +107,12 @@ export function getIBSRate(secteur: string, activiteNAP?: string): number {
   if (secteur === 'BTP') return TAX_RATES.IBS_BTP;
   if (secteur === 'SERVICES' || secteur === 'COMMERCE') return TAX_RATES.IBS_NORMAL;
   return TAX_RATES.IBS_NORMAL;
+}
+
+/**
+ * Calculateur CASNOS (Non-salariés)
+ */
+export function calculateCASNOS(annualBase: number): number {
+  const contribution = annualBase * CASNOS_CONSTANTS.RATE;
+  return Math.max(CASNOS_CONSTANTS.MIN_AMOUNT, Math.min(CASNOS_CONSTANTS.MAX_AMOUNT, contribution));
 }
