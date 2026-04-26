@@ -1,13 +1,14 @@
 
 /**
  * @fileOverview Formulaire de saisie d'un ticket carburant avec calcul automatique du montant.
+ * Optimisé pour éviter les erreurs d'indexation Firestore.
  */
 
 "use client"
 
 import * as React from "react"
-import { useFirestore, useUser, useCollection, useMemoFirebase, addDocumentNonBlocking } from "@/firebase"
-import { collection, query, orderBy, limit, doc, getDocs, where } from "firebase/firestore"
+import { useFirestore, useUser, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase"
+import { collection, query, orderBy, limit, doc, where } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -71,20 +72,13 @@ export default function NewFuelEntryPage() {
 
     setIsSaving(true);
     try {
-      // 1. Chercher le dernier plein de ce véhicule pour l'efficience
-      const lastFuelQuery = query(
-        collection(db, "tenants", tenantId, "fuel_logs"),
-        where("vehicleId", "==", formData.vehicleId),
-        orderBy("date", "desc"),
-        orderBy("odometer", "desc"),
-        limit(1)
-      );
-      const lastSnap = await getDocs(lastFuelQuery);
-      
+      // 1. Calcul de l'efficience basé sur le dernier kilométrage connu du véhicule
+      // Évite une requête complexe nécessitant un index composite
       let efficiency = 0;
-      if (!lastSnap.empty) {
-        const lastLog = lastSnap.docs[0].data();
-        efficiency = calculateFuelEfficiency(formData.liters, formData.odometer, lastLog.odometer);
+      const prevOdo = selectedVehicle?.currentOdometer || 0;
+      
+      if (prevOdo > 0 && formData.odometer > prevOdo) {
+        efficiency = calculateFuelEfficiency(formData.liters, formData.odometer, prevOdo);
       }
 
       // 2. Enregistrer le log
@@ -102,8 +96,8 @@ export default function NewFuelEntryPage() {
       await addDocumentNonBlocking(collection(db, "tenants", tenantId, "fuel_logs"), logData);
 
       // 3. Mettre à jour l'odomètre du véhicule (Technique)
-      if (formData.odometer > (selectedVehicle?.currentOdometer || 0)) {
-        await addDocumentNonBlocking(doc(db, "tenants", tenantId, "vehicles", formData.vehicleId), {
+      if (formData.odometer > prevOdo) {
+        updateDocumentNonBlocking(doc(db, "tenants", tenantId, "vehicles", formData.vehicleId), {
            currentOdometer: formData.odometer,
            updatedAt: new Date().toISOString()
         });
@@ -269,7 +263,7 @@ export default function NewFuelEntryPage() {
                 <Info className="h-5 w-5 text-blue-600 shrink-0" />
                 <div className="text-[10px] text-blue-800 leading-relaxed font-medium">
                   <p className="font-black uppercase tracking-tight mb-1">Automatisation 2026 :</p>
-                  <p>Les prix au litre sont préconfigurés selon les tarifs en vigueur (Naftal). Vous n'avez plus besoin de calculer manuellement le montant total du ticket.</p>
+                  <p>Les prix au litre sont préconfigurés selon les tarifs en vigueur (Naftal). L'efficience est calculée par rapport au dernier index odomètre enregistré pour ce véhicule.</p>
                 </div>
              </div>
           </Card>
