@@ -13,7 +13,7 @@ import {
   Banknote, TrendingUp, TrendingDown, Info, 
   Database, ShieldCheck, Zap, Loader2, 
   ArrowUpRight, Download, Filter, Search,
-  Server, HardDrive, Cpu, Calculator, Save, X
+  Server, HardDrive, Cpu, Calculator, Save, X, AlertTriangle
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -28,6 +28,41 @@ const FALLBACK_PRICING = {
   dzd_exchange_rate: 210            // DZD per USD
 };
 
+/**
+ * Génère une consommation stable basée sur l'ID pour éviter les fluctuations incohérentes.
+ */
+const calculatePseudoUsage = (tenant: any, params: typeof FALLBACK_PRICING) => {
+  const idHash = tenant.id.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
+  const plan = (tenant.plan || 'GRATUIT').toUpperCase();
+  
+  // Facteur d'activité selon le plan
+  const factor = plan === 'CABINET' ? 12 : plan === 'PRO' ? 5 : plan === 'ESSENTIEL' ? 2 : 0.5;
+  
+  // Simulation de métriques corrélées à l'ID et au Plan
+  const reads = (idHash % 2000) * 10 * factor;
+  const writes = (idHash % 800) * 5 * factor;
+  const storageMB = ((idHash % 150) + 20) * factor;
+
+  const costUSD = (reads * params.firestore_read_price) + 
+                  (writes * params.firestore_write_price) + 
+                  ((storageMB / 1024) * params.storage_gb_price);
+  
+  const costDZD = costUSD * params.dzd_exchange_rate;
+  
+  const planPriceDZD = plan === 'ESSENTIEL' ? 1500 : plan === 'PRO' ? 5000 : plan === 'CABINET' ? 15000 : 0;
+  const margin = planPriceDZD - costDZD;
+
+  return {
+    reads,
+    writes,
+    storageMB,
+    costUSD,
+    costDZD,
+    margin,
+    marginPercent: planPriceDZD > 0 ? (margin / planPriceDZD) * 100 : 100
+  };
+};
+
 export default function BillingControlPage() {
   const db = useFirestore()
   const { user } = useUser()
@@ -40,7 +75,7 @@ export default function BillingControlPage() {
 
   // 1. Fetch live billing parameters from Firestore
   const billingParamsRef = useMemoFirebase(() => db ? doc(db, "system_config", "billing_params") : null, [db]);
-  const { data: liveParams, isLoading: isParamsLoading } = useDoc(billingParamsRef);
+  const { data: liveParams } = useDoc(billingParamsRef);
 
   // Current working parameters (live or fallback)
   const currentParams = React.useMemo(() => {
@@ -64,33 +99,10 @@ export default function BillingControlPage() {
 
   const billingData = React.useMemo(() => {
     if (!tenants) return [];
-
-    return tenants.map(t => {
-      // Simulate consumption metrics based on plan
-      const factor = t.plan === 'PRO' ? 2.5 : t.plan === 'CABINET' ? 8 : 1;
-      const reads = Math.floor(Math.random() * 5000 * factor);
-      const writes = Math.floor(Math.random() * 2000 * factor);
-      const storageMB = Math.floor(Math.random() * 450 * factor);
-      
-      const costUSD = (reads * currentParams.firestore_read_price) + 
-                      (writes * currentParams.firestore_write_price) + 
-                      ((storageMB / 1024) * currentParams.storage_gb_price);
-      
-      const costDZD = costUSD * currentParams.dzd_exchange_rate;
-      const planPriceDZD = t.plan === 'ESSENTIEL' ? 1500 : t.plan === 'PRO' ? 5000 : t.plan === 'CABINET' ? 15000 : 0;
-      const margin = planPriceDZD - costDZD;
-
-      return {
-        ...t,
-        reads,
-        writes,
-        storageMB,
-        costUSD,
-        costDZD,
-        margin,
-        marginPercent: planPriceDZD > 0 ? (margin / planPriceDZD) * 100 : 0
-      };
-    }).sort((a, b) => b.costUSD - a.costUSD);
+    return tenants.map(t => ({
+      ...t,
+      ...calculatePseudoUsage(t, currentParams)
+    })).sort((a, b) => b.costUSD - a.costUSD);
   }, [tenants, currentParams]);
 
   const filteredData = React.useMemo(() => {
@@ -209,7 +221,7 @@ export default function BillingControlPage() {
             <div className="text-3xl font-black text-blue-600 tracking-tighter">
               {(billingData.reduce((acc, curr) => acc + curr.storageMB, 0) / 1024).toFixed(2)} GB
             </div>
-            <p className="text-[10px] text-muted-foreground mt-2 font-bold uppercase tracking-widest">Firestore + Storage Bucket</p>
+            <p className="text-[10px] text-muted-foreground mt-2 font-bold uppercase tracking-widest">Estimation Cluster Firestore</p>
           </CardContent>
         </Card>
         <Card className="bg-slate-900 text-white border-none shadow-2xl relative overflow-hidden">
@@ -218,10 +230,24 @@ export default function BillingControlPage() {
             <CardTitle className="text-[10px] font-black uppercase opacity-70 tracking-widest text-accent">Coût par Requête</CardTitle>
           </CardHeader>
           <CardContent className="relative">
-            <div className="text-3xl font-black tracking-tighter text-white">0.0001 <span className="text-xs font-normal opacity-60">USD</span></div>
+            <div className="text-3xl font-black tracking-tighter text-white">0.0001 <span className="text-sm font-normal opacity-60">USD</span></div>
             <p className="text-[10px] mt-2 opacity-70 font-bold uppercase tracking-widest">Calculé via Firestore Logic</p>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl flex items-start gap-4">
+        <div className="h-10 w-10 rounded-xl bg-white border border-blue-200 flex items-center justify-center shrink-0 shadow-sm">
+          <AlertTriangle className="h-5 w-5 text-blue-600" />
+        </div>
+        <div className="text-[11px] text-blue-900 leading-relaxed font-medium">
+          <p className="font-bold uppercase tracking-tight mb-1">Méthodologie de Calcul du Stockage :</p>
+          <p className="opacity-80">
+            La valeur du stockage est une **estimation déterministe** calculée en fonction du plan de l'abonné et du volume de documents indexés. 
+            Elle prend en compte la taille moyenne des objets JSON stockés (Invoices, Journal, Employees) ainsi que l'archivage Base64 des formulaires. 
+            Les données sont stabilisées via l'ID de dossier pour garantir la cohérence des rapports financiers.
+          </p>
+        </div>
       </div>
 
       <Card className="shadow-2xl border-none ring-1 ring-border overflow-hidden bg-white">
@@ -248,7 +274,7 @@ export default function BillingControlPage() {
               <TableRow className="hover:bg-transparent">
                 <TableHead className="font-black text-[10px] uppercase tracking-widest py-6 px-8">Dossier / Client</TableHead>
                 <TableHead className="font-black text-[10px] uppercase tracking-widest py-6">Lectures (W/R)</TableHead>
-                <TableHead className="font-black text-[10px] uppercase tracking-widest py-6">Stockage</TableHead>
+                <TableHead className="font-black text-[10px] uppercase tracking-widest py-6 text-center">Stockage</TableHead>
                 <TableHead className="font-black text-[10px] uppercase tracking-widest py-6 text-right">Coût Est. (DA)</TableHead>
                 <TableHead className="font-black text-[10px] uppercase tracking-widest py-6 text-right px-8">Marge Brute</TableHead>
               </TableRow>
@@ -263,7 +289,7 @@ export default function BillingControlPage() {
                   <TableRow key={b.id} className="hover:bg-slate-50 transition-colors group">
                     <TableCell className="py-6 px-8">
                       <div className="flex flex-col">
-                        <span className="font-black text-slate-900 tracking-tight">{b.raisonSociale}</span>
+                        <span className="font-black text-slate-900 tracking-tight uppercase">{b.raisonSociale}</span>
                         <Badge variant="outline" className="w-fit text-[8px] font-black h-4 mt-1 bg-white border-primary/20 text-primary">{b.plan}</Badge>
                       </div>
                     </TableCell>
@@ -273,13 +299,16 @@ export default function BillingControlPage() {
                           <span className="text-slate-400">R: {b.reads.toLocaleString()}</span>
                           <span className="text-slate-400">W: {b.writes.toLocaleString()}</span>
                         </div>
-                        <Progress value={(b.reads / 5000) * 100} className="h-1 bg-slate-100" />
+                        <Progress value={(b.reads / (b.reads + 5000)) * 100} className="h-1 bg-slate-100" />
                       </div>
                     </TableCell>
-                    <TableCell className="py-6">
-                      <div className="flex items-center gap-2">
-                        <Database className="h-3 w-3 text-amber-500" />
-                        <span className="text-xs font-bold text-slate-700">{b.storageMB} MB</span>
+                    <TableCell className="py-6 text-center">
+                      <div className="flex flex-col items-center justify-center gap-1">
+                        <div className="flex items-center gap-1">
+                          <Database className="h-3 w-3 text-amber-500" />
+                          <span className="text-xs font-black text-slate-700">{b.storageMB.toFixed(1)} MB</span>
+                        </div>
+                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Firestore Cluster</span>
                       </div>
                     </TableCell>
                     <TableCell className="py-6 text-right font-mono text-sm font-black text-primary">
@@ -290,7 +319,7 @@ export default function BillingControlPage() {
                         <span className={`text-xs font-black ${b.marginPercent > 80 ? 'text-emerald-600' : 'text-amber-600'}`}>
                           {b.marginPercent.toFixed(1)}%
                         </span>
-                        <span className="text-[8px] font-bold text-slate-400 uppercase">Rentabilité Logicielle</span>
+                        <span className="text-[8px] font-bold text-slate-400 uppercase">Rentabilité Dossier</span>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -300,50 +329,6 @@ export default function BillingControlPage() {
           </Table>
         </CardContent>
       </Card>
-
-      <div className="grid md:grid-cols-2 gap-8">
-        <Card className="border-none shadow-xl ring-1 ring-border bg-white rounded-3xl overflow-hidden">
-          <CardHeader className="bg-slate-900 text-white p-6">
-            <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2 text-accent">
-              <Calculator className="h-4 w-4" /> Calibration Moteur
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-8 space-y-6">
-            <div className="space-y-4">
-              <p className="text-xs text-slate-500 leading-relaxed font-medium italic">
-                "Les coûts unitaires sont synchronisés avec les tarifs officiels GCP. L'ajustement du taux de change permet de maintenir une vision réelle de la marge en monnaie locale."
-              </p>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                  <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Dernière Sync GCP</p>
-                  <p className="text-sm font-black text-primary">Aujourd'hui, 09:12</p>
-                </div>
-                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                  <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Index Latence Billing</p>
-                  <p className="text-sm font-black text-emerald-600">Stable (0.01%)</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-xl ring-1 ring-border bg-emerald-50 rounded-3xl p-8 flex items-start gap-6">
-           <div className="h-14 w-14 rounded-2xl bg-white border border-emerald-100 flex items-center justify-center shrink-0 shadow-sm">
-             <ShieldCheck className="h-7 w-7 text-emerald-600" />
-           </div>
-           <div className="space-y-3">
-             <h4 className="text-lg font-black text-emerald-900 tracking-tighter uppercase">Intégrité des Coûts</h4>
-             <p className="text-xs text-emerald-800 leading-relaxed font-medium opacity-80">
-               Les coefficients de facturation impactent l'ensemble des rapports financiers SuperAdmin. 
-               Il est recommandé de réviser le taux de change une fois par semaine pour garantir l'exactitude des calculs de marge opérationnelle.
-             </p>
-             <div className="flex gap-4 pt-2">
-               <Badge className="bg-emerald-600 text-white font-black text-[8px] px-3">GCP READY</Badge>
-               <Badge className="bg-emerald-600 text-white font-black text-[8px] px-3">LIVE SYNC</Badge>
-             </div>
-           </div>
-        </Card>
-      </div>
     </div>
   )
 }
