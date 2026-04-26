@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useFirestore, useUser, useDoc, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useCollection, setDocumentNonBlocking } from "@/firebase"
+import { useFirestore, useUser, useDoc, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useCollection } from "@/firebase"
 import { collection, doc, query, where, getDocs, limit } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -14,7 +14,7 @@ import {
   Truck, Save, ChevronLeft, Loader2, 
   Settings, Gauge, ShieldCheck, User,
   CalendarDays, Zap, Info, AlertTriangle,
-  Database, Fingerprint, Banknote, Calculator
+  Database, Fingerprint, Banknote, Calculator, Droplets
 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "@/hooks/use-toast"
@@ -43,6 +43,7 @@ export default function ManageVehiclePage() {
     status: "ACTIVE",
     health: 100,
     currentOdometer: 0,
+    recommendedConsumption: 0, // Nouveau champ : Recommandation constructeur
     driverName: "",
     notes: "",
     // Financial fields for Asset Registry
@@ -78,6 +79,7 @@ export default function ManageVehiclePage() {
         status: existingVehicle.status || "ACTIVE",
         health: existingVehicle.health || 100,
         currentOdometer: existingVehicle.currentOdometer || 0,
+        recommendedConsumption: existingVehicle.recommendedConsumption || 0,
         driverName: existingVehicle.driverName || "",
         notes: existingVehicle.notes || "",
         acquisitionValue: existingVehicle.acquisitionValue || 0,
@@ -245,7 +247,7 @@ export default function ManageVehiclePage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Marque</Label>
                   <Input value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})} placeholder="Renault" />
@@ -257,6 +259,20 @@ export default function ManageVehiclePage() {
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Année</Label>
                   <Input value={formData.year} onChange={e => setFormData({...formData, year: e.target.value})} placeholder="2024" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Conso. Constructeur</Label>
+                  <div className="relative">
+                    <Input 
+                        type="number" 
+                        step="0.1" 
+                        value={formData.recommendedConsumption || ""} 
+                        onChange={e => setFormData({...formData, recommendedConsumption: parseFloat(e.target.value) || 0})} 
+                        className="rounded-xl font-bold pr-10"
+                        placeholder="Ex: 28.5"
+                    />
+                    <span className="absolute right-2 top-2.5 text-[8px] font-black opacity-40">L/100</span>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Statut</Label>
@@ -408,12 +424,12 @@ export default function ManageVehiclePage() {
             </CardFooter>
           </Card>
 
-          <Card className="bg-blue-50 border border-blue-100 rounded-2xl p-6">
+          <Card className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
              <div className="flex items-start gap-3">
-                <Info className="h-5 w-5 text-blue-600 shrink-0" />
+                <Droplets className="h-5 w-5 text-blue-600 shrink-0" />
                 <div className="text-[10px] text-blue-800 leading-relaxed font-medium">
-                  <p className="font-black uppercase tracking-tight mb-1">Impact Reporting :</p>
-                  <p>En liant vos tickets de gasoil à ce véhicule dans le journal, vous obtiendrez son coût de revient exact par kilomètre parcouru.</p>
+                  <p className="font-black uppercase tracking-tight mb-1">Efficience Énergétique :</p>
+                  <p>La consommation recommandée ({formData.recommendedConsumption} L/100km) servira de référence pour le calcul des dérives carburant.</p>
                 </div>
              </div>
           </Card>
