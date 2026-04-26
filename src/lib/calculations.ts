@@ -1,7 +1,7 @@
 
 /**
- * @fileOverview Moteur de Calcul Master Node (Version 3.1)
- * Intégration des calculs de logistique et consommation.
+ * @fileOverview Moteur de Calcul Master Node (Version 3.2)
+ * Intégration des prix réglementaires des carburants et calculs d'efficience.
  */
 
 // Valeurs de secours (Source : Moteur Fiscal DSL)
@@ -9,8 +9,18 @@ export const PAYROLL_CONSTANTS = {
   SNMG: 24000,
   CNAS_EMPLOYEE: 0.09,
   CNAS_EMPLOYER: 0.26,
-  IRG_EXEMPT_THRESHOLD: 30000,
+  IRG_THRESHOLD: 30000,
   DEFAULT_VALEUR_POINT: 45
+};
+
+/**
+ * Prix des carburants réglementés en Algérie (DZD/L)
+ * Ces valeurs sont utilisées pour le pré-remplissage des tickets.
+ */
+export const FUEL_PRICES = {
+  DIESEL: 29.06,    // Gasoil
+  GASOLINE: 45.62,  // Sans Plomb
+  GPL: 9.00,        // Sirghaz
 };
 
 /**

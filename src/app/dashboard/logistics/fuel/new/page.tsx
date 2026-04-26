@@ -1,6 +1,6 @@
 
 /**
- * @fileOverview Formulaire de saisie d'un ticket carburant.
+ * @fileOverview Formulaire de saisie d'un ticket carburant avec calcul automatique du montant.
  */
 
 "use client"
@@ -21,7 +21,7 @@ import {
 import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "@/hooks/use-toast"
 import Link from "next/link"
-import { calculateFuelEfficiency } from "@/lib/calculations"
+import { calculateFuelEfficiency, FUEL_PRICES } from "@/lib/calculations"
 
 export default function NewFuelEntryPage() {
   const db = useFirestore()
@@ -40,11 +40,18 @@ export default function NewFuelEntryPage() {
     totalAmount: 0,
     gasStation: "NAFTAL",
     documentRef: "",
-    fuelType: "DIESEL",
+    fuelType: "DIESEL" as keyof typeof FUEL_PRICES,
     isComptabilise: false
   })
 
   React.useEffect(() => { setMounted(true) }, [])
+
+  // Recalculer le montant total quand les litres ou le type de carburant changent
+  React.useEffect(() => {
+    const price = FUEL_PRICES[formData.fuelType] || 0;
+    const amount = Math.round(formData.liters * price * 100) / 100;
+    setFormData(prev => ({ ...prev, totalAmount: amount }));
+  }, [formData.liters, formData.fuelType]);
 
   // Charger les véhicules pour la sélection
   const vehiclesQuery = useMemoFirebase(() => 
@@ -83,6 +90,7 @@ export default function NewFuelEntryPage() {
       // 2. Enregistrer le log
       const logData = {
         ...formData,
+        unitPrice: FUEL_PRICES[formData.fuelType],
         vehicleName: selectedVehicle?.name || "",
         vehiclePlate: selectedVehicle?.plate || "",
         efficiency,
@@ -135,7 +143,7 @@ export default function NewFuelEntryPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-          <Card className="shadow-xl border-none ring-1 ring-border rounded-3xl overflow-hidden bg-white">
+          <Card className="shadow-xl border-none ring-1 ring-border rounded-2xl overflow-hidden bg-white">
             <CardHeader className="bg-slate-50 border-b">
               <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-900 flex items-center gap-2">
                 <Droplets className="h-4 w-4 text-primary" /> Détails de l'approvisionnement
@@ -157,8 +165,17 @@ export default function NewFuelEntryPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Date du plein</Label>
-                  <Input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="h-11 rounded-xl" />
+                  <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Type de Carburant</Label>
+                  <Select value={formData.fuelType} onValueChange={(v: any) => setFormData({...formData, fuelType: v})}>
+                    <SelectTrigger className="h-11 rounded-xl bg-white shadow-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DIESEL">Gasoil (29.06 DA/L)</SelectItem>
+                      <SelectItem value="GASOLINE">Sans Plomb (45.62 DA/L)</SelectItem>
+                      <SelectItem value="GPL">Sirghaz (9.00 DA/L)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -177,21 +194,14 @@ export default function NewFuelEntryPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Station / Lieu</Label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                    <Input 
-                      value={formData.gasStation} 
-                      onChange={e => setFormData({...formData, gasStation: e.target.value})}
-                      className="h-11 pl-10 rounded-xl"
-                    />
-                  </div>
+                  <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Date du plein</Label>
+                  <Input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="h-11 rounded-xl" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="shadow-xl border-none ring-1 ring-border rounded-3xl overflow-hidden bg-white">
+          <Card className="shadow-xl border-none ring-1 ring-border rounded-2xl overflow-hidden bg-white">
             <CardHeader className="bg-primary/5 border-b border-primary/10">
               <CardTitle className="text-sm font-black uppercase tracking-widest text-primary flex items-center gap-2">
                 <Receipt className="h-4 w-4" /> Données du Ticket (TTC)
@@ -210,20 +220,20 @@ export default function NewFuelEntryPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase text-slate-400">Montant Total TTC (DA)*</Label>
+                    <Label className="text-[10px] font-black uppercase text-slate-400">Montant Total TTC (Calculé)</Label>
                     <Input 
                       type="number" 
                       value={formData.totalAmount || ""} 
-                      onChange={e => setFormData({...formData, totalAmount: parseFloat(e.target.value) || 0})}
-                      className="h-12 text-xl font-black rounded-xl"
+                      readOnly
+                      className="h-12 text-xl font-black rounded-xl bg-slate-100 border-none"
                     />
                   </div>
                </div>
                <div className="flex flex-col justify-center gap-4">
                   <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-1">
-                    <p className="text-[9px] font-black text-slate-400 uppercase">Prix au litre calculé</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase">Prix au litre appliqué</p>
                     <p className="text-lg font-black text-slate-900">
-                      {formData.liters > 0 ? (formData.totalAmount / formData.liters).toFixed(2) : "0.00"} <span className="text-[10px] font-normal opacity-50">DA/L</span>
+                      {FUEL_PRICES[formData.fuelType].toFixed(2)} <span className="text-[10px] font-normal opacity-50">DA/L</span>
                     </p>
                   </div>
                   <div className="space-y-2">
@@ -248,18 +258,18 @@ export default function NewFuelEntryPage() {
               </p>
               <div className="pt-4 border-t border-white/10">
                 <div className="flex items-center gap-2 text-[10px] font-black text-emerald-400 uppercase">
-                  <ShieldCheck className="h-4 w-4" /> Traçabilité ODO active
+                  <ShieldCheck className="h-4 w-4" /> Tarification {formData.fuelType} Active
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-amber-50 border border-amber-200 rounded-3xl p-6 shadow-inner">
+          <Card className="bg-blue-50 border border-blue-200 rounded-3xl p-6 shadow-inner">
              <div className="flex items-start gap-3">
-                <Info className="h-5 w-5 text-amber-600 shrink-0" />
-                <div className="text-[10px] text-amber-800 leading-relaxed font-medium">
-                  <p className="font-black uppercase tracking-tight mb-1">Attention Odomètre :</p>
-                  <p>L'odomètre saisi doit être supérieur à **{selectedVehicle?.currentOdometer || 0} KM** pour un calcul d'efficience correct.</p>
+                <Info className="h-5 w-5 text-blue-600 shrink-0" />
+                <div className="text-[10px] text-blue-800 leading-relaxed font-medium">
+                  <p className="font-black uppercase tracking-tight mb-1">Automatisation 2026 :</p>
+                  <p>Les prix au litre sont préconfigurés selon les tarifs en vigueur (Naftal). Vous n'avez plus besoin de calculer manuellement le montant total du ticket.</p>
                 </div>
              </div>
           </Card>
