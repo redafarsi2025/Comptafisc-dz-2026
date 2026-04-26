@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -190,8 +189,9 @@ export default function ProjectReportPage() {
           <Table>
             <TableHeader className="bg-slate-50">
               <TableRow className="text-[9px] uppercase font-black">
-                <TableHead className="w-1/4">Date de l'événement</TableHead>
+                <TableHead className="w-1/6">Date</TableHead>
                 <TableHead>Désignation du Jalon</TableHead>
+                <TableHead className="text-center">Durée (J)</TableHead>
                 <TableHead>Observations / Remarques</TableHead>
               </TableRow>
             </TableHeader>
@@ -200,11 +200,12 @@ export default function ProjectReportPage() {
                 <TableRow key={ev.id} className="text-xs">
                   <TableCell className="font-mono text-slate-500">{new Date(ev.date).toLocaleDateString('fr-FR')}</TableCell>
                   <TableCell className="font-bold uppercase tracking-tight">{ev.title}</TableCell>
+                  <TableCell className="text-center font-bold">{ev.duration || 1}</TableCell>
                   <TableCell className="italic text-slate-500">{ev.description || "Aucun commentaire particulier."}</TableCell>
                 </TableRow>
               )) : (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground italic">Aucun jalon enregistré pour ce projet.</TableCell>
+                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground italic">Aucun jalon enregistré pour ce projet.</TableCell>
                 </TableRow>
               )}
             </TableBody>

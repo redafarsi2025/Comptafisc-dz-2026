@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -40,6 +39,7 @@ export default function ProjectDetailPage() {
   const [newEvent, setNewEvent] = React.useState({
     title: "",
     date: new Date().toISOString().split('T')[0],
+    duration: 1,
     description: ""
   })
 
@@ -171,7 +171,7 @@ export default function ProjectDetailPage() {
 
       toast({ title: "Jalon ajouté", description: `L'étape "${newEvent.title}" a été ajoutée à la chronologie.` });
       setIsEventDialogOpen(false);
-      setNewEvent({ title: "", date: new Date().toISOString().split('T')[0], description: "" });
+      setNewEvent({ title: "", date: new Date().toISOString().split('T')[0], duration: 1, description: "" });
     } catch (e) {
       console.error(e);
       toast({ variant: "destructive", title: "Erreur", description: "Impossible d'ajouter l'événement." });
@@ -379,13 +379,24 @@ export default function ProjectDetailPage() {
                             onChange={e => setNewEvent({...newEvent, title: e.target.value})}
                           />
                         </div>
-                        <div className="grid gap-2">
-                          <Label>Date</Label>
-                          <Input 
-                            type="date" 
-                            value={newEvent.date}
-                            onChange={e => setNewEvent({...newEvent, date: e.target.value})}
-                          />
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="grid gap-2">
+                            <Label>Date de début</Label>
+                            <Input 
+                              type="date" 
+                              value={newEvent.date}
+                              onChange={e => setNewEvent({...newEvent, date: e.target.value})}
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label>Durée prévue (jours)</Label>
+                            <Input 
+                              type="number" 
+                              min="1"
+                              value={newEvent.duration}
+                              onChange={e => setNewEvent({...newEvent, duration: parseInt(e.target.value) || 1})}
+                            />
+                          </div>
                         </div>
                         <div className="grid gap-2">
                           <Label>Description (Optionnelle)</Label>
@@ -416,6 +427,11 @@ export default function ProjectDetailPage() {
                           <div className="flex items-center justify-between space-x-2 mb-1">
                             <div className="font-bold text-slate-900 text-xs">{ev.title}</div>
                             <time className="font-mono text-[9px] text-primary">{ev.date}</time>
+                          </div>
+                          <div className="flex items-center gap-2 mb-2">
+                             <Badge variant="secondary" className="text-[8px] font-black uppercase tracking-tighter h-4">
+                               {ev.duration || 1} jours prévus
+                             </Badge>
                           </div>
                           <div className="text-[11px] text-slate-500 italic">{ev.description || "Aucun détail saisi."}</div>
                         </div>
@@ -459,8 +475,10 @@ export default function ProjectDetailPage() {
 
               <Card className="bg-emerald-50 border border-emerald-100 rounded-2xl p-6 relative overflow-hidden">
                 <ShieldCheck className="absolute -right-4 -bottom-4 h-24 w-24 opacity-10 text-emerald-600" />
-                <h4 className="text-[10px] font-black text-emerald-800 uppercase tracking-widest mb-2">Expertise BTP ComptaFisc</h4>
-                <p className="text-[11px] text-emerald-700 leading-relaxed italic">
+                <h4 className="text-[10px] font-black text-emerald-800 uppercase tracking-widest mb-2 flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4" /> Expertise BTP ComptaFisc
+                </h4>
+                <p className="text-[11px] text-emerald-700 leading-relaxed font-medium">
                   "Le respect de l'indice ICD permet d'isoler les dérives opérationnelles avant qu'elles n'impactent la trésorerie."
                 </p>
               </Card>
