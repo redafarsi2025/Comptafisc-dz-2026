@@ -6,7 +6,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { AdminSidebar } from "@/components/admin/sidebar"
 import { useUser, useFirestore, useMemoFirebase, useDoc } from "@/firebase"
 import { redirect } from "next/navigation"
-import { Loader2, Lock, User as UserIcon, ShieldCheck, Target, Zap, Bell, Search } from "lucide-react"
+import { Loader2, ShieldCheck, Target, Zap, Bell, Search, User as UserIcon } from "lucide-react"
 import { doc } from "firebase/firestore"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -19,8 +19,8 @@ export default function AdminLayout({
   const { user, isUserLoading } = useUser()
   const db = useFirestore()
 
-  // Verify Admin status from Firestore before rendering admin content
-  const adminDocRef = useMemoFirebase(() => (db && user) ? doc(db, "saas_admins", user.uid) : null, [db, user]);
+  // Verify Admin status from Firestore
+  const adminDocRef = useMemoFirebase(() => (db && user) ? doc(db, "saas_admins", user.uid) : null, [db, user?.uid]);
   const { data: adminRecord, isLoading: isAdminLoading } = useDoc(adminDocRef);
 
   if (isUserLoading || isAdminLoading) return (
@@ -40,7 +40,7 @@ export default function AdminLayout({
     redirect("/login")
   }
 
-  // If user is authenticated but not a SaaS Admin, redirect to standard dashboard
+  // Redirect non-admins to standard dashboard
   if (!adminRecord) {
     redirect("/dashboard")
   }
@@ -60,11 +60,10 @@ export default function AdminLayout({
                   <h2 className="text-base font-black text-slate-900 tracking-tighter leading-tight uppercase">Pilotage Global</h2>
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
-                    <span className="text-[9px] text-slate-500 font-black uppercase tracking-[0.15em]">Admin Root • Session Live</span>
+                    <span className="text-[9px] text-slate-500 font-black uppercase tracking-[0.15em]">Admin Root • Live Node</span>
                   </div>
                 </div>
               </div>
-
               <div className="relative hidden xl:block">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-300" />
                 <Input 
@@ -84,12 +83,6 @@ export default function AdminLayout({
                     <Zap className="h-4 w-4 text-amber-500" />
                  </Button>
               </div>
-
-              <div className="hidden lg:flex flex-col items-end">
-                <span className="text-sm font-black text-primary tracking-tight">{user.email}</span>
-                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">NODE_ID: {user.uid.substring(0, 12)}</span>
-              </div>
-              
               <div className="flex items-center gap-3 bg-slate-50 p-1.5 rounded-2xl border border-slate-100 shadow-inner">
                 <div className="h-9 w-9 rounded-xl bg-white flex items-center justify-center shadow-sm border border-slate-100">
                   <UserIcon className="h-5 w-5 text-slate-400" />

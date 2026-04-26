@@ -10,12 +10,13 @@ import {
 import { 
   TrendingUp, Activity, Target, Sparkles, Zap, CreditCard, 
   Users, ShieldCheck, DatabaseZap, Eye, MessageSquare, 
-  Cpu, CloudLightning, MousePointerClick, BellRing, ArrowUpRight,
-  ShieldAlert, Globe, Server, Loader2
+  Cpu, CloudLightning, ArrowUpRight,
+  Inbox, Loader2, Building2, Bell
 } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { useFirestore, useCollection, useMemoFirebase, useDoc, useUser } from "@/firebase"
 import { collection, query, orderBy, doc, limit, where } from "firebase/firestore"
 import Link from "next/link"
@@ -43,11 +44,12 @@ export default function AdminDashboard() {
     setMounted(true)
   }, [])
 
-  // Admin Guard & Data Fetching
+  // Admin Guard
   const adminDocRef = useMemoFirebase(() => (db && user) ? doc(db, "saas_admins", user.uid) : null, [db, user?.uid]);
-  const { data: adminRecord } = useDoc(adminDocRef);
+  const { data: adminRecord, isLoading: isAdminLoading } = useDoc(adminDocRef);
   const isSaaSAdmin = !!adminRecord;
 
+  // Real-time Data Collections
   const profilesQuery = useMemoFirebase(() => (db && isSaaSAdmin) ? collection(db, "userProfiles") : null, [db, isSaaSAdmin]);
   const { data: profiles } = useCollection(profilesQuery);
 
@@ -100,7 +102,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-8 pb-20">
-      {/* Header Statégique */}
+      {/* Header Stratégique */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
           <div className="h-16 w-16 rounded-2xl bg-slate-900 flex items-center justify-center shadow-2xl border border-white/10">
@@ -110,20 +112,18 @@ export default function AdminDashboard() {
             <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Command Center</h1>
             <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] mt-2 flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-              Pilotage SaaS Direct • Root Access • v2.5
+              SaaS Engine Live • Root v2.5
             </p>
           </div>
         </div>
-        <div className="flex gap-3">
-          <div className="bg-white border-2 border-primary/10 p-3 rounded-2xl flex items-center gap-4 shadow-xl">
-             <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-               <ShieldCheck className="text-white h-5 w-5" />
-             </div>
-             <div>
-               <p className="text-[9px] font-black text-primary uppercase">Moteur Fiscal</p>
-               <p className="text-base font-black text-slate-900">CERTIFIÉ LF 2026</p>
-             </div>
-          </div>
+        <div className="bg-white border-2 border-primary/10 p-3 rounded-2xl flex items-center gap-4 shadow-xl">
+           <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
+             <ShieldCheck className="text-white h-5 w-5" />
+           </div>
+           <div>
+             <p className="text-[9px] font-black text-primary uppercase">Moteur Fiscal</p>
+             <p className="text-base font-black text-slate-900">CERTIFIÉ LF 2026</p>
+           </div>
         </div>
       </div>
 
@@ -159,7 +159,7 @@ export default function AdminDashboard() {
               {stats.totalTenants} <span className="text-xs font-normal opacity-40">NODES</span>
             </div>
             <p className="text-[9px] text-muted-foreground mt-2 font-black uppercase tracking-tighter">
-              Actifs sur cluster Firebase Algeria
+              Actifs sur cluster Firebase
             </p>
           </CardContent>
         </Card>
@@ -195,10 +195,8 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
-      {/* Main Command Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-7 gap-8">
-        
-        {/* Growth & Distribution */}
+        {/* Growth Chart */}
         <div className="lg:col-span-4 space-y-8">
           <Card className="shadow-2xl border-none ring-1 ring-border overflow-hidden bg-white">
             <CardHeader className="bg-slate-50 border-b flex flex-row items-center justify-between p-6">
@@ -206,7 +204,7 @@ export default function AdminDashboard() {
                 <CardTitle className="text-xl font-black text-slate-900 flex items-center gap-2 uppercase tracking-tighter">
                   <Activity className="h-5 w-5 text-primary" /> Flux Dossiers Live
                 </CardTitle>
-                <CardDescription className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.1em]">Analyse de scalabilité du parc client</CardDescription>
+                <CardDescription className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.1em]">Scalabilité du parc client</CardDescription>
               </div>
             </CardHeader>
             <CardContent className="h-[350px] p-4">
@@ -215,7 +213,7 @@ export default function AdminDashboard() {
                     { name: 'Jan', value: Math.round(stats.totalTenants * 0.8) },
                     { name: 'Feb', value: Math.round(stats.totalTenants * 0.9) },
                     { name: 'Mar', value: stats.totalTenants }
-                  ]} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                  ]}>
                     <defs>
                       <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#0C55CC" stopOpacity={0.2}/>
@@ -223,12 +221,10 @@ export default function AdminDashboard() {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'black', fill: '#94a3b8' }} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'black', fill: '#94a3b8' }} />
-                    <Tooltip 
-                      contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.25)' }} 
-                    />
-                    <Area type="monotone" dataKey="value" stroke="#0C55CC" strokeWidth={4} fillOpacity={1} fill="url(#colorValue)" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
+                    <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                    <Area type="monotone" dataKey="value" stroke="#0C55CC" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" />
                   </AreaChart>
                </ResponsiveContainer>
             </CardContent>
@@ -236,18 +232,18 @@ export default function AdminDashboard() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <Card className="border-none shadow-xl ring-1 ring-border bg-white overflow-hidden">
-              <CardHeader className="bg-primary text-white py-3 px-5 flex flex-row items-center justify-between">
+              <CardHeader className="bg-primary text-white py-3 px-5">
                 <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
-                  <Eye className="h-4 w-4" /> DGI Watch Inbox
+                  <Eye className="h-4 w-4" /> Veille DGI Watch
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <ScrollArea className="h-[250px]">
                   <div className="divide-y divide-slate-100">
                     {recentNews?.map((news) => (
-                      <div key={news.id} className="p-4 hover:bg-slate-50 transition-colors cursor-pointer">
+                      <div key={news.id} className="p-4 hover:bg-slate-50 transition-colors">
                         <div className="flex justify-between items-start mb-1">
-                          <span className="text-[8px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full uppercase">{news.category}</span>
+                          <Badge variant="outline" className="text-[8px] h-4 font-black">{news.category}</Badge>
                           <span className="text-[9px] font-bold text-slate-400">{news.publishedDate}</span>
                         </div>
                         <p className="text-xs font-black text-slate-900 leading-tight line-clamp-2">{news.title}</p>
@@ -259,9 +255,9 @@ export default function AdminDashboard() {
             </Card>
 
             <Card className="border-none shadow-xl ring-1 ring-border bg-white overflow-hidden">
-              <CardHeader className="bg-emerald-600 text-white py-3 px-5 flex flex-row items-center justify-between">
+              <CardHeader className="bg-emerald-600 text-white py-3 px-5">
                 <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4" /> Support Critique
+                  <MessageSquare className="h-4 w-4" /> Support Prioritaire
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
@@ -271,7 +267,6 @@ export default function AdminDashboard() {
                       <div key={ticket.id} className="p-4 hover:bg-slate-50 transition-colors">
                         <div className="flex justify-between items-start mb-1">
                           <span className={`text-[8px] font-black px-2 py-0.5 rounded-full ${ticket.priority === 'critical' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{ticket.priority.toUpperCase()}</span>
-                          <span className="text-[9px] font-bold text-slate-400">#{ticket.id.substring(0, 6)}</span>
                         </div>
                         <p className="text-xs font-black text-slate-900 truncate">{ticket.subject}</p>
                         <p className="text-[9px] text-muted-foreground mt-1 font-bold">DE : {ticket.userName}</p>
@@ -284,7 +279,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Action & Control Sidebar */}
+        {/* Sidebar Actions */}
         <div className="lg:col-span-3 space-y-8">
           <Card className="shadow-2xl border-none ring-1 ring-border overflow-hidden bg-white">
             <CardHeader className="bg-slate-50 border-b p-6">
@@ -296,8 +291,8 @@ export default function AdminDashboard() {
                   <Pie data={stats.planDistribution} cx="50%" cy="50%" innerRadius={70} outerRadius={100} paddingAngle={5} dataKey="value" stroke="none">
                     {stats.planDistribution.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
                   </Pie>
-                  <Tooltip contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.3)' }} />
-                  <Legend iconType="circle" wrapperStyle={{ fontSize: '9px', fontWeight: 'black', textTransform: 'uppercase' }} />
+                  <Tooltip />
+                  <Legend iconType="circle" />
                 </PieChart>
               </ResponsiveContainer>
             </CardContent>
@@ -312,47 +307,30 @@ export default function AdminDashboard() {
                     </div>
                     <div className="text-left">
                       <p className="text-sm font-black uppercase tracking-tighter">Moteur Fiscal Master</p>
-                      <p className="text-[8px] font-black uppercase tracking-widest opacity-60">Gestion des variables & règles</p>
+                      <p className="text-[8px] font-black uppercase tracking-widest opacity-60">Logiciel No-Code de Règles</p>
                     </div>
                   </div>
                   <ArrowUpRight className="h-5 w-5" />
                 </Link>
              </Button>
 
-             <Button variant="outline" className="h-20 bg-slate-900 text-white shadow-xl hover:bg-slate-800 border-none group transition-all" asChild>
-                <Link href="/saas-admin/monitoring" className="flex items-center justify-between w-full px-6">
-                  <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center">
-                      <Server className="h-6 w-6 text-accent" />
-                    </div>
-                    <div className="text-left">
-                      <p className="text-sm font-black uppercase tracking-tighter">Monitoring Système</p>
-                      <p className="text-[8px] font-black uppercase tracking-widest opacity-60">Status Firebase & IA</p>
-                    </div>
-                  </div>
-                  <ArrowUpRight className="h-5 w-5" />
-                </Link>
-             </Button>
+             <Card className="bg-slate-900 text-white border-none shadow-2xl relative overflow-hidden ring-1 ring-white/5">
+                <CardHeader className="border-b border-white/5 py-4">
+                   <CardTitle className="text-[10px] font-black uppercase tracking-[0.3em] text-accent flex items-center gap-2">
+                     <CloudLightning className="h-4 w-4" /> Noyau Système Live
+                   </CardTitle>
+                </CardHeader>
+                <CardContent className="text-[10px] text-emerald-400 font-mono py-6 space-y-2">
+                   <div className="flex gap-3"><span className="opacity-40">14:04:31</span> <span className="font-bold">[SUCCESS]</span> <span>Firestore Resolver : 0.4ms</span></div>
+                   <div className="flex gap-3"><span className="opacity-40">14:04:42</span> <span className="font-bold">[SUCCESS]</span> <span>Admin Accreditations Verified</span></div>
+                   <div className="flex gap-2 animate-pulse mt-4">
+                      <span className="text-emerald-500 font-bold">&gt;</span> 
+                      <span className="italic tracking-widest uppercase text-[8px] font-black">System Heartbeat... Normal</span>
+                   </div>
+                </CardContent>
+             </Card>
           </div>
-
-          <Card className="bg-slate-900 text-white border-none shadow-2xl relative overflow-hidden ring-1 ring-white/5">
-             <CardHeader className="border-b border-white/5 py-4">
-                <CardTitle className="text-[10px] font-black uppercase tracking-[0.3em] text-accent flex items-center gap-2">
-                  <CloudLightning className="h-4 w-4" /> Noyau Système Live
-                </CardTitle>
-             </CardHeader>
-             <CardContent className="text-[10px] text-emerald-400 font-mono py-6 space-y-2">
-                <div className="flex gap-3"><span className="opacity-40">14:04:31</span> <span className="font-bold">[SUCCESS]</span> <span>Firestore Resolver : 0.4ms</span></div>
-                <div className="flex gap-3"><span className="opacity-40">14:04:42</span> <span className="font-bold">[SUCCESS]</span> <span>Admin Accreditations Verified</span></div>
-                <div className="flex gap-3"><span className="opacity-40">14:06:30</span> <span className="font-bold text-blue-400">[INFO]</span> <span className="italic">Data-Driven Engine Active</span></div>
-                <div className="flex gap-2 animate-pulse mt-4">
-                   <span className="text-emerald-500 font-bold">&gt;</span> 
-                   <span className="italic tracking-widest uppercase text-[8px] font-black">System Heartbeat... Normal</span>
-                </div>
-             </CardContent>
-          </Card>
         </div>
-
       </div>
     </div>
   )
