@@ -2,14 +2,14 @@
 "use client"
 
 import * as React from "react"
-import { useFirestore, useUser, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase"
+import { useFirestore, useUser, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase"
 import { collection, query, where, doc } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Trash2, Building2, ShieldCheck, Loader2, Calendar, User, MapPin, Fingerprint, Receipt } from "lucide-react"
+import { Plus, Trash2, Edit2, Building2, ShieldCheck, Loader2, Calendar, User, MapPin, Fingerprint, Receipt } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -34,8 +34,9 @@ export default function AssetsPage() {
   const [mounted, setMounted] = React.useState(false)
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [isSaving, setIsSaving] = React.useState(false)
+  const [editingAssetId, setEditingAssetId] = React.useState<string | null>(null)
   
-  const [newAsset, setNewAsset] = React.useState({
+  const initialAssetState = {
     code: "",
     designation: "",
     category: "215",
@@ -49,7 +50,9 @@ export default function AssetsPage() {
     assignedEmployee: "",
     supplier: "",
     invoiceNumber: ""
-  })
+  }
+
+  const [newAsset, setNewAsset] = React.useState(initialAssetState)
 
   React.useEffect(() => {
     setMounted(true)
@@ -114,21 +117,46 @@ export default function AssetsPage() {
     }, { value: 0, dotation: 0, vnc: 0 });
   }, [assets, mounted]);
 
-  const handleAddAsset = async () => {
+  const handleSaveAsset = async () => {
     if (!db || !currentTenant || !newAsset.designation) return;
     setIsSaving(true);
     try {
-      await addDocumentNonBlocking(collection(db, "tenants", currentTenant.id, "assets"), {
-        ...newAsset,
-        createdAt: new Date().toISOString(),
-        physicalStatus: "GOOD"
-      });
-      toast({ title: "Actif enregistré", description: `${newAsset.designation} ajouté au registre.` });
+      if (editingAssetId) {
+        const assetRef = doc(db, "tenants", currentTenant.id, "assets", editingAssetId);
+        updateDocumentNonBlocking(assetRef, {
+          ...newAsset,
+          updatedAt: new Date().toISOString()
+        });
+        toast({ title: "Actif mis à jour", description: `${newAsset.designation} a été modifié.` });
+      } else {
+        await addDocumentNonBlocking(collection(db, "tenants", currentTenant.id, "assets"), {
+          ...newAsset,
+          createdAt: new Date().toISOString(),
+          physicalStatus: "GOOD"
+        });
+        toast({ title: "Actif enregistré", description: `${newAsset.designation} ajouté au registre.` });
+      }
       setIsDialogOpen(false);
-      setNewAsset(prev => ({ ...prev, designation: "", code: "", serialNumber: "" }));
+      resetForm();
     } finally {
       setIsSaving(false);
     }
+  }
+
+  const handleEdit = (asset: any) => {
+    setEditingAssetId(asset.id);
+    setNewAsset(asset);
+    setIsDialogOpen(true);
+  }
+
+  const resetForm = () => {
+    setEditingAssetId(null);
+    const today = new Date().toISOString().split('T')[0];
+    setNewAsset({
+      ...initialAssetState,
+      acquisitionDate: today,
+      serviceDate: today
+    });
   }
 
   if (!mounted) return null;
@@ -142,13 +170,18 @@ export default function AssetsPage() {
           </h1>
           <p className="text-muted-foreground text-sm">Gestion experte des actifs de classe 2 et amortissements (SCF).</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) resetForm();
+        }}>
           <DialogTrigger asChild>
-            <Button className="bg-primary shadow-lg" disabled={!currentTenant}><Plus className="mr-2 h-4 w-4" /> Nouvel Actif</Button>
+            <Button className="bg-primary shadow-lg" disabled={!currentTenant} onClick={() => resetForm()}>
+              <Plus className="mr-2 h-4 w-4" /> Nouvel Actif
+            </Button>
           </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Fiche Immobilisation SCF Expert</DialogTitle>
+              <DialogTitle>{editingAssetId ? "Modifier l'Immobilisation" : "Fiche Immobilisation SCF Expert"}</DialogTitle>
               <DialogDescription>Définition des paramètres d'acquisition et d'amortissement conforme au CIDTA.</DialogDescription>
             </DialogHeader>
             <div className="grid gap-6 py-4">
@@ -234,9 +267,9 @@ export default function AssetsPage() {
               </div>
             </div>
             <DialogFooter className="bg-muted/30 p-4 -mx-6 -mb-6 border-t">
-              <Button onClick={handleAddAsset} disabled={isSaving} className="w-full h-12 text-lg shadow-xl bg-primary">
+              <Button onClick={handleSaveAsset} disabled={isSaving} className="w-full h-12 text-lg shadow-xl bg-primary">
                 {isSaving ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : <ShieldCheck className="mr-2 h-5 w-5" />}
-                Valider l'Immobilisation
+                {editingAssetId ? "Mettre à jour l'Actif" : "Valider l'Immobilisation"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -279,7 +312,7 @@ export default function AssetsPage() {
                 <TableHead className="text-center">Taux</TableHead>
                 <TableHead className="text-right">Amort. Cumulé</TableHead>
                 <TableHead className="text-right font-black">V.N.C</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
+                <TableHead className="w-[100px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -303,10 +336,15 @@ export default function AssetsPage() {
                       <TableCell className="text-center"><Badge variant="outline" className="text-[10px]">{a.amortizationRate}%</Badge></TableCell>
                       <TableCell className="text-right font-mono text-xs text-amber-600">-{calc.cumul.toLocaleString()}</TableCell>
                       <TableCell className="text-right font-mono text-xs font-black text-primary">{calc.vnc.toLocaleString()}</TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100" onClick={() => deleteDocumentNonBlocking(doc(db, "tenants", currentTenant!.id, "assets", a.id))}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => handleEdit(a)}>
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteDocumentNonBlocking(doc(db, "tenants", currentTenant!.id, "assets", a.id))}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
