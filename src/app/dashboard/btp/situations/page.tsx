@@ -11,11 +11,12 @@ import { Badge } from "@/components/ui/badge"
 import { 
   FileBadge, Plus, Search, Printer, 
   FileText, CheckCircle2, ShieldCheck, 
-  Calculator, Landmark, History, Loader2, ArrowRight
+  Calculator, Landmark, History, Loader2, ArrowRight, Edit3
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useSearchParams } from "next/navigation"
 import { calculateRetenueGarantie } from "@/lib/calculations"
+import Link from "next/link"
 
 export default function BtpSituationsPage() {
   const db = useFirestore()
@@ -53,8 +54,10 @@ export default function BtpSituationsPage() {
           </h1>
           <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest">Facturation à l'avancement avec retenue de garantie (5%)</p>
         </div>
-        <Button className="bg-primary shadow-lg" disabled={!tenantId}>
-          <Plus className="mr-2 h-4 w-4" /> Nouvelle Situation
+        <Button className="bg-primary shadow-lg rounded-xl font-bold h-11 px-6" disabled={!tenantId} asChild>
+          <Link href={`/dashboard/btp/situations/manage?tenantId=${tenantId}`}>
+            <Plus className="mr-2 h-4 w-4" /> Nouvelle Situation
+          </Link>
         </Button>
       </div>
 
@@ -80,32 +83,33 @@ export default function BtpSituationsPage() {
         </Card>
       </div>
 
-      <Card className="shadow-2xl border-none ring-1 ring-border overflow-hidden bg-white">
-        <CardHeader className="bg-muted/30 border-b flex flex-row items-center justify-between py-4">
+      <Card className="shadow-2xl border-none ring-1 ring-border overflow-hidden bg-white rounded-3xl">
+        <CardHeader className="bg-muted/30 border-b flex flex-row items-center justify-between py-4 px-6">
           <CardTitle className="text-lg">Registre des Décomptes</CardTitle>
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Rechercher projet..." className="pl-9 h-9 w-64 bg-white text-xs" />
+            <Input placeholder="Rechercher projet..." className="pl-9 h-9 w-64 bg-white text-xs rounded-xl" />
           </div>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader className="bg-muted/50">
-              <TableRow className="text-[10px] uppercase font-black">
-                <TableHead>N° / Date</TableHead>
+              <TableRow className="text-[10px] uppercase font-black px-6">
+                <TableHead className="pl-6">N° / Date</TableHead>
                 <TableHead>Projet</TableHead>
                 <TableHead className="text-center">Avancement</TableHead>
                 <TableHead className="text-right">Montant Certifié</TableHead>
                 <TableHead className="text-right text-amber-600">Retenue (5%)</TableHead>
                 <TableHead className="text-right font-bold text-primary">Net à Payer</TableHead>
                 <TableHead className="text-center">Statut Visa</TableHead>
+                <TableHead className="text-right pr-6">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-10"><Loader2 className="animate-spin h-6 w-6 mx-auto text-primary" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-10"><Loader2 className="animate-spin h-6 w-6 mx-auto text-primary" /></TableCell></TableRow>
               ) : !situations?.length ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-20 text-muted-foreground italic flex flex-col items-center gap-4">
+                <TableRow><TableCell colSpan={8} className="text-center py-20 text-muted-foreground italic flex flex-col items-center gap-4">
                   <FileText className="h-12 w-12 opacity-10" />
                   <span>Aucun décompte enregistré.</span>
                 </TableCell></TableRow>
@@ -114,7 +118,7 @@ export default function BtpSituationsPage() {
                   const retenue = calculateRetenueGarantie(sit.certifiedAmount, 'BTP');
                   return (
                     <TableRow key={sit.id} className="hover:bg-muted/5 group transition-colors">
-                      <TableCell className="text-xs font-bold">
+                      <TableCell className="text-xs font-bold pl-6">
                         <div className="flex flex-col">
                           <span>SIT-N°{sit.number}</span>
                           <span className="text-[10px] text-muted-foreground font-normal">{sit.date}</span>
@@ -131,11 +135,18 @@ export default function BtpSituationsPage() {
                       </TableCell>
                       <TableCell className="text-right font-mono text-xs">{sit.certifiedAmount.toLocaleString()} DA</TableCell>
                       <TableCell className="text-right font-mono text-xs text-amber-600">-{retenue.toLocaleString()} DA</TableCell>
-                      <TableCell className="text-right font-black text-xs text-primary">{(sit.certifiedAmount - retenue).toLocaleString()} DA</TableCell>
+                      <TableCell className="text-right font-black text-xs text-primary">{sit.netAmount?.toLocaleString() || (sit.certifiedAmount - retenue).toLocaleString()} DA</TableCell>
                       <TableCell className="text-center">
                         <Badge className={sit.isSigned ? "bg-emerald-500" : "bg-amber-500"}>
                           {sit.isSigned ? "VISÉ MAÎTRISE" : "EN ATTENTE VISA"}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-right pr-6">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" asChild>
+                          <Link href={`/dashboard/btp/situations/manage?tenantId=${tenantId}&id=${sit.id}`}>
+                            <Edit3 className="h-4 w-4" />
+                          </Link>
+                        </Button>
                       </TableCell>
                     </TableRow>
                   );
@@ -146,7 +157,7 @@ export default function BtpSituationsPage() {
         </CardContent>
       </Card>
 
-      <div className="p-6 bg-slate-900 text-white rounded-2xl flex items-start gap-4 shadow-xl">
+      <div className="p-6 bg-slate-900 text-white rounded-3xl flex items-start gap-4 shadow-xl">
         <Landmark className="h-6 w-6 text-accent shrink-0 mt-1" />
         <div className="text-xs leading-relaxed space-y-2">
           <p className="font-bold text-accent uppercase tracking-widest">Expertise BTP - Retenue de Garantie :</p>
