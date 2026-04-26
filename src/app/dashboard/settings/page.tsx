@@ -15,7 +15,7 @@ import { collection, query, where, limit, doc } from "firebase/firestore"
 import { WILAYAS } from "@/lib/wilaya-data"
 import { 
   Building2, Save, MapPin, ShieldCheck, Zap, Loader2, Info, Landmark, CalendarDays,
-  HardHat, Store, Briefcase, Factory, Gavel, Users, GraduationCap, FileText, Globe, Rocket, Truck, FlaskConical
+  HardHat, Store, Briefcase, Factory, Gavel, Users, GraduationCap, FileText, Globe, Rocket, Truck, FlaskConical, Fingerprint
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
@@ -72,7 +72,7 @@ export default function TenantSettingsPage() {
         ...formData,
         updatedAt: new Date().toISOString()
       })
-      toast({ title: "Configuration Master mise à jour", description: "Les variables métier ont été synchronisées." });
+      toast({ title: "Configuration Master mise à jour", description: "Les variables métier ont été synchronisées aux normes 2026." });
     } finally { setIsSaving(false); }
   }
 
@@ -83,10 +83,10 @@ export default function TenantSettingsPage() {
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-1">
           <h1 className="text-3xl font-black text-primary flex items-center gap-2 uppercase tracking-tighter">Configuration Master</h1>
-          <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest">Contrôle des variables métier par dossier</p>
+          <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest">Gouvernance du dossier • Standard NIF 20 Digits Active</p>
         </div>
         <Button onClick={handleSave} disabled={isSaving} className="shadow-xl bg-primary h-11 px-8 rounded-xl font-bold">
-          {isSaving ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Save className="mr-2 h-4 w-4" />}
+          {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
           Enregistrer le profil
         </Button>
       </div>
@@ -107,7 +107,7 @@ export default function TenantSettingsPage() {
             <CardContent className="grid md:grid-cols-2 gap-8 pt-6">
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Raison Sociale</Label>
+                  <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Raison Sociale (Officielle)</Label>
                   <Input value={formData.raisonSociale || ""} onChange={(e) => handleUpdate("raisonSociale", e.target.value)} className="h-11 rounded-xl" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -121,7 +121,7 @@ export default function TenantSettingsPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Wilaya</Label>
+                    <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Wilaya du siège</Label>
                     <Select value={formData.wilaya || "16"} onValueChange={(v) => handleUpdate("wilaya", v)}>
                       <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
                       <SelectContent className="max-h-60">
@@ -135,12 +135,22 @@ export default function TenantSettingsPage() {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase text-slate-400 px-1">NIF</Label>
-                    <Input value={formData.nif || ""} onChange={(e) => handleUpdate("nif", e.target.value)} maxLength={15} className="h-11 rounded-xl font-mono" />
+                    <Label className="text-[10px] font-black uppercase text-slate-400 px-1">NIF (20 chiffres 2026)</Label>
+                    <Input value={formData.nif || ""} onChange={(e) => handleUpdate("nif", e.target.value)} maxLength={20} className="h-11 rounded-xl font-mono font-bold" />
                   </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-slate-400 px-1">NIS (Dématérialisé)</Label>
+                    <Input value={formData.nis || ""} onChange={(e) => handleUpdate("nis", e.target.value)} className="h-11 rounded-xl font-mono" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Registre Commerce</Label>
                     <Input value={formData.rc || ""} onChange={(e) => handleUpdate("rc", e.target.value)} className="h-11 rounded-xl font-mono" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Article d'Imposition</Label>
+                    <Input value={formData.articleImposition || ""} onChange={(e) => handleUpdate("articleImposition", e.target.value)} className="h-11 rounded-xl font-mono" />
                   </div>
                 </div>
               </div>
@@ -160,7 +170,7 @@ export default function TenantSettingsPage() {
                   <Select value={formData.regimeFiscal || "REGIME_REEL"} onValueChange={(v) => handleUpdate("regimeFiscal", v)}>
                     <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="REGIME_REEL">Régime du Réel (G50 Mensuel)</SelectItem>
+                      <SelectItem value="REGIME_REEL">Régime du Réel (Jibayatic Obligatoire)</SelectItem>
                       <SelectItem value="IFU">IFU (Impôt Forfaitaire Unique)</SelectItem>
                     </SelectContent>
                   </Select>
@@ -259,10 +269,10 @@ export default function TenantSettingsPage() {
       <div className="p-6 bg-slate-900 text-white rounded-3xl flex items-start gap-4 shadow-xl">
         <Info className="h-6 w-6 text-accent shrink-0 mt-1" />
         <div className="text-xs leading-relaxed space-y-2">
-          <p className="font-bold text-accent uppercase tracking-widest">Gouvernance ComptaFisc-DZ :</p>
+          <p className="font-bold text-accent uppercase tracking-widest">Gouvernance Numérique 2026 :</p>
           <p className="opacity-80">
-            L'adaptation du secteur d'activité modifie instantanément les menus et les calculs du noyau. 
-            Pour les secteurs **Transport** et **Santé**, le module analytique est configuré pour isoler les coûts par véhicule ou par lot de médicaments conformément aux normes algériennes.
+            L'interopérabilité avec **Jibayatic** et l'**ONS** repose sur l'exactitude de vos identifiants (NIF à 20 chiffres, NIS dématérialisé). 
+            Le système vérifie la structure de ces codes pour éviter tout rejet lors de vos télé-déclarations.
           </p>
         </div>
       </div>

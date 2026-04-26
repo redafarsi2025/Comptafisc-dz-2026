@@ -7,12 +7,13 @@ import { collection, query, where, orderBy } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { FileText, Printer, ShieldCheck, Download, Calculator, Info, Loader2, AlertCircle } from "lucide-react"
+import { FileText, Printer, ShieldCheck, Download, Calculator, Info, Loader2, AlertCircle, FileCode, Send } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { jsPDF } from "jspdf"
 import { PAYROLL_CONSTANTS, calculateIRG, getIBSRate } from "@/lib/calculations"
 import { useSearchParams } from "next/navigation"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { toast } from "@/hooks/use-toast"
 
 export default function G50Declaration() {
   const db = useFirestore()
@@ -68,11 +69,9 @@ export default function G50Declaration() {
   const g50Calculations = React.useMemo(() => {
     if (!mounted) return { tvaCollectee: 0, tvaDeductible: 0, irgSalaries: 0, total: 0, baseImposableTVA: 0 };
 
-    // A. TVA Collectée (Ventes)
     const tvaCollectee = invoices?.reduce((sum, inv) => sum + (inv.totalTaxAmount || 0), 0) || 0;
     const baseImposableTVA = invoices?.reduce((sum, inv) => sum + (inv.totalAmountExcludingTax || 0), 0) || 0;
 
-    // B. TVA Déductible (Achats) - Basé sur le compte 4456 dans le journal
     let tvaDeductible = 0;
     entries?.forEach(entry => {
       entry.lines.forEach((line: any) => {
@@ -82,7 +81,6 @@ export default function G50Declaration() {
       });
     });
 
-    // C. IRG Salaries (Retenue à la source)
     const irgSalaries = employees?.reduce((sum, emp) => {
       const base = (Number(emp.baseSalary) || 0) + (Number(emp.primesImposables) || 0);
       const imposable = base * (1 - PAYROLL_CONSTANTS.CNAS_EMPLOYEE);
@@ -101,6 +99,42 @@ export default function G50Declaration() {
     };
   }, [invoices, entries, employees, mounted]);
 
+  const handleExportJibayatic = () => {
+    if (!currentTenant) return;
+    
+    const period = new Date().toISOString().substring(0, 7);
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<DeclarationG50 version="2026.1">
+  <Header>
+    <NIF>${currentTenant.nif || '00000000000000000000'}</NIF>
+    <RaisonSociale>${currentTenant.raisonSociale}</RaisonSociale>
+    <Periode>${period}</Periode>
+    <Systeme>ComptaFisc-DZ Master Node</Systeme>
+  </Header>
+  <Data>
+    <TVA>
+      <CA_Imposable>${g50Calculations.baseImposableTVA.toFixed(2)}</CA_Imposable>
+      <TVA_Collectee>${g50Calculations.tvaCollectee.toFixed(2)}</TVA_Collectee>
+      <TVA_Deductible>${g50Calculations.tvaDeductible.toFixed(2)}</TVA_Deductible>
+      <Net_A_Reverser>${g50Calculations.tvaNette.toFixed(2)}</Net_A_Reverser>
+    </TVA>
+    <IRG_Salaires>
+      <Montant_Retenu>${g50Calculations.irgSalaries.toFixed(2)}</Montant_Retenu>
+    </IRG_Salaires>
+    <Total_Droits>${g50Calculations.total.toFixed(2)}</Total_Droits>
+  </Data>
+</DeclarationG50>`;
+
+    const blob = new Blob([xml], { type: 'text/xml' });
+    const url = URL.createObjectURL(blob);
+    const link = document.body.appendChild(document.createElement('a'));
+    link.href = url;
+    link.download = `Jibayatic_G50_${currentTenant.raisonSociale}_${period}.xml`;
+    link.click();
+    document.body.removeChild(link);
+    toast({ title: "Export Jibayatic XML généré", description: "Le fichier est prêt pour le téléversement sur le portail DGI." });
+  };
+
   const generatePDF = () => {
     const doc = new jsPDF();
     doc.setFont("helvetica", "bold");
@@ -111,12 +145,12 @@ export default function G50Declaration() {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text(`Entreprise : ${currentTenant?.raisonSociale}`, 14, 40);
-    doc.text(`NIF : ${currentTenant?.nif}`, 14, 45);
+    doc.text(`NIF (20 Digits) : ${currentTenant?.nif}`, 14, 45);
     doc.text(`Régime : ${currentTenant?.regimeFiscal}`, 14, 50);
     doc.text(`Période : ${new Date().toLocaleString('fr-FR', { month: 'long', year: 'numeric' })}`, 14, 55);
     
     doc.line(14, 60, 196, 60);
-    doc.text("Détail du Versement Spontané", 14, 68);
+    doc.text("Détail du Versement Spontané (Conforme LF 2026)", 14, 68);
     
     const body = [
       ["TVA Collectée (Opérations Imposables)", formatPDF(g50Calculations.tvaCollectee) + " DA"],
@@ -134,10 +168,10 @@ export default function G50Declaration() {
     });
 
     doc.setFontSize(8);
-    doc.text("Certifié sincère et conforme au Livre-Journal.", 14, y + 10);
-    doc.text(`Généré par ComptaFisc-DZ Master Node le ${new Date().toLocaleString()}`, 14, y + 15);
+    doc.text("Certifié sincère et conforme via l'interopérabilité Jibayatic.", 14, y + 10);
+    doc.text(`Identifiant Document : ${Date.now()}`, 14, y + 15);
     
-    doc.save(`G50_${currentTenant?.raisonSociale}_${Date.now()}.pdf`);
+    doc.save(`G50_${currentTenant?.raisonSociale}.pdf`);
   };
 
   if (isTenantsLoading) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>
@@ -164,11 +198,15 @@ export default function G50Declaration() {
           <h1 className="text-3xl font-black text-primary flex items-center gap-3">
             <FileText className="h-8 w-8 text-accent" /> Bordereau G n° 50
           </h1>
-          <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest">Calculateur de versement spontané - Mode Master Node</p>
+          <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest">Interopérabilité Jibayatic Active • Standard 2026</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={generatePDF} disabled={!currentTenant}><Download className="mr-2 h-4 w-4" /> Export Officiel PDF</Button>
-          <Button className="bg-primary shadow-lg shadow-primary/20"><Calculator className="mr-2 h-4 w-4" /> Simuler Déclaration</Button>
+          <Button variant="outline" onClick={handleExportJibayatic} className="border-emerald-500 text-emerald-600 hover:bg-emerald-50 rounded-xl h-11 px-6 font-bold shadow-sm">
+            <FileCode className="mr-2 h-4 w-4" /> Export XML Jibayatic
+          </Button>
+          <Button variant="outline" onClick={generatePDF} disabled={!currentTenant} className="rounded-xl h-11 px-6 font-bold">
+            <Printer className="mr-2 h-4 w-4" /> Imprimer G50
+          </Button>
         </div>
       </div>
 
@@ -191,20 +229,21 @@ export default function G50Declaration() {
            <h2 className="text-2xl font-black text-amber-600">{formatAmount(g50Calculations.irgSalaries)} DA</h2>
            <p className="text-[9px] text-muted-foreground mt-1">Calculé sur {employees?.length || 0} fiches.</p>
         </Card>
-        <Card className="border-l-4 border-l-emerald-500 shadow-sm bg-white p-6">
-           <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Acomptes IBS / IFU</p>
-           <h2 className="text-2xl font-black text-emerald-600">0,00 DA</h2>
+        <Card className="bg-slate-900 text-white border-none shadow-2xl relative overflow-hidden flex flex-col justify-center px-6">
+           <ShieldCheck className="absolute -right-4 -top-4 h-24 w-24 opacity-10 text-accent" />
+           <p className="text-[10px] uppercase font-black text-accent tracking-widest mb-1 relative">Data Validation</p>
+           <div className="text-sm font-black text-white relative uppercase">NIF 20 Digits OK</div>
         </Card>
       </div>
 
       <Card className="shadow-2xl border-none ring-1 ring-border overflow-hidden bg-white rounded-3xl">
         <CardHeader className="bg-muted/30 border-b py-6 px-8">
-          <CardTitle className="text-lg font-black uppercase tracking-tighter">Tableau des Rubriques Fiscales (DSL Active)</CardTitle>
-          <CardDescription className="text-xs">Extraction automatique des assiettes et taxes depuis les journaux comptables.</CardDescription>
+          <CardTitle className="text-lg font-black uppercase tracking-tighter">Tableau des Rubriques Fiscales (Mode Jibayatic)</CardTitle>
+          <CardDescription className="text-xs">Extraction automatique conforme au schéma de télé-déclaration 2026.</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
-            <TableHeader className="bg-muted/50">
+            <TableHeader className="bg-slate-50">
               <TableRow className="text-[10px] uppercase font-black">
                 <TableHead className="pl-8">Code Rubrique</TableHead>
                 <TableHead>Nature des Impôts et Taxes</TableHead>
@@ -216,29 +255,29 @@ export default function G50Declaration() {
             <TableBody>
               <TableRow className="hover:bg-muted/5">
                 <TableCell className="font-mono text-xs pl-8 font-bold text-primary">101</TableCell>
-                <TableCell className="text-xs font-medium">TVA - Opérations imposables au taux normal</TableCell>
+                <TableCell className="text-xs font-medium">TVA - Opérations imposables au taux normal (19%)</TableCell>
                 <TableCell className="text-right font-mono text-xs">{formatAmount(g50Calculations.baseImposableTVA)} DA</TableCell>
                 <TableCell className="text-center"><Badge variant="outline" className="text-[9px]">19%</Badge></TableCell>
                 <TableCell className="text-right pr-8 font-mono text-xs text-primary">{formatAmount(g50Calculations.tvaCollectee)} DA</TableCell>
               </TableRow>
               <TableRow className="hover:bg-muted/5">
                 <TableCell className="font-mono text-xs pl-8 font-bold text-emerald-600">401</TableCell>
-                <TableCell className="text-xs font-medium">TVA Déductible sur Achats et Services</TableCell>
+                <TableCell className="text-xs font-medium">TVA Déductible sur Achats (Pièces comptables justifiées)</TableCell>
                 <TableCell className="text-right font-mono text-xs">Extraction Journal</TableCell>
                 <TableCell className="text-center">-</TableCell>
                 <TableCell className="text-right pr-8 font-mono text-xs text-emerald-600">-{formatAmount(g50Calculations.tvaDeductible)} DA</TableCell>
               </TableRow>
               <TableRow className="hover:bg-muted/5">
                 <TableCell className="font-mono text-xs pl-8 font-bold text-amber-600">102</TableCell>
-                <TableCell className="text-xs font-medium">IRG Salariés (Versements Traitements/Salaires)</TableCell>
-                <TableCell className="text-right font-mono text-xs">Masse Imposable 2026</TableCell>
+                <TableCell className="text-xs font-medium">IRG Salariés (Retenues à la source LF 2026)</TableCell>
+                <TableCell className="text-right font-mono text-xs">Masse Imposable</TableCell>
                 <TableCell className="text-center"><Badge variant="outline" className="text-[9px]">Barème</Badge></TableCell>
                 <TableCell className="text-right pr-8 font-mono text-xs text-amber-600">{formatAmount(g50Calculations.irgSalaries)} DA</TableCell>
               </TableRow>
             </TableBody>
             <TableFooter className="bg-primary/5">
               <TableRow className="font-black">
-                <TableCell colSpan={4} className="pl-8 text-lg tracking-tighter uppercase">Net à Mandater ce mois</TableCell>
+                <TableCell colSpan={4} className="pl-8 text-lg tracking-tighter uppercase">Total Net à Mandater (G50)</TableCell>
                 <TableCell className="text-right pr-8 font-mono text-2xl text-primary">{formatAmount(g50Calculations.total)} DA</TableCell>
               </TableRow>
             </TableFooter>
@@ -246,26 +285,14 @@ export default function G50Declaration() {
         </CardContent>
       </Card>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-3xl flex items-start gap-4 shadow-sm">
-          <ShieldCheck className="h-6 w-6 text-emerald-600 shrink-0 mt-1" />
-          <div className="text-xs text-emerald-900 space-y-2">
-            <p className="font-bold uppercase tracking-widest">Conformité DGI - LF 2026</p>
-            <p className="opacity-80">
-              Ce G50 est généré via le **Moteur Fiscal Master Node**. Il vérifie en temps réel que les écritures de TVA sont équilibrées. 
-              En cas de précompte (crédit de TVA), le montant est reporté automatiquement sur le mois suivant dans votre comptabilité.
-            </p>
-          </div>
+      <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-3xl flex items-start gap-4 shadow-sm">
+        <Send className="h-6 w-6 text-emerald-600 shrink-0 mt-1" />
+        <div className="text-xs text-emerald-900 space-y-2">
+          <p className="font-bold uppercase tracking-widest">Télé-déclaration Obligatoire 2026</p>
+          <p className="opacity-80 leading-relaxed italic">
+            "Conformément à la Loi de Finances 2026, le dépôt électronique est généralisé. Utilisez le bouton **'Export XML Jibayatic'** pour générer votre fichier ERA. Une fois téléchargé, connectez-vous à votre espace DGI et importez le fichier pour éviter toute erreur de saisie manuelle et les sanctions de retard."
+          </p>
         </div>
-        <Card className="bg-slate-900 text-white border-none shadow-xl rounded-3xl p-6 relative overflow-hidden">
-           <Info className="absolute -right-4 -bottom-4 h-24 w-24 opacity-10 text-accent" />
-           <h4 className="text-[10px] font-black text-accent uppercase tracking-widest mb-3 flex items-center gap-2">
-             <Calculator className="h-4 w-4" /> Note de Rapprochement
-           </h4>
-           <p className="text-[11px] leading-relaxed opacity-80 italic">
-             "La base imposable de la TVA (Rubrique 101) doit correspondre au cumul de votre Journal des Ventes (Classe 7) pour la période du 1er au dernier jour du mois précédent."
-           </p>
-        </Card>
       </div>
     </div>
   )

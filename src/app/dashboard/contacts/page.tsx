@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Users, Plus, Search, Mail, Phone, Building2, MapPin, Loader2, Filter, UserCheck, ShieldCheck, Landmark, Edit3 } from "lucide-react"
+import { Users, Plus, Search, Mail, Phone, Building2, MapPin, Loader2, Filter, UserCheck, ShieldCheck, Landmark, Edit3, Fingerprint } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -68,7 +68,6 @@ export default function ContactsPage() {
 
     try {
       if (editingContactId) {
-        // Mode Edition
         const contactRef = doc(db, "tenants", currentTenant.id, "clients", editingContactId);
         await updateDocumentNonBlocking(contactRef, {
           ...contactForm,
@@ -76,7 +75,6 @@ export default function ContactsPage() {
         });
         toast({ title: "Tiers mis à jour", description: `Les informations de ${contactForm.name} ont été modifiées.` });
       } else {
-        // Mode Création
         await addDocumentNonBlocking(collection(db, "tenants", currentTenant.id, "clients"), {
           ...contactForm,
           tenantId: currentTenant.id,
@@ -140,7 +138,7 @@ export default function ContactsPage() {
           <h1 className="text-3xl font-black text-primary flex items-center gap-3 tracking-tighter uppercase">
             <Users className="text-accent h-8 w-8" /> Registre des Tiers
           </h1>
-          <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest mt-1">Annuaire centralisé des partenaires économiques</p>
+          <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest mt-1">Interopérabilité Jibayatic 2026 • Support NIF 20 Digits</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
@@ -156,7 +154,7 @@ export default function ContactsPage() {
               <DialogTitle className="text-2xl font-black uppercase tracking-tighter">
                 {editingContactId ? "Modifier le Partenaire" : "Nouveau Tiers"}
               </DialogTitle>
-              <DialogDescription className="text-[10px] font-bold uppercase text-slate-400">Identification légale et coordonnées de contact</DialogDescription>
+              <DialogDescription className="text-[10px] font-bold uppercase text-slate-400">Identification légale conforme aux normes 2026</DialogDescription>
             </DialogHeader>
             <div className="grid gap-6 py-4">
               <div className="grid grid-cols-2 gap-4">
@@ -185,13 +183,17 @@ export default function ContactsPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 px-1">NIF (15 chiffres)</Label>
+                  <Label className="text-[10px] font-black uppercase text-slate-400 px-1 flex items-center justify-between">
+                    NIF (20 chiffres recommandé)
+                    {contactForm.nif.length > 0 && contactForm.nif.length < 15 && <span className="text-red-500 font-bold">MIN 15</span>}
+                    {contactForm.nif.length >= 15 && <span className="text-emerald-500 font-bold">FORMAT OK</span>}
+                  </Label>
                   <Input 
-                    placeholder="001..." 
+                    placeholder="00011601012345678901" 
                     value={contactForm.nif} 
                     onChange={e => setContactForm({...contactForm, nif: e.target.value})} 
-                    className="h-11 rounded-xl font-mono"
-                    maxLength={15}
+                    className={cn("h-11 rounded-xl font-mono", contactForm.nif.length === 20 && "border-emerald-500 ring-emerald-500")}
+                    maxLength={20}
                   />
                 </div>
                 <div className="space-y-2">
@@ -224,7 +226,7 @@ export default function ContactsPage() {
             <DialogFooter className="bg-slate-50 p-4 -mx-6 -mb-6 border-t">
               <Button onClick={handleSaveContact} disabled={isSaving} className="w-full h-12 text-lg shadow-xl bg-primary">
                 {isSaving ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : null}
-                {editingContactId ? "Enregistrer les modifications" : "Créer le Partenaire"}
+                {editingContactId ? "Mettre à jour la fiche légale" : "Créer le Partenaire"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -262,7 +264,7 @@ export default function ContactsPage() {
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input 
-              placeholder="Nom ou NIF..." 
+              placeholder="Recherche Nom ou NIF..." 
               className="pl-10 h-10 w-72 bg-white rounded-2xl border-slate-200 shadow-sm" 
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
@@ -298,7 +300,12 @@ export default function ContactsPage() {
                             </div>
                             <div className="flex flex-col">
                               <span className="font-black text-xs uppercase text-slate-900">{c.name}</span>
-                              <span className="text-[9px] font-mono text-muted-foreground font-bold">{c.nif || 'NIF NON RENSEIGNÉ'}</span>
+                              <div className="flex items-center gap-2">
+                                <span className={cn("text-[9px] font-mono font-bold", c.nif?.length === 20 ? "text-emerald-600" : "text-muted-foreground")}>
+                                  NIF: {c.nif || 'NON RENSEIGNÉ'}
+                                </span>
+                                {c.nif?.length === 20 && <Badge className="bg-emerald-500 text-white text-[7px] h-3 px-1">2026 OK</Badge>}
+                              </div>
                             </div>
                           </div>
                         </TableCell>
@@ -342,10 +349,11 @@ export default function ContactsPage() {
       <div className="p-8 bg-slate-900 text-white rounded-3xl flex items-start gap-6 shadow-xl">
         <ShieldCheck className="h-10 w-10 text-accent shrink-0 mt-1" />
         <div className="text-xs leading-relaxed space-y-3">
-          <p className="font-black text-accent uppercase tracking-[0.2em]">Conformité Fiscale Algérie :</p>
+          <p className="font-black text-accent uppercase tracking-[0.2em]">Norme NIF 2026 :</p>
           <p className="opacity-80">
-            L'Article 183 du CIDTA impose l'identification précise des clients pour la déductibilité de la TVA. 
-            Le système vérifie la structure du NIF (15 chiffres) pour garantir la validité de vos factures émises et reçues lors d'un audit de la DGI.
+            Conformément à la numérisation des échanges DGI/Douanes/Banques, le NIF passe à **20 chiffres**.
+            Cette structure inclut désormais la nature de l'entité, le centre d'imposition (CDI/CPI) et une clé de contrôle.
+            L'ERP ComptaFisc-DZ valide automatiquement la structure pour garantir vos télé-déclarations Jibayatic.
           </p>
         </div>
       </div>

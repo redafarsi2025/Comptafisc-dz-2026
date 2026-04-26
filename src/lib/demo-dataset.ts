@@ -1,7 +1,8 @@
+
 /**
  * @fileOverview SEED COMPLET — SaaS Comptabilité & Fiscalité Algérie
- * @version 2.0
- * @description Jeu de données de démonstration fusionné, corrigé et enrichi.
+ * @version 2.6 (Update 2026 NIF 20 Digits)
+ * @description Jeu de données de démonstration mis à jour pour les nouvelles normes fiscales.
  */
 
 export type RegimeFiscal = 'REGIME_REEL' | 'IFU' | 'FORFAIT';
@@ -44,47 +45,20 @@ export const TAUX_FISCAUX_2025 = {
       { tranche: 4, min: 80001,  max: 160000, taux: 33, reference: 'Art. 104 CID' },
       { tranche: 5, min: 160001, max: null,   taux: 35, reference: 'Art. 104 CID' },
     ],
-    abattementSalarie: { valeur: 0, note: 'Supprimé LF 2022' },
   },
   cnas: {
     patronale:  { valeur: 26, reference: 'Décret exéc. 96-209' },
     salariale:  { valeur: 9,  reference: 'Décret exéc. 96-209' },
   },
-  tap: { valeur: 2, reference: 'Art. 217 CID', base: 'Chiffre d\'affaires HT' },
-  smig: {
-    mensuel: { valeur: 20000, unite: 'DZD', reference: 'Décret 23-188', effectifDepuis: '2023-06-01' },
-    horaire: { valeur: 114.94, unite: 'DZD/h' },
-  },
 } as const;
 
 export const PLAN_COMPTABLE = [
-  { compte: '101',  libelle: 'Capital social ou individuel',     classe: 1, type: 'Passif'  },
-  { compte: '106',  libelle: 'Réserves',                         classe: 1, type: 'Passif'  },
-  { compte: '12',   libelle: 'Résultat de l\'exercice',          classe: 1, type: 'Passif'  },
-  { compte: '164',  libelle: 'Emprunts auprès des étab. crédit', classe: 1, type: 'Passif'  },
-  { compte: '211',  libelle: 'Terrains',                         classe: 2, type: 'Actif'   },
-  { compte: '213',  libelle: 'Constructions',                    classe: 2, type: 'Actif'   },
-  { compte: '215',  libelle: 'Installations techniques',         classe: 2, type: 'Actif'   },
-  { compte: '218',  libelle: 'Autres immobilisations corp.',     classe: 2, type: 'Actif'   },
   { compte: '30',   libelle: 'Stocks de marchandises',           classe: 3, type: 'Actif'   },
-  { compte: '401',  libelle: 'Fournisseurs et cptes rattachés',  classe: 4, type: 'Passif'  },
+  { compte: '401',  libelle: 'Fournisseurs et comptes rattachés',  classe: 4, type: 'Passif'  },
   { compte: '411',  libelle: 'Clients et comptes rattachés',     classe: 4, type: 'Actif'   },
   { compte: '4456', libelle: 'TVA récupérable sur ABS',          classe: 4, type: 'Actif'   },
   { compte: '4457', libelle: 'TVA collectée',                    classe: 4, type: 'Passif'  },
-  { compte: '512',  libelle: 'Banques — comptes courants',       classe: 5, type: 'Actif'   },
-  { compte: '607',  libelle: 'Achats de marchandises',           classe: 6, type: 'Charge'  },
   { compte: '700',  libelle: 'Ventes de marchandises',           classe: 7, type: 'Produit' },
-] as const;
-
-export const ORGANISATIONS = [
-  {
-    id:   'ORG001',
-    type: 'cabinet' as OrganisationType,
-    nom:  'Cabinet Expertise Comptable Boudiaf & Associés',
-    plan: 'CABINET' as PlanAbonnement,
-    nif:  '001631000321654',
-    email: 'contact@cabinet-boudiaf.dz',
-  },
 ] as const;
 
 export const ENTREPRISES = [
@@ -92,15 +66,13 @@ export const ENTREPRISES = [
     id: 'ENT001',
     raisonSociale: 'SARL Bensalem Commerce',
     formeJuridique: 'SARL' as FormeJuridique,
-    secteurActivite: 'Commerce de détail',
-    wilaya: '16', ville: 'Alger',
-    nif: '001216000123456',
-    nis: '1621600012345',
+    secteurActivite: 'COMMERCE',
+    wilaya: '16',
+    nif: '00011601012345678901', // Nouveau format 2026
+    nis: '162160001234599',
     rc:  '16/00-0123456B16',
     regimeFiscal: 'REGIME_REEL' as RegimeFiscal,
-    assujettiesTVA: true,
     debutActivite: '2018-03-15',
-    email: 'contact@bensalem-commerce.dz',
     plan: 'PRO' as PlanAbonnement,
     onboardingComplete: true,
   },
@@ -109,80 +81,63 @@ export const ENTREPRISES = [
     raisonSociale: 'SPA Constructions Maghreb',
     formeJuridique: 'SPA' as FormeJuridique,
     secteurActivite: 'BTP',
-    wilaya: '09', ville: 'Blida',
-    nif: '001609000987654',
-    nis: '0921600098765',
+    wilaya: '09',
+    nif: '00010901009876543210', // Nouveau format 2026
+    nis: '092160009876588',
     rc:  '09/00-0987654B09',
     regimeFiscal: 'REGIME_REEL' as RegimeFiscal,
-    assujettiesTVA: true,
-    dateCreation: '2010-07-01',
-    email: 'dg@constructions-maghreb.dz',
-    plan: 'PRO' as PlanAbonnement,
     onboardingComplete: true,
   },
 ] as const;
 
 export const SALARIES = [
   {
-    id: 'SAL001', entrepriseId: 'ENT002',
-    nom: 'Zerrouki', prenom: 'Kamel',
-    nin: '091750422100112',
-    cnas: '0001609800123456',
-    poste: 'Directeur Général',
-    salaireBrut: 180_000,
+    id: 'SAL001',
+    name: 'Zerrouki Kamel',
+    nin: '191750422100112345',
+    cnasNumber: '0001609800123456',
+    position: 'Directeur Général',
+    baseSalary: 180000,
     primesImposables: 0,
     indemnitePanier: 15000,
     indemniteTransport: 5000,
-    isGrandSud: false,
-    isHandicapped: false,
   },
 ] as const;
 
 export const FACTURES = [
   {
-    id: 'FAC-2025-001', entrepriseId: 'ENT001',
-    numero: 'FAC2025001',
-    date: '2025-01-08',
-    client: { nom: 'SPA Grands Travaux Ouest', nif: '001316000111222' },
-    amountHT: 850_000,
+    id: 'FAC-2026-001',
+    numero: 'FAC2026001',
+    date: '2026-01-08',
+    clientName: 'SPA Grands Travaux Ouest',
+    amountHT: 850000,
     tvaRate: 19,
-    objet: 'Fourniture matériaux de bureau',
-  },
-] as const;
-
-export const DECLARATIONS_G50 = [
-  {
-    id: 'G50-2025-01', entrepriseId: 'ENT001',
-    periode: '2025-01', statut: 'Déposée' as StatutDeclaration,
-    tvaBrute: 161_500, tvaDeductible: 42_000, tvaNette: 119_500,
-    tap: 34_000, irgRetenu: 15_600, totalMandatement: 169_100,
   },
 ] as const;
 
 export const ECRITURES_COMPTABLES = [
   {
-    id: 'JNL-2025-0001', entrepriseId: 'ENT001',
-    date: '2025-01-08', journal: 'VE' as JournalType,
-    ref: 'FAC2025001',
-    description: 'Vente FAC2025001 — SPA Grands Travaux Ouest',
+    id: 'JNL-2026-0001',
+    date: '2026-01-08',
+    journal: 'VENTES' as JournalType,
+    ref: 'FAC2026001',
+    description: 'Vente FAC2026001 — SPA Grands Travaux Ouest',
     lines: [
-      { accountCode: '411', accountName: 'Clients', debit: 1_011_500, credit: 0 },
-      { accountCode: '700', accountName: 'Ventes de marchandises', debit: 0, credit: 850_000 },
-      { accountCode: '4457', accountName: 'TVA collectée 19%', debit: 0, credit: 161_500 },
+      { accountCode: '411', accountName: 'Clients', debit: 1011500, credit: 0 },
+      { accountCode: '700', accountName: 'Ventes de marchandises', debit: 0, credit: 850000 },
+      { accountCode: '4457', accountName: 'TVA collectée 19%', debit: 0, credit: 161500 },
     ],
   },
 ] as const;
 
 export const SEED = {
-  meta: { version: '2.0.0', genere: new Date().toISOString() },
+  meta: { version: '2.6.0', standards: '2026-NIF-20-DIGITS', genere: new Date().toISOString() },
   wilayas: WILAYAS,
   tauxFiscaux2025: TAUX_FISCAUX_2025,
   planComptable: PLAN_COMPTABLE,
-  organisations: ORGANISATIONS,
   entreprises: ENTREPRISES,
   salaries: SALARIES,
   factures: FACTURES,
-  declarationsG50: DECLARATIONS_G50,
   ecrituresComptables: ECRITURES_COMPTABLES,
 } as const;
 
