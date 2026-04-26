@@ -1,7 +1,7 @@
 
 /**
- * @fileOverview Moteur de Calcul Master Node (Version 3.0)
- * IMPORTANT : Aucune valeur en dur. Les calculs récupèrent leurs variables du contexte.
+ * @fileOverview Moteur de Calcul Master Node (Version 3.1)
+ * Intégration des calculs de logistique et consommation.
  */
 
 // Valeurs de secours (Source : Moteur Fiscal DSL)
@@ -15,8 +15,6 @@ export const PAYROLL_CONSTANTS = {
 
 /**
  * Calcule le salaire de base selon le système indiciaire algérien.
- * @param indice L'indice du poste (ex: 450)
- * @param valeurPoint La valeur du point indiciaire actuelle
  */
 export function calculateSalaireBase(indice: number, valeurPoint: number = PAYROLL_CONSTANTS.DEFAULT_VALEUR_POINT): number {
   return Math.round(indice * valeurPoint);
@@ -24,17 +22,14 @@ export function calculateSalaireBase(indice: number, valeurPoint: number = PAYRO
 
 /**
  * Calcule l'IRG (Impôt sur le Revenu Global) Traitements et Salaires - Loi de Finances 2026.
- * Inclut l'abattement lissé pour les bas salaires.
  */
 export function calculateIRG(salaireImposable: number, isGrandSud: boolean = false, isHandicapped: boolean = false): number {
-  // 1. Abattement principal 40% (Max 1500 DA)
   let abattement = salaireImposable * 0.40;
   if (abattement > 1500) abattement = 1500;
   
   const baseIRG = Math.max(0, salaireImposable - abattement);
 
   let tax = 0;
-  // Barème progressif 2026
   if (baseIRG <= 30000) {
     tax = 0;
   } else if (baseIRG <= 120000) {
@@ -47,12 +42,11 @@ export function calculateIRG(salaireImposable: number, isGrandSud: boolean = fal
     tax = (120000 - 30000) * 0.20 + (360000 - 120000) * 0.30 + (1440000 - 360000) * 0.33 + (baseIRG - 1440000) * 0.35;
   }
 
-  // 2. Abattements spécifiques (Zone Sud -50%, Handicapé/Retraité lissé)
   if (isHandicapped && baseIRG <= 42500) {
-    tax *= 0.5; // Abattement spécifique supplémentaire
+    tax *= 0.5;
   }
   if (isGrandSud) {
-    tax *= 0.5; // Réduction IZCV (Art. 120 CIDTA)
+    tax *= 0.5;
   }
 
   return Math.round(tax);
@@ -107,9 +101,6 @@ export function calculateRHMetrics(input: { brut: number, primes: number, avanta
 
 /**
  * Calcule la TVA selon le régime.
- * @param amount Montant HT
- * @param rateCode Code du taux (TVA_19, TVA_9)
- * @param isIFU Si le client est en IFU (TVA non applicable)
  */
 export function calculateTVA(amount: number, rateCode: string = 'TVA_19', isIFU: boolean = false): number {
   if (isIFU) return 0;
@@ -118,7 +109,7 @@ export function calculateTVA(amount: number, rateCode: string = 'TVA_19', isIFU:
 }
 
 /**
- * Droit de timbre sur les paiements en espèces (Art. 147 Code du Timbre).
+ * Droit de timbre sur les paiements en espèces.
  */
 export function calculateStampDuty(totalTTC: number, isCash: boolean): number {
   if (!isCash) return 0;
@@ -142,7 +133,6 @@ export function calculateRetenueGarantie(amount: number, sector: string = 'BTP',
  */
 export function calculateIBS(profit: number, rate: number, reinvestedAmount: number = 0): number {
   if (profit <= 0) return 0;
-  // Réduction IBS pour réinvestissement (Art. 150 CIDTA)
   const taxableBase = Math.max(0, profit - reinvestedAmount);
   return Math.round(taxableBase * rate);
 }
@@ -151,7 +141,7 @@ export function calculateIBS(profit: number, rate: number, reinvestedAmount: num
  * Calcule l'IFU (Impôt Forfaitaire Unique).
  */
 export function calculateIFU(ca: number, rate: number, isAuto: boolean = false, isStartup: boolean = false): number {
-  if (isStartup) return 0; // Exonération Startup
+  if (isStartup) return 0;
   return Math.max(10000, Math.round(ca * rate));
 }
 
@@ -159,9 +149,9 @@ export function calculateIFU(ca: number, rate: number, isAuto: boolean = false, 
  * Résout le taux IFU par secteur.
  */
 export function getIFURate(sector: string, forme: string): number {
-  if (forme === "Auto-entrepreneur") return 0.005; // 0.5% Loi de Finances
+  if (forme === "Auto-entrepreneur") return 0.005;
   if (sector === "PRODUCTION" || sector === "INDUSTRIE") return 0.05;
-  return 0.12; // Services et autres
+  return 0.12;
 }
 
 /**
@@ -170,7 +160,7 @@ export function getIFURate(sector: string, forme: string): number {
 export function getIBSRate(sector: string, napCode?: string): number {
   if (sector === 'PRODUCTION' || sector === 'INDUSTRIE') return 0.19;
   if (sector === 'BTP') return 0.23;
-  return 0.26; // Services et autres
+  return 0.26;
 }
 
 /**
@@ -189,7 +179,7 @@ export function calculateLiquidityRatio(currentAssets: number, currentLiabilitie
 }
 
 /**
- * Simule des scénarios d'investissement (Fonds propres vs Leasing).
+ * Simule des scénarios d'investissement.
  */
 export function simulateInvestmentScenarios(amount: number, years: number, ibsRate: number) {
   const annualAmort = amount / years;
@@ -219,6 +209,18 @@ export function simulateInvestmentScenarios(amount: number, years: number, ibsRa
   };
 }
 
+/**
+ * Calcule l'efficience carburant (L/100km).
+ * @param liters Quantité de carburant ajoutée
+ * @param currentOdo Kilométrage actuel
+ * @param prevOdo Kilométrage au dernier plein
+ */
+export function calculateFuelEfficiency(liters: number, currentOdo: number, prevOdo: number): number {
+  const distance = currentOdo - prevOdo;
+  if (distance <= 0) return 0;
+  return (liters / distance) * 100;
+}
+
 export const TAX_RATES = {
   IFU_THRESHOLD: 8000000,
   IFU_AUTO_THRESHOLD: 5000000,
@@ -234,9 +236,6 @@ export const CASNOS_CONSTANTS = {
   RATE: 0.15
 };
 
-/**
- * Calcule la cotisation CASNOS basée sur l'assiette annuelle.
- */
 export function calculateCASNOS(annualBase: number): number {
   let contribution = annualBase * CASNOS_CONSTANTS.RATE;
   if (contribution < CASNOS_CONSTANTS.MIN_AMOUNT) contribution = CASNOS_CONSTANTS.MIN_AMOUNT;
