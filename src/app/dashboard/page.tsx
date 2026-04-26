@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -85,23 +86,37 @@ export default function DashboardOverview() {
     return tenants[0];
   }, [tenants, searchParams]);
 
-  const invoicesQuery = useMemoFirebase(() => {
+  // Utilisation des écritures comptables pour une vision consolidée
+  const entriesQuery = useMemoFirebase(() => {
     if (!db || !currentTenant || !user) return null;
     return query(
-      collection(db, "tenants", currentTenant.id, "invoices"),
-      where(`tenantMembers.${user.uid}`, "!=", null)
+      collection(db, "tenants", currentTenant.id, "journal_entries")
     );
   }, [db, currentTenant?.id, user]);
-  const { data: invoices } = useCollection(invoicesQuery);
+  const { data: entries } = useCollection(entriesQuery);
 
   const stats = React.useMemo(() => {
-    if (!invoices || !mounted) return { ca: 0, tva: 0, count: 0 };
-    return invoices.reduce((acc, inv) => ({
-      ca: acc.ca + (inv.totalAmountExcludingTax || 0),
-      tva: acc.tva + (inv.totalTaxAmount || 0),
-      count: acc.count + 1
-    }), { ca: 0, tva: 0, count: 0 });
-  }, [invoices, mounted]);
+    if (!entries || !mounted) return { ca: 0, tva: 0, count: 0 };
+    
+    // Calcul du CA basé sur les comptes de classe 7 dans le journal
+    let caHT = 0;
+    let tvaCollectee = 0;
+    let transactions = new Set();
+
+    entries.forEach(entry => {
+      entry.lines.forEach((line: any) => {
+        if (line.accountCode.startsWith('7')) {
+          caHT += line.credit - line.debit;
+          transactions.add(entry.id);
+        }
+        if (line.accountCode === '4457') {
+          tvaCollectee += line.credit - line.debit;
+        }
+      });
+    });
+
+    return { ca: caHT, tva: tvaCollectee, count: transactions.size };
+  }, [entries, mounted]);
 
   const formatAmount = (val: number) => mounted ? Math.round(val).toLocaleString() : "...";
 
@@ -203,7 +218,7 @@ export default function DashboardOverview() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatAmount(stats.ca)} DZD</div>
-            <p className="text-[10px] text-muted-foreground mt-1">Données temps réel.</p>
+            <p className="text-[10px] text-muted-foreground mt-1">Données journalisées (Livre-Journal).</p>
           </CardContent>
         </Card>
 

@@ -92,6 +92,9 @@ export default function ManageBtpSituationPage() {
 
     setIsSaving(true);
     const selectedProject = projects?.find(p => p.id === formData.projectId);
+    const tenantsQuery = query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
+    // Pour simplifier on récupère le tenant courant
+    const tenantDoc = await doc(db, "tenants", tenantId);
     
     const situationData = {
       ...formData,
@@ -116,12 +119,36 @@ export default function ManageBtpSituationPage() {
         toast({ title: "Situation créée", description: `Le nouveau décompte N°${formData.number} est enregistré.` });
       }
       
-      // Optionnel : Mettre à jour l'avancement physique du projet
+      // Mettre à jour l'avancement physique du projet
       if (selectedProject) {
         updateDocumentNonBlocking(doc(db, "tenants", tenantId, "projects", selectedProject.id), {
           progress: formData.progress,
           updatedAt: new Date().toISOString()
         });
+      }
+
+      // GÉNÉRER ÉCRITURE COMPTABLE SI SIGNÉE
+      if (formData.isSigned) {
+        const journalEntriesRef = collection(db, "tenants", tenantId, "journal_entries");
+        const entryData = {
+          tenantId,
+          entryDate: formData.date,
+          description: `SITUATION N°${formData.number} - ${selectedProject?.name}`,
+          documentReference: `SIT-${formData.number}`,
+          journalType: "VENTES",
+          status: 'Validated',
+          createdAt: new Date().toISOString(),
+          createdByUserId: user.uid,
+          tenantMembers: { [user.uid]: 'owner' },
+          lines: [
+            { accountCode: "411", accountName: "Clients (Net à payer)", debit: totals.netAPayer, credit: 0 },
+            { accountCode: "4118", accountName: "Clients retenue de garantie", debit: totals.retenue, credit: 0 },
+            { accountCode: "701", accountName: "Travaux (BTP)", debit: 0, credit: totals.ht },
+            { accountCode: "4457", accountName: "TVA collectée", debit: 0, credit: totals.tva }
+          ]
+        };
+        await addDocumentNonBlocking(journalEntriesRef, entryData);
+        toast({ title: "Comptabilisation effectuée", description: "L'écriture de vente a été ajoutée au journal." });
       }
 
       router.push(`/dashboard/btp/situations?tenantId=${tenantId}`);
@@ -312,7 +339,7 @@ export default function ManageBtpSituationPage() {
                 <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0" />
                 <div className="text-[10px] text-emerald-800 leading-relaxed font-medium">
                   <p className="font-black uppercase tracking-tight mb-1">Impact Comptable :</p>
-                  <p>La validation génère automatiquement une écriture au crédit du compte 701 (Travaux) et au débit du compte 4118 (Retenues de garantie).</p>
+                  <p>La validation génère automatiquement une écriture au crédit du compte 701 (Travaux) et au débit du compte 4118 (Retenues de garantie) si le statut est marqué "Visé".</p>
                 </div>
              </div>
           </Card>
