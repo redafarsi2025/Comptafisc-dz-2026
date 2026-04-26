@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Firestore, collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
@@ -140,13 +139,15 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
 
 /**
  * Interpréteur d'expressions métier (Logic-less).
+ * Ajout du support CEIL pour le droit de timbre 2026.
  */
 function evalDSLFormula(formula: string, params: Record<string, any>): any {
   try {
     let expression = formula
       .replace(/ABS\(/g, 'Math.abs(')
       .replace(/MAX\(/g, 'Math.max(')
-      .replace(/MIN\(/g, 'Math.min(');
+      .replace(/MIN\(/g, 'Math.min(')
+      .replace(/CEIL\(/g, 'Math.ceil(');
 
     const keys = Object.keys(params);
     const vals = Object.values(params);

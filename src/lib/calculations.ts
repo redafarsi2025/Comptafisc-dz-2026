@@ -1,7 +1,6 @@
-
 /**
- * @fileOverview Moteur de Calcul Master Node (Version 3.2)
- * Intégration des prix réglementaires des carburants et calculs d'efficience.
+ * @fileOverview Moteur de Calcul (Proxy vers Moteur Fiscal Master)
+ * Note : Les constantes sont progressivement migrées vers le noyau DSL (Firestore).
  */
 
 // Valeurs de secours (Source : Moteur Fiscal DSL)
@@ -32,12 +31,11 @@ export function calculateSalaireBase(indice: number, valeurPoint: number = PAYRO
 
 /**
  * Calcule l'IRG (Impôt sur le Revenu Global) Traitements et Salaires - Loi de Finances 2026.
- * Selon le barème : 0-30k (0%), 30k-120k (23%), 120k-360k (27%), 360k-1.44M (30%), >1.44M (33%)
  */
 export function calculateIRG(salaireImposable: number, isGrandSud: boolean = false, isHandicapped: boolean = false): number {
   if (salaireImposable <= 30000) return 0;
 
-  // 1. Calcul de l'IRG Théorique par tranches
+  // 1. Calcul de l'IRG Théorique par tranches (Nouveau barème 2026)
   let theoreticalTax = 0;
   
   if (salaireImposable <= 120000) {
@@ -55,7 +53,6 @@ export function calculateIRG(salaireImposable: number, isGrandSud: boolean = fal
   if (abattement < 1000) abattement = 1000;
   if (abattement > 1500) abattement = 1500;
   
-  // L'abattement ne peut pas être supérieur à la taxe elle-même
   if (abattement > theoreticalTax) abattement = theoreticalTax;
 
   let netTax = theoreticalTax - abattement;
@@ -103,24 +100,6 @@ export function processEmployeePayroll(emp: any, context: { valeurPoint: number 
 }
 
 /**
- * Métriques RH de simulation.
- */
-export function calculateRHMetrics(input: { brut: number, primes: number, avantages: number }) {
-  const cnasE = (input.brut + input.primes) * PAYROLL_CONSTANTS.CNAS_EMPLOYEE;
-  const imposable = (input.brut + input.primes) - cnasE;
-  const irg = calculateIRG(imposable);
-  const net = (imposable - irg) + input.avantages;
-  const cost = (input.brut + input.primes) + ((input.brut + input.primes) * PAYROLL_CONSTANTS.CNAS_EMPLOYER) + input.avantages;
-
-  return {
-    net,
-    cost,
-    irg,
-    ratio: cost > 0 ? (net / cost) * 100 : 0
-  };
-}
-
-/**
  * Calcule la TVA selon le régime.
  */
 export function calculateTVA(amount: number, rateCode: string = 'TVA_19', isIFU: boolean = false): number {
@@ -130,11 +109,13 @@ export function calculateTVA(amount: number, rateCode: string = 'TVA_19', isIFU:
 }
 
 /**
- * Droit de timbre sur les paiements en espèces (Norme 2026).
- * Règle : 1% TTC, arrondi au dinar supérieur. Min 5 DA, Max 10 000 DA.
+ * Droit de timbre sur les paiements en espèces.
+ * Note : La logique officielle est maintenant portée par le Moteur DSL RULE_STAMP_2026.
+ * Cette fonction sert de secours (fallback).
  */
 export function calculateStampDuty(totalTTC: number, isCash: boolean): number {
   if (!isCash) return 0;
+  // Logique alignée sur RULE_STAMP_2026
   let stamp = Math.ceil(totalTTC * 0.01);
   if (stamp < 5) stamp = 5;
   if (stamp > 10000) stamp = 10000;
@@ -201,41 +182,7 @@ export function calculateLiquidityRatio(currentAssets: number, currentLiabilitie
 }
 
 /**
- * Simule des scénarios d'investissement.
- */
-export function simulateInvestmentScenarios(amount: number, years: number, ibsRate: number) {
-  const annualAmort = amount / years;
-  const annualTaxSaving = annualAmort * ibsRate;
-  const totalTaxSaving = annualTaxSaving * years;
-  const netCostA = amount - totalTaxSaving;
-
-  const monthlyLease = (amount * 1.25) / (years * 12);
-  const annualLeaseCharge = monthlyLease * 12;
-  const annualTaxSavingLease = annualLeaseCharge * ibsRate;
-  const netCostB = (annualLeaseCharge * years) - (annualTaxSavingLease * years);
-
-  return {
-    purchase: {
-      annualAmort,
-      annualTaxSaving,
-      totalTaxSaving,
-      netCost: netCostA,
-      immediateCashOut: amount
-    },
-    leasing: {
-      monthlyLease,
-      annualTaxSaving: annualTaxSavingLease,
-      netCost: netCostB,
-      immediateCashOut: monthlyLease
-    }
-  };
-}
-
-/**
  * Calcule l'efficience carburant (L/100km).
- * @param liters Quantité de carburant ajoutée
- * @param currentOdo Kilométrage actuel
- * @param prevOdo Kilométrage au dernier plein
  */
 export function calculateFuelEfficiency(liters: number, currentOdo: number, prevOdo: number): number {
   const distance = currentOdo - prevOdo;

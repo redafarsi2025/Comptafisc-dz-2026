@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -29,6 +28,7 @@ export default function FiscalEngineAdmin() {
   const [simMode, setSimMode] = React.useState("IBS") 
   const [simSector, setSimSector] = React.useState("PRODUCTION")
   const [simRegime, setSimRegime] = React.useState("REGIME_REEL")
+  const [simPaymentMethod, setSimPaymentMethod] = React.useState("Espèces")
   const [simResult, setSimResult] = React.useState<any>(null)
   const [isSimulating, setIsSimulating] = React.useState(false)
 
@@ -43,7 +43,12 @@ export default function FiscalEngineAdmin() {
     try {
       const input = simMode === "PAIE" 
         ? { salaire_brut: parseFloat(simBase) }
-        : { resultat_fiscal: parseFloat(simBase), montant_certifie: parseFloat(simBase) };
+        : { 
+            resultat_fiscal: parseFloat(simBase), 
+            montant_certifie: parseFloat(simBase),
+            totalTTC: parseFloat(simBase),
+            paymentMethod: simPaymentMethod
+          };
 
       const { results, traces } = await executeFiscalPipeline(
         { db, date: "2026-01-01", sector: simSector, regime: simRegime },
@@ -63,7 +68,7 @@ export default function FiscalEngineAdmin() {
     if (!db) return;
     setIsInitializing(true);
     try {
-      // 1. RÈGLE IBS SECTORIELLE (Isolation ACTIVITÉ)
+      // 1. RÈGLE IBS SECTORIELLE
       await setDocumentNonBlocking(doc(db, "fiscal_business_rules", "RULE_IBS_2026"), {
         id: "RULE_IBS_2026",
         code: "IBS_TAUX",
@@ -83,7 +88,7 @@ export default function FiscalEngineAdmin() {
         justify: "Art. 150 CIDTA - Taux différenciés par secteur d'activité."
       }, { merge: true });
 
-      // 2. RÈGLE RETENUE BTP (Isolation ACTIVITÉ)
+      // 2. RÈGLE RETENUE BTP
       await setDocumentNonBlocking(doc(db, "fiscal_business_rules", "RULE_BTP_RETENUE"), {
         id: "RULE_BTP_RETENUE",
         code: "RETENUE_BTP",
@@ -98,6 +103,24 @@ export default function FiscalEngineAdmin() {
           { set: "retenue = montant_certifie * 0.05" }
         ],
         justify: "Retenue légale de 5% sur situations de travaux."
+      }, { merge: true });
+
+      // 3. RÈGLE DROIT DE TIMBRE 2026 (Centralisation de la logique)
+      await setDocumentNonBlocking(doc(db, "fiscal_business_rules", "RULE_STAMP_2026"), {
+        id: "RULE_STAMP_2026",
+        code: "STAMP_DUTY",
+        name: "Droit de Timbre (Espèces)",
+        category: "FISCAL",
+        priority: 10,
+        active: true,
+        effectiveStartDate: "2026-01-01",
+        sourceLawId: "LF_2026",
+        when: "paymentMethod == 'Espèces'",
+        then: [
+          { set: "timbre = MIN(10000, MAX(5, CEIL(totalTTC * 0.01)))" },
+          { set: "net_a_payer = totalTTC + timbre" }
+        ],
+        justify: "Art. 200 du Code du Timbre - 1% TTC arrondi au dinar supérieur, min 5 DA, max 10 000 DA."
       }, { merge: true });
 
       toast({ title: "Architecture Master DSL Déployée" });
@@ -132,7 +155,7 @@ export default function FiscalEngineAdmin() {
           <CardContent className="p-8 space-y-8">
             <div className="space-y-6">
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-slate-400">1. Profil Client (Isolation)</Label>
+                <Label className="text-[10px] font-black uppercase text-slate-400">1. Profil Client & Mode</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <Select value={simSector} onValueChange={setSimSector}>
                     <SelectTrigger className="h-9 text-[10px] font-bold uppercase"><SelectValue /></SelectTrigger>
@@ -142,11 +165,11 @@ export default function FiscalEngineAdmin() {
                       <SelectItem value="SERVICES">💼 SERVICES</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Select value={simRegime} onValueChange={setSimRegime}>
+                  <Select value={simPaymentMethod} onValueChange={setSimPaymentMethod}>
                     <SelectTrigger className="h-9 text-[10px] font-bold uppercase"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="REGIME_REEL">RÉEL</SelectItem>
-                      <SelectItem value="IFU">IFU</SelectItem>
+                      <SelectItem value="Espèces">💵 Espèces</SelectItem>
+                      <SelectItem value="Virement">🏦 Virement</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -160,12 +183,13 @@ export default function FiscalEngineAdmin() {
                     <SelectItem value="IBS">IBS (Sociétés)</SelectItem>
                     <SelectItem value="PAIE">Paie (Sociaux)</SelectItem>
                     <SelectItem value="SITUATION">BTP (Situations)</SelectItem>
+                    <SelectItem value="TIMBRE">TIMBRE (Facture)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-slate-400">3. Assiette de base (DA)</Label>
+                <Label className="text-[10px] font-black uppercase text-slate-400">3. Montant de base (DA)</Label>
                 <Input type="number" value={simBase} onChange={e => setSimBase(e.target.value)} className="h-12 text-xl font-black rounded-xl border-primary/20 bg-primary/5 text-primary" />
               </div>
             </div>
@@ -183,8 +207,12 @@ export default function FiscalEngineAdmin() {
                   <div className="text-3xl font-black tracking-tighter">
                     {simMode === "PAIE" ? (simResult.results.IRG || 0).toLocaleString() : 
                      simMode === "SITUATION" ? (simResult.results.retenue || 0).toLocaleString() :
+                     simMode === "TIMBRE" ? (simResult.results.timbre || 0).toLocaleString() :
                      (simResult.results.IBS || 0).toLocaleString()} <span className="text-sm font-normal opacity-50">DA</span>
                   </div>
+                  {simMode === "TIMBRE" && (
+                    <p className="text-[10px] text-white/50 mt-1 uppercase font-bold">Net à payer : {(simResult.results.net_a_payer || 0).toLocaleString()} DA</p>
+                  )}
                 </div>
                 
                 <div className="space-y-3">
@@ -223,7 +251,7 @@ export default function FiscalEngineAdmin() {
                 </p>
               </Card>
 
-              <Card className="bg-blue-50 border border-blue-100 rounded-3xl p-6 relative overflow-hidden">
+              <Card className="bg-blue-50 border border-blue-200 rounded-3xl p-6 relative overflow-hidden">
                 <Settings2 className="absolute -right-4 -bottom-4 h-24 w-24 opacity-10 text-blue-600" />
                 <h4 className="text-[10px] font-black text-blue-800 uppercase tracking-widest mb-2 flex items-center gap-2">
                   <Zap className="h-4 w-4" /> Moteur Déclaratif
