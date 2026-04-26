@@ -54,7 +54,9 @@ import {
   FilePlus2,
   BarChart3,
   TrendingUp,
-  HeartPulse
+  HeartPulse,
+  Zap,
+  Target
 } from "lucide-react"
 
 import {
@@ -105,7 +107,7 @@ const pilotageNav = [
   { name: "Analyse & Pilotage", href: "/dashboard/financial-analysis", icon: BarChart3 },
 ]
 
-// Menu Ventes
+// Menu Ventes (Commerce / Industrie)
 const salesNav = [
   { name: "Flux de Vente Hub", href: "/dashboard/sales", icon: CircleDollarSign },
   { name: "Commandes Clients", href: "/dashboard/sales/orders", icon: FileSearch },
@@ -133,9 +135,7 @@ const purchaseNav = [
   { name: "Flux d'Achat Hub", href: "/dashboard/purchases", icon: ShoppingCart },
   { name: "Demandes d'Achat", href: "/dashboard/purchases/requests", icon: FilePlus2 },
   { name: "Bons de Commande", href: "/dashboard/purchases/orders", icon: FileSearch },
-  { name: "Bons de Réception", href: "/dashboard/purchases/receptions", icon: Truck },
   { name: "Factures Fournisseurs", href: "/dashboard/purchases/invoices", icon: Receipt },
-  { name: "Retours Fournisseurs", href: "/dashboard/purchases/returns", icon: Undo2 },
 ]
 
 // Menu Comptabilité
@@ -201,7 +201,7 @@ export function DashboardSidebar() {
   const { data: tenants, isLoading: isTenantsLoading } = useCollection(tenantsQuery);
 
   const adminDocRef = useMemoFirebase(() => (db && user) ? doc(db, "saas_admins", user.uid) : null, [db, user?.uid]);
-  const { data: adminRecord } = useDoc(adminDocRef);
+  const { data: adminRecord, isLoading: isAdminLoading } = useDoc(adminDocRef);
   const isSaaSAdmin = !!adminRecord;
 
   const tenantIdFromUrl = searchParams.get('tenantId')
@@ -343,32 +343,39 @@ export function DashboardSidebar() {
       <SidebarContent className="px-2">
         <NavGroup label="Pilotage & Décision" items={pilotageNav} />
         
+        {/* VENTES & CLIENTS : Visible pour Commerce, Industrie et BTP (sous forme simplifiée) */}
         <NavGroup 
           label="Ventes & Clients" 
           items={salesNav} 
           visible={secteur === "COMMERCE" || secteur === "INDUSTRIE"} 
         />
 
+        {/* BTP : Exclusivement pour le secteur BTP */}
         <NavGroup 
           label="Gestion Chantiers" 
           items={btpNav} 
           visible={secteur === "BTP"} 
         />
 
+        {/* INDUSTRIE : Exclusivement pour le secteur Industrie */}
         <NavGroup 
-          label="Production" 
+          label="Production Industrielle" 
           items={industryNav} 
           visible={secteur === "INDUSTRIE"} 
         />
 
-        <NavGroup label="Achats & Dépenses" items={purchaseNav} visible={secteur !== "PRO_LIBERALE"} />
+        <NavGroup 
+          label="Achats & Dépenses" 
+          items={purchaseNav} 
+          visible={secteur !== "PRO_LIBERALE"} 
+        />
         
         <NavGroup label="Comptabilité SCF" items={accountingNav} />
         
         <NavGroup 
           label="Stocks & Inventaires" 
           items={inventoryNav} 
-          visible={secteur !== "PRO_LIBERALE"} 
+          visible={secteur === "COMMERCE" || secteur === "INDUSTRIE"} 
         />
 
         <NavGroup label="RH & Paie" items={payrollNav} />
@@ -418,7 +425,7 @@ export function DashboardSidebar() {
                   </Avatar>
                   <div className="flex flex-col gap-0.5 text-left text-sm leading-tight ml-2">
                     <span className="font-bold text-sidebar-foreground truncate w-32">
-                      {user?.displayName || "Mon Compte"}
+                      {user?.displayName || user?.email?.split('@')[0] || "Mon Compte"}
                     </span>
                     <span className="text-[10px] font-bold text-sidebar-foreground/40 uppercase tracking-tighter">Expert-Comptable</span>
                   </div>

@@ -28,13 +28,13 @@ import { collection, query, where, limit } from "firebase/firestore"
 import { 
   TrendingUp, ArrowUpRight, BadgeCheck, 
   CheckCircle2, Activity, Sparkles, Landmark, History, ShieldCheck, Zap, Loader2,
-  ChevronRight, PlayCircle, Lightbulb, Target
+  ChevronRight, PlayCircle, Lightbulb, Target, ArrowRight, Pickaxe, Factory, ShoppingCart, Briefcase
 } from "lucide-react"
 import { getIBSRate } from "@/lib/calculations"
 import { useSearchParams, useRouter } from "next/navigation"
 import { seedDemoForUser } from "@/lib/demo-seeder"
 import { toast } from "@/hooks/use-toast"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import Link from "next/link"
 
 const REGULATORY_MILESTONES = [
   { 
@@ -67,8 +67,6 @@ export default function DashboardOverview() {
   const router = useRouter()
   const [mounted, setMounted] = React.useState(false)
   const [isSeeding, setIsSeeding] = React.useState(false)
-  const [showTour, setShowTour] = React.useState(false)
-  const [tourStep, setTourStep] = React.useState(0)
 
   React.useEffect(() => {
     setMounted(true)
@@ -86,31 +84,6 @@ export default function DashboardOverview() {
     if (urlId) return tenants.find(t => t.id === urlId) || tenants[0];
     return tenants[0];
   }, [tenants, searchParams]);
-
-  React.useEffect(() => {
-    const handleDemoSeeding = async () => {
-      if (mounted && db && user && searchParams.get('demo') === 'true' && !isTenantsLoading) {
-        if (tenants?.length === 0) {
-          setIsSeeding(true);
-          try {
-            await seedDemoForUser(db, user.uid, user.email || "");
-            toast({
-              title: "Démo activée !",
-              description: "Le dossier 'SARL Bensalem Commerce' a été créé avec succès.",
-            });
-            setIsSeeding(false);
-            setShowTour(true); 
-            router.replace("/dashboard");
-          } catch (e) {
-            console.error(e);
-            toast({ variant: "destructive", title: "Erreur démo", description: "Impossible de charger les données." });
-            setIsSeeding(false);
-          }
-        }
-      }
-    };
-    handleDemoSeeding();
-  }, [mounted, db, user, searchParams, tenants, isTenantsLoading, router]);
 
   const invoicesQuery = useMemoFirebase(() => {
     if (!db || !currentTenant || !user) return null;
@@ -130,11 +103,6 @@ export default function DashboardOverview() {
     }), { ca: 0, tva: 0, count: 0 });
   }, [invoices, mounted]);
 
-  const ibsRate = React.useMemo(() => {
-    if (!currentTenant) return 0.26;
-    return getIBSRate(currentTenant.secteurActivite, currentTenant.activiteNAP);
-  }, [currentTenant]);
-
   const formatAmount = (val: number) => mounted ? Math.round(val).toLocaleString() : "...";
 
   const monthlyData = [
@@ -149,6 +117,8 @@ export default function DashboardOverview() {
   if (!mounted || isSeeding || isTenantsLoading) {
     return <div className="h-[80vh] flex flex-col items-center justify-center space-y-6"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>;
   }
+
+  const secteur = currentTenant?.secteurActivite || "COMMERCE";
 
   return (
     <div className="space-y-6">
@@ -172,22 +142,59 @@ export default function DashboardOverview() {
         </div>
       </div>
 
-      {/* FLASH CONSEIL STRATÉGIQUE IA (NOUVEAU) */}
-      <Card className="bg-slate-900 text-white border-none shadow-2xl relative overflow-hidden p-6 flex flex-col md:flex-row items-center gap-6">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 blur-[80px] -mr-32 -mt-32" />
-        <div className="h-16 w-16 rounded-2xl bg-accent/20 flex items-center justify-center shrink-0 border border-accent/20">
-          <Zap className="h-8 w-8 text-accent animate-pulse" />
-        </div>
-        <div className="space-y-1 flex-1 text-center md:text-left">
-          <h4 className="text-xs font-black uppercase text-accent tracking-[0.2em]">Flash Conseil Stratégique</h4>
-          <p className="text-sm font-medium opacity-90 leading-relaxed italic">
-            "Votre ratio de liquidité est excellent (2.1). C'est le moment idéal pour négocier un escompte de 2% avec vos fournisseurs sur vos prochains achats massifs."
-          </p>
-        </div>
-        <Button className="bg-accent text-primary font-black uppercase text-[10px] tracking-widest h-10 px-8 rounded-xl shadow-lg shadow-accent/20">
-          Détails de l'opportunité <ArrowRight className="ml-2 h-4 w-4" />
-        </Button>
-      </Card>
+      {/* SECTOR SPECIFIC QUICK ACTIONS */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {secteur === 'BTP' && (
+          <Card className="bg-primary text-white border-none shadow-lg hover:scale-[1.02] transition-transform cursor-pointer" asChild>
+            <Link href={`/dashboard/btp/projects?tenantId=${currentTenant?.id}`}>
+              <CardContent className="p-6 flex items-center gap-4">
+                <div className="h-12 w-12 rounded-2xl bg-white/20 flex items-center justify-center"><Pickaxe className="h-6 w-6 text-white" /></div>
+                <div>
+                  <h4 className="font-bold text-sm">Nouveau Chantier</h4>
+                  <p className="text-[10px] opacity-70">Ouvrir un nouveau dossier de projet</p>
+                </div>
+              </CardContent>
+            </Link>
+          </Card>
+        )}
+        {secteur === 'INDUSTRIE' && (
+          <Card className="bg-primary text-white border-none shadow-lg hover:scale-[1.02] transition-transform cursor-pointer" asChild>
+            <Link href={`/dashboard/industry/production?tenantId=${currentTenant?.id}`}>
+              <CardContent className="p-6 flex items-center gap-4">
+                <div className="h-12 w-12 rounded-2xl bg-white/20 flex items-center justify-center"><Factory className="h-6 w-6 text-white" /></div>
+                <div>
+                  <h4 className="font-bold text-sm">Lancer un O.F.</h4>
+                  <p className="text-[10px] opacity-70">Initialiser un ordre de fabrication</p>
+                </div>
+              </CardContent>
+            </Link>
+          </Card>
+        )}
+        {(secteur === 'COMMERCE' || secteur === 'INDUSTRIE') && (
+          <Card className="bg-accent text-primary border-none shadow-lg hover:scale-[1.02] transition-transform cursor-pointer" asChild>
+            <Link href={`/dashboard/inventory/stock?tenantId=${currentTenant?.id}`}>
+              <CardContent className="p-6 flex items-center gap-4">
+                <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center"><Package className="h-6 w-6 text-primary" /></div>
+                <div>
+                  <h4 className="font-bold text-sm">Gestion de Stock</h4>
+                  <p className="text-[10px] opacity-70">Contrôler l'état des références</p>
+                </div>
+              </CardContent>
+            </Link>
+          </Card>
+        )}
+        <Card className="bg-slate-900 text-white border-none shadow-lg hover:scale-[1.02] transition-transform cursor-pointer" asChild>
+          <Link href={`/dashboard/ocr?tenantId=${currentTenant?.id}`}>
+            <CardContent className="p-6 flex items-center gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center"><Camera className="h-6 w-6 text-accent" /></div>
+              <div>
+                <h4 className="font-bold text-sm">Scan Facture IA</h4>
+                <p className="text-[10px] opacity-70">Capture intelligente OCR Gemini</p>
+              </div>
+            </CardContent>
+          </Link>
+        </Card>
+      </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="hover:shadow-md transition-shadow border-l-4 border-l-primary bg-white">
@@ -295,17 +302,6 @@ export default function DashboardOverview() {
                 Consulter le Corpus Juridique (RAG)
               </Button>
             </CardFooter>
-          </Card>
-
-          <Card className="border-2 border-dashed border-primary/20 bg-primary/5 flex flex-col items-center justify-center p-6 text-center">
-            <Lightbulb className="h-8 w-8 text-primary mb-2 opacity-50" />
-            <h5 className="font-bold text-xs uppercase text-primary">Prochain Ajustement Conseillé</h5>
-            <p className="text-[10px] text-muted-foreground mt-2 italic">
-              "L'analyse de vos charges externes (Classe 61/62) montre une opportunité d'économies de 15% sur les frais télécom."
-            </p>
-            <Button variant="outline" size="sm" className="mt-4 text-[9px] font-black uppercase tracking-widest h-7 border-primary/30">
-              Voir le comparatif
-            </Button>
           </Card>
         </div>
       </div>
