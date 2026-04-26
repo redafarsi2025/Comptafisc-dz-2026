@@ -342,28 +342,24 @@ export function DashboardSidebar() {
       <SidebarContent className="px-2">
         <NavGroup label="Pilotage" items={pilotageNav} />
         
-        {/* VENTES - Masquées pour BTP au profit des Situations */}
         <NavGroup 
           label="Ventes & Clients" 
           items={salesNav} 
           visible={secteur === "COMMERCE" || secteur === "INDUSTRIE"} 
         />
 
-        {/* BTP - Actif uniquement pour profil BTP */}
         <NavGroup 
           label="Gestion Chantiers & Situations" 
           items={btpNav} 
           visible={secteur === "BTP"} 
         />
 
-        {/* INDUSTRIE - Actif uniquement pour profil INDUSTRIE */}
         <NavGroup 
           label="Production & Usine" 
           items={industryNav} 
           visible={secteur === "INDUSTRIE"} 
         />
 
-        {/* LIBERALE - Actif uniquement pour Profession Libérale */}
         <NavGroup 
           label="Honoraires & Activité" 
           items={liberaleNav} 

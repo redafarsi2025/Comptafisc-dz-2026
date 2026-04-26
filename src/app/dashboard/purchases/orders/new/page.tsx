@@ -38,7 +38,6 @@ export default function NewPurchaseOrder() {
     setMounted(true)
   }, [])
 
-  // Charger les fournisseurs (Tiers de type Fournisseur)
   const suppliersQuery = useMemoFirebase(() => {
     if (!db || !tenantId) return null;
     return query(collection(db, "tenants", tenantId, "clients"), where("type", "==", "Fournisseur"));
@@ -155,10 +154,8 @@ export default function NewPurchaseOrder() {
                   </SelectTrigger>
                   <SelectContent>
                     {suppliers?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                    {!suppliers?.length && <SelectItem value="none" disabled>Aucun fournisseur trouvé</SelectItem>}
                   </SelectContent>
                 </Select>
-                <p className="text-[10px] text-muted-foreground italic">Gérez vos fournisseurs dans "Gestion des Tiers".</p>
               </div>
             </div>
 
@@ -171,19 +168,6 @@ export default function NewPurchaseOrder() {
                 <Label className="flex items-center gap-2"><CalendarDays className="h-4 w-4" /> Date de livraison prévue</Label>
                 <Input type="date" value={formData.deliveryDate} onChange={e => setFormData({...formData, deliveryDate: e.target.value})} />
               </div>
-            </div>
-
-            <div className="space-y-2 pt-4 border-t">
-              <Label>Conditions de Paiement</Label>
-              <Select value={formData.paymentTerms} onValueChange={v => setFormData({...formData, paymentTerms: v})}>
-                <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Comptant">Comptant</SelectItem>
-                  <SelectItem value="Virement 30 jours">Virement 30 jours</SelectItem>
-                  <SelectItem value="Chèque à réception">Chèque à réception</SelectItem>
-                  <SelectItem value="Virement 60 jours">Virement 60 jours</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </CardContent>
         </Card>
@@ -208,13 +192,12 @@ export default function NewPurchaseOrder() {
                 <span className="text-3xl font-black text-accent">{totals.ttc.toLocaleString()} DA</span>
               </div>
             </div>
-            
             <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-2">
                <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-400">
                  <ShieldCheck className="h-4 w-4" /> MOTEUR DE CONFORMITÉ ACTIF
                </div>
                <p className="text-[10px] opacity-60 leading-relaxed italic">
-                 Le Bon de Commande engage l'entreprise. Une fois validé, il servira de base au rapprochement facture pour la déduction légale de TVA (Art. 21 CTCA).
+                 Ce Bon de Commande servira de base légale au rapprochement facture (Art. 21 CTCA).
                </p>
             </div>
           </CardContent>
@@ -222,68 +205,41 @@ export default function NewPurchaseOrder() {
 
         <Card className="lg:col-span-3 shadow-xl border-none ring-1 ring-border overflow-hidden">
           <CardHeader className="bg-muted/20 border-b flex flex-row items-center justify-between">
-            <CardTitle className="text-lg">Lignes du Bon de Commande</CardTitle>
+            <CardTitle className="text-lg">Détail des articles</CardTitle>
             <Button variant="outline" size="sm" onClick={addItem} className="border-primary text-primary">
-              <Plus className="mr-2 h-4 w-4" /> Ajouter un article
+              <Plus className="mr-2 h-4 w-4" /> Ajouter ligne
             </Button>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
               <TableHeader className="bg-muted/50">
                 <TableRow className="text-[10px] uppercase font-black">
-                  <TableHead className="w-1/2">Désignation de l'article / Service</TableHead>
+                  <TableHead className="w-1/2">Désignation</TableHead>
                   <TableHead className="text-center">Quantité</TableHead>
-                  <TableHead className="text-right">Prix Unitaire HT</TableHead>
+                  <TableHead className="text-right">Prix Unit. HT</TableHead>
                   <TableHead className="text-center">TVA</TableHead>
-                  <TableHead className="text-right font-bold text-primary">Total HT</TableHead>
+                  <TableHead className="text-right">Total HT</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {formData.items.map((item, idx) => (
-                  <TableRow key={idx} className="hover:bg-muted/5">
-                    <TableCell>
-                      <Input 
-                        placeholder="Ex: Fourniture Papier A4 80g" 
-                        value={item.description}
-                        onChange={e => updateItem(idx, 'description', e.target.value)}
-                        className="h-9 text-xs"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input 
-                        type="number" 
-                        value={item.quantity}
-                        onChange={e => updateItem(idx, 'quantity', parseFloat(e.target.value) || 0)}
-                        className="h-9 text-center w-24 mx-auto text-xs"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input 
-                        type="number" 
-                        value={item.unitPrice}
-                        onChange={e => updateItem(idx, 'unitPrice', parseFloat(e.target.value) || 0)}
-                        className="h-9 text-right w-32 ml-auto text-xs"
-                      />
-                    </TableCell>
+                  <TableRow key={idx}>
+                    <TableCell><Input value={item.description} onChange={e => updateItem(idx, 'description', e.target.value)} className="h-9 text-xs" /></TableCell>
+                    <TableCell><Input type="number" value={item.quantity} onChange={e => updateItem(idx, 'quantity', parseFloat(e.target.value) || 0)} className="h-9 text-center w-24 mx-auto text-xs" /></TableCell>
+                    <TableCell><Input type="number" value={item.unitPrice} onChange={e => updateItem(idx, 'unitPrice', parseFloat(e.target.value) || 0)} className="h-9 text-right w-32 ml-auto text-xs" /></TableCell>
                     <TableCell>
                       <Select value={item.tvaRate.toString()} onValueChange={v => updateItem(idx, 'tvaRate', parseInt(v))}>
                         <SelectTrigger className="h-9 w-24 mx-auto text-[10px] bg-white"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="19">19% (Norm)</SelectItem>
-                          <SelectItem value="9">9% (Réd)</SelectItem>
-                          <SelectItem value="0">0% (Exo)</SelectItem>
+                          <SelectItem value="19">19%</SelectItem>
+                          <SelectItem value="9">9%</SelectItem>
+                          <SelectItem value="0">0%</SelectItem>
                         </SelectContent>
                       </Select>
                     </TableCell>
-                    <TableCell className="text-right font-mono text-xs font-bold">
-                      {(item.quantity * item.unitPrice).toLocaleString()} DA
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => removeItem(idx)} className="text-destructive h-8 w-8">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs font-bold">{(item.quantity * item.unitPrice).toLocaleString()} DA</TableCell>
+                    <TableCell><Button variant="ghost" size="icon" onClick={() => removeItem(idx)} className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></TableCell>
                   </TableRow>
                 ))}
               </TableBody>
