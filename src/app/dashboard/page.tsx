@@ -31,10 +31,7 @@ import {
   ChevronRight, PlayCircle, Lightbulb, Target, ArrowRight, Pickaxe, Factory, ShoppingCart, Briefcase,
   Camera, Package
 } from "lucide-react"
-import { getIBSRate } from "@/lib/calculations"
 import { useSearchParams, useRouter } from "next/navigation"
-import { seedDemoForUser } from "@/lib/demo-seeder"
-import { toast } from "@/hooks/use-toast"
 import Link from "next/link"
 
 const REGULATORY_MILESTONES = [
@@ -65,9 +62,7 @@ export default function DashboardOverview() {
   const db = useFirestore()
   const { user } = useUser()
   const searchParams = useSearchParams()
-  const router = useRouter()
   const [mounted, setMounted] = React.useState(false)
-  const [isSeeding, setIsSeeding] = React.useState(false)
 
   React.useEffect(() => {
     setMounted(true)
@@ -94,8 +89,14 @@ export default function DashboardOverview() {
   }, [db, currentTenant?.id, user]);
   const { data: entries } = useCollection(entriesQuery);
 
-  const stats = React.useMemo(() => {
-    if (!entries || !mounted) return { ca: 0, tva: 0, charges: 0, count: 0 };
+  const { stats, monthlyData } = React.useMemo(() => {
+    const monthLabels = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
+    const chartData = monthLabels.map(m => ({ month: m, revenue: 0, expenses: 0 }));
+    
+    if (!entries || !mounted) return { 
+      stats: { ca: 0, tva: 0, charges: 0, count: 0 }, 
+      monthlyData: chartData 
+    };
     
     let caHT = 0;
     let tvaCollectee = 0;
@@ -103,38 +104,39 @@ export default function DashboardOverview() {
     let transactions = new Set();
 
     entries.forEach(entry => {
+      const entryDate = new Date(entry.entryDate);
+      const monthIdx = entryDate.getMonth();
+
       entry.lines.forEach((line: any) => {
         // Revenus (700, 701, 706 etc.)
         if (line.accountCode.startsWith('7')) {
-          caHT += line.credit - line.debit;
+          const val = (line.credit || 0) - (line.debit || 0);
+          caHT += val;
           transactions.add(entry.id);
+          if (monthIdx >= 0 && monthIdx < 12) chartData[monthIdx].revenue += val;
         }
         // Charges (Classe 6)
         if (line.accountCode.startsWith('6')) {
-          chargesHT += line.debit - line.credit;
+          const val = (line.debit || 0) - (line.credit || 0);
+          chargesHT += val;
+          if (monthIdx >= 0 && monthIdx < 12) chartData[monthIdx].expenses += val;
         }
         // TVA Collectée (4457)
         if (line.accountCode === '4457') {
-          tvaCollectee += line.credit - line.debit;
+          tvaCollectee += (line.credit || 0) - (line.debit || 0);
         }
       });
     });
 
-    return { ca: caHT, tva: tvaCollectee, charges: chargesHT, count: transactions.size };
+    return { 
+      stats: { ca: caHT, tva: tvaCollectee, charges: chargesHT, count: transactions.size }, 
+      monthlyData: chartData 
+    };
   }, [entries, mounted]);
 
   const formatAmount = (val: number) => mounted ? Math.round(val).toLocaleString() : "...";
 
-  const monthlyData = [
-    { month: "Jan", revenue: stats.ca * 0.1, expenses: stats.charges * 0.1 },
-    { month: "Feb", revenue: stats.ca * 0.15, expenses: stats.charges * 0.15 },
-    { month: "Mar", revenue: stats.ca * 0.2, expenses: stats.charges * 0.2 },
-    { month: "Apr", revenue: stats.ca * 0.25, expenses: stats.charges * 0.25 },
-    { month: "May", revenue: stats.ca * 0.3, expenses: stats.charges * 0.3 },
-    { month: "Jun", revenue: stats.ca, expenses: stats.charges },
-  ]
-
-  if (!mounted || isSeeding || isTenantsLoading) {
+  if (!mounted || isTenantsLoading) {
     return <div className="h-[80vh] flex flex-col items-center justify-center space-y-6"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>;
   }
 
@@ -162,7 +164,7 @@ export default function DashboardOverview() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {secteur === 'BTP' && (
           <Card className="bg-primary text-white border-none shadow-lg hover:scale-[1.02] transition-transform cursor-pointer" asChild>
             <Link href={`/dashboard/btp/projects?tenantId=${currentTenant?.id}`}>
@@ -214,12 +216,12 @@ export default function DashboardOverview() {
 
         <Card className="hover:shadow-md transition-shadow border-l-4 border-l-destructive bg-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Charges (Paie incl.)</CardTitle>
+            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Charges (Exploitation)</CardTitle>
             <TrendingDown className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatAmount(stats.charges)} DZD</div>
-            <p className="text-[10px] text-muted-foreground mt-1">Exploitation & Salaires.</p>
+            <p className="text-[10px] text-muted-foreground mt-1">Achats, Services & Paie.</p>
           </CardContent>
         </Card>
 
@@ -236,12 +238,12 @@ export default function DashboardOverview() {
 
         <Card className="bg-primary text-primary-foreground shadow-lg border-none">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold uppercase opacity-80">Prochain Audit IA</CardTitle>
+            <CardTitle className="text-xs font-bold uppercase opacity-80">G50 en cours</CardTitle>
             <BadgeCheck className="h-4 w-4" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-black">30 AVRIL</div>
-            <p className="text-[10px] mt-1 opacity-90 font-medium italic">Préparation Liasse G4</p>
+            <div className="text-2xl font-black">20 {new Intl.DateTimeFormat('fr-FR', { month: 'short' }).format(new Date()).toUpperCase()}</div>
+            <p className="text-[10px] mt-1 opacity-90 font-medium italic">Échéance fiscale</p>
           </CardContent>
         </Card>
       </div>
@@ -252,14 +254,18 @@ export default function DashboardOverview() {
             <CardTitle className="flex items-center gap-2 text-lg">
               <Activity className="h-5 w-5 text-primary" /> Analyse des Flux (HT)
             </CardTitle>
-            <CardDescription>Évolution des produits et charges sur l'exercice en cours.</CardDescription>
+            <CardDescription>Évolution réelle des produits et charges basée sur le Livre-Journal.</CardDescription>
           </CardHeader>
           <CardContent className="h-[350px] pt-6">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
                 <XAxis dataKey="month" axisLine={false} tickLine={false} />
-                <YAxis axisLine={false} tickLine={false} tickFormatter={(val) => `${val / 1000}k`} />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tickFormatter={(val) => val >= 1000 ? `${(val / 1000).toFixed(0)}k` : val} 
+                />
                 <Tooltip
                   cursor={{ fill: "hsl(var(--muted))", opacity: 0.4 }}
                   contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)" }}
@@ -302,8 +308,8 @@ export default function DashboardOverview() {
               </div>
             </CardContent>
             <CardFooter className="bg-muted/20 p-3 flex justify-center border-t">
-              <Button variant="ghost" size="sm" className="text-[10px] h-7 text-primary font-bold">
-                Consulter le Corpus Juridique (RAG)
+              <Button variant="ghost" size="sm" className="text-[10px] h-7 text-primary font-bold" asChild>
+                <Link href="/dashboard/assistant">Consulter le Corpus Juridique (RAG)</Link>
               </Button>
             </CardFooter>
           </Card>
