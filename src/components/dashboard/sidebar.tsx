@@ -64,7 +64,8 @@ import {
   PieChart,
   Fuel,
   FlaskConical,
-  Stethoscope
+  Stethoscope,
+  ChevronRight
 } from "lucide-react"
 
 import {
@@ -148,6 +149,13 @@ const healthNav = [
   { name: "Traçabilité Lots", href: "/dashboard/health/lots", icon: FlaskConical },
   { name: "Dossiers Patient", icon: Stethoscope, href: "#" },
   { name: "Registre Psychotropes", icon: ShieldAlert, href: "#" },
+]
+
+// Menu Inventaire
+const inventoryNav = [
+  { name: "Catalogue Articles", href: "/dashboard/inventory/stock", icon: Boxes },
+  { name: "Sessions d'Inventaire", href: "/dashboard/inventory", icon: ClipboardCheck },
+  { name: "Registre des Actifs", href: "/dashboard/accounting/assets", icon: Package },
 ]
 
 // Menu Achats
@@ -242,7 +250,6 @@ export function DashboardSidebar() {
     if (!db || !user || !newTenantData.raisonSociale) return;
     setIsCreating(true);
 
-    // 1. Génération synchrone de la référence pour éviter le gel
     const tenantsColRef = collection(db, "tenants");
     const newTenantRef = doc(tenantsColRef);
     const tenantId = newTenantRef.id;
@@ -259,13 +266,9 @@ export function DashboardSidebar() {
     };
 
     try {
-      // 2. Écriture non-bloquante
       setDocumentNonBlocking(newTenantRef, tenantData, { merge: true });
-      
-      // 3. Navigation immédiate (Optimiste)
       setIsCreateDialogOpen(false);
       handleTenantSelect(tenantId);
-      
       toast({ 
         title: "Dossier initialisé", 
         description: `Le dossier ${newTenantData.raisonSociale} est prêt.` 
@@ -362,6 +365,8 @@ export function DashboardSidebar() {
         <NavGroup label="Gestion Chantiers" items={btpNav} visible={secteur === "BTP"} />
         <NavGroup label="Production" items={industryNav} visible={secteur === "INDUSTRIE"} />
         <NavGroup label="Gestion Santé" items={healthNav} visible={secteur === "SANTE"} />
+
+        <NavGroup label="Stocks & Patrimoine" items={inventoryNav} visible={secteur !== "SERVICES" && secteur !== "PRO_LIBERALE"} />
 
         <NavGroup label="Achats & Dépenses" items={purchaseNav} visible={secteur !== "PRO_LIBERALE"} />
         <NavGroup label="Comptabilité SCF" items={accountingNav} />
