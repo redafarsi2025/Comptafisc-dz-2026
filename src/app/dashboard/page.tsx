@@ -172,8 +172,8 @@ export default function DashboardOverview() {
                   <h4 className="font-bold text-sm">Nouveau Chantier</h4>
                   <p className="text-[10px] opacity-70">Ouvrir un nouveau dossier de projet</p>
                 </div>
-              </Link>
-            </CardContent>
+              </CardContent>
+            </Link>
           </Card>
         )}
         <Card className="bg-slate-900 text-white border-none shadow-lg hover:scale-[1.02] transition-transform cursor-pointer" asChild>
