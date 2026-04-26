@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { 
   Boxes, Plus, Search, Filter, 
   TrendingUp, TrendingDown, Loader2, PackageSearch,
-  Zap, Calculator, AlertTriangle, ShieldCheck, Tag, Info, Truck, Warehouse
+  Zap, Calculator, AlertTriangle, ShieldCheck, Tag, Info, Truck, Warehouse, Save
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"

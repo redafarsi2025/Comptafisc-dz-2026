@@ -251,6 +251,7 @@ export function DashboardSidebar() {
   if (!mounted) return null;
 
   return (
+    <>
     <Sidebar variant="sidebar" collapsible="icon" className="border-r border-sidebar-border/50">
       <SidebarHeader className="bg-sidebar p-4">
         <SidebarMenu>
@@ -286,59 +287,9 @@ export function DashboardSidebar() {
                   </DropdownMenuItem>
                 ))}
                 <DropdownMenuSeparator />
-                
-                <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                  <DialogTrigger asChild>
-                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer font-bold text-primary text-xs flex items-center gap-2">
-                      <PlusCircle className="h-4 w-4" /> Nouveau Dossier
-                    </DropdownMenuItem>
-                  </DialogTrigger>
-                  <DialogContent onPointerDownOutside={(e) => e.preventDefault()}>
-                    <DialogHeader>
-                      <DialogTitle>Créer un nouveau dossier</DialogTitle>
-                      <DialogDescription>Configurez les paramètres de base de l'entreprise.</DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="raisonSociale">Raison Sociale</Label>
-                        <Input 
-                          id="raisonSociale"
-                          placeholder="Ex: SARL Ma Nouvelle Entreprise" 
-                          value={newTenantData.raisonSociale}
-                          onChange={e => setNewTenantData({...newTenantData, raisonSociale: e.target.value})}
-                          autoFocus
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="grid gap-2">
-                          <Label>Forme Juridique</Label>
-                          <Select value={newTenantData.formeJuridique} onValueChange={v => setNewTenantData({...newTenantData, formeJuridique: v})}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              {["SARL", "SPA", "EURL", "SNC", "EI", "Auto-entrepreneur"].map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="grid gap-2">
-                          <Label>Régime Fiscal</Label>
-                          <Select value={newTenantData.regimeFiscal} onValueChange={v => setNewTenantData({...newTenantData, regimeFiscal: v})}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="IFU">IFU (Forfaitaire)</SelectItem>
-                              <SelectItem value="REGIME_REEL">Régime du Réel</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button onClick={handleCreateTenant} disabled={isCreating || !newTenantData.raisonSociale} className="w-full">
-                        {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-                        Créer le dossier
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                <DropdownMenuItem onClick={() => setIsCreateDialogOpen(true)} className="cursor-pointer font-bold text-primary text-xs flex items-center gap-2">
+                  <PlusCircle className="h-4 w-4" /> Nouveau Dossier
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>
@@ -416,5 +367,54 @@ export function DashboardSidebar() {
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
+
+    <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Créer un nouveau dossier</DialogTitle>
+          <DialogDescription>Configurez les paramètres de base de l'entreprise.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label htmlFor="raisonSociale">Raison Sociale</Label>
+            <Input 
+              id="raisonSociale"
+              placeholder="Ex: SARL Ma Nouvelle Entreprise" 
+              value={newTenantData.raisonSociale}
+              onChange={e => setNewTenantData({...newTenantData, raisonSociale: e.target.value})}
+              autoFocus
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label>Forme Juridique</Label>
+              <Select value={newTenantData.formeJuridique} onValueChange={v => setNewTenantData({...newTenantData, formeJuridique: v})}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {["SARL", "SPA", "EURL", "SNC", "EI", "Auto-entrepreneur"].map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label>Régime Fiscal</Label>
+              <Select value={newTenantData.regimeFiscal} onValueChange={v => setNewTenantData({...newTenantData, regimeFiscal: v})}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="IFU">IFU (Forfaitaire)</SelectItem>
+                  <SelectItem value="REGIME_REEL">Régime du Réel</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button onClick={handleCreateTenant} disabled={isCreating || !newTenantData.raisonSociale} className="w-full">
+            {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+            Créer le dossier
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   )
 }
