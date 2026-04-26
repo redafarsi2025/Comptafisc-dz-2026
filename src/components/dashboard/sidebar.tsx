@@ -44,7 +44,9 @@ import {
   CreditCard,
   History,
   FileSearch,
-  Plus
+  Plus,
+  Undo2,
+  FileMinus
 } from "lucide-react"
 
 import {
@@ -107,6 +109,8 @@ const purchaseNav = [
   { name: "Bons de Commande", href: "/dashboard/purchases/orders", icon: FileSearch },
   { name: "Bons de Réception", href: "/dashboard/purchases/receptions", icon: Truck },
   { name: "Factures Fournisseurs", href: "/dashboard/purchases/invoices", icon: Receipt },
+  { name: "Retours Fournisseurs", href: "/dashboard/purchases/returns", icon: Undo2 },
+  { name: "Avoirs Fournisseurs", href: "/dashboard/purchases/credit-notes", icon: FileMinus },
   { name: "Règlements", href: "/dashboard/purchases/payments", icon: CreditCard },
 ]
 

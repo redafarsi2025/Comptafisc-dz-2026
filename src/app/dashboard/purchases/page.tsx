@@ -9,7 +9,8 @@ import { Progress } from "@/components/ui/progress"
 import { 
   ShoppingCart, ShieldCheck, CheckCircle2, 
   ArrowRight, Calculator, FileSearch, Truck, 
-  Receipt, CreditCard, Sparkles, AlertCircle, TrendingDown
+  Receipt, CreditCard, Sparkles, AlertCircle, TrendingDown,
+  Undo2, FileMinus, Plus
 } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
@@ -23,6 +24,7 @@ export default function PurchasesWorkflowHub() {
     { name: "Bon de Commande", icon: FileSearch, desc: "Engagement ferme fournisseur.", href: "/dashboard/purchases/orders", status: "Action Requise" },
     { name: "Réception (BR)", icon: Truck, desc: "Contrôle physique des marchandises.", href: "/dashboard/purchases/receptions", status: "En cours" },
     { name: "Contrôle Facture", icon: Receipt, desc: "3-Way Matching BC/BR/Facture.", href: "/dashboard/purchases/invoices", status: "À venir" },
+    { name: "Retour / Avoir", icon: Undo2, desc: "Gestion des non-conformités.", href: "/dashboard/purchases/returns", status: "Optionnel" },
     { name: "Règlement", icon: CreditCard, desc: "Paiement et lettrage SCF.", href: "/dashboard/purchases/payments", status: "À venir" },
   ]
 
@@ -44,7 +46,7 @@ export default function PurchasesWorkflowHub() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
         {steps.map((step, idx) => (
           <Card key={idx} className="relative group hover:shadow-xl transition-all border-t-4 border-t-primary overflow-hidden">
             <CardHeader className="p-4">
