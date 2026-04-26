@@ -3,7 +3,7 @@
 
 import * as React from "react"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, query, orderBy, limit } from "firebase/firestore"
+import { collection, query, where, orderBy, limit } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table"
@@ -102,7 +102,6 @@ export default function Etat104Page() {
               {new Set(filteredInvoices.map(i => i.clientId)).size} tiers
             </div>
           </CardContent>
-        </Card>
         <Card className="bg-slate-900 text-white border-none shadow-2xl relative overflow-hidden flex flex-col justify-center px-6 py-2">
           <div className="absolute top-0 right-0 p-4 opacity-10"><ShieldCheck className="h-16 w-16 text-accent" /></div>
           <p className="text-[10px] uppercase font-black text-accent tracking-widest mb-1 relative">Statut Audit</p>
