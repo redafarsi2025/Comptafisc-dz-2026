@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
+import { cn } from "@/lib/utils"
 
 export default function LogisticsDashboard() {
   const db = useFirestore()
