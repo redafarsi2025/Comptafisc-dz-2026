@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -7,11 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Switch } from "@/components/ui/switch"
 import { 
   Layers, Plus, Save, Trash2, Edit3, Check, X, 
-  Info, Users as UsersIcon, Database, Zap, RefreshCcw, Sparkles, FileText, Loader2
+  Info, Users as UsersIcon, Database, Zap, RefreshCcw, Sparkles, 
+  FileText, Loader2, CheckCircle2, AlertCircle, HardHat, TrendingUp
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -120,21 +121,31 @@ export default function PlansManagement() {
     setCurrentPlan({ ...currentPlan, modules: { ...currentPlan.modules, [moduleKey]: nextStatus } });
   }
 
+  const getPlanColor = (planId: string) => {
+    switch (planId) {
+      case 'GRATUIT': return 'border-t-slate-400';
+      case 'ESSENTIEL': return 'border-t-blue-500';
+      case 'PRO': return 'border-t-emerald-500';
+      case 'CABINET': return 'border-t-purple-600';
+      default: return 'border-t-primary';
+    }
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-primary flex items-center gap-3">
-            <Layers className="text-accent h-8 w-8" /> Gestion des Offres
+            <Layers className="text-accent h-8 w-8" /> Catalogue Commercial
           </h1>
-          <p className="text-muted-foreground">Paramétrage des briques fonctionnelles et des limites tarifaires.</p>
+          <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-[0.2em]">Pilotage des offres et briques fonctionnelles</p>
         </div>
         <div className="flex gap-2">
           <Button 
             variant="outline" 
             onClick={handleInitializePlans} 
             disabled={isInitializing}
-            className="border-primary text-primary hover:bg-primary/5"
+            className="border-primary text-primary hover:bg-primary/5 h-11 px-6 rounded-2xl"
           >
             {isInitializing ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -145,7 +156,7 @@ export default function PlansManagement() {
           </Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-primary shadow-lg"><Plus className="mr-2 h-4 w-4" /> Créer un Plan</Button>
+              <Button className="bg-primary shadow-lg h-11 px-6 rounded-2xl font-bold"><Plus className="mr-2 h-4 w-4" /> Créer un Plan</Button>
             </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
@@ -194,74 +205,121 @@ export default function PlansManagement() {
         </div>
       </div>
 
-      <Card className="shadow-md border-none overflow-hidden">
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader className="bg-muted/50">
-              <TableRow>
-                <TableHead>Plan</TableHead>
-                <TableHead>Tarif</TableHead>
-                <TableHead>Modules Actifs</TableHead>
-                <TableHead>Limites</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-12"><Loader2 className="animate-spin h-6 w-6 mx-auto text-muted-foreground" /></TableCell></TableRow>
-              ) : !plans?.length ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-12 text-muted-foreground italic">Aucun plan configuré. Utilisez le bouton "Synchroniser" pour commencer.</TableCell></TableRow>
-              ) : plans?.map((p) => (
-                <TableRow key={p.id} className="hover:bg-muted/30">
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-bold">{p.name}</span>
-                      <span className="text-[10px] font-mono text-muted-foreground uppercase">{p.id}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-lg font-black">{p.price.toLocaleString()}</span> 
-                    <span className="text-[10px] text-muted-foreground ml-1">{p.period}</span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1 max-w-[300px]">
-                      {Object.entries(p.modules).filter(([_, s]) => s === 'included').map(([k]) => (
-                        <Badge key={k} variant="secondary" className="text-[8px] bg-emerald-100 text-emerald-700 border-emerald-200">
-                          {MODULES.find(m => m.key === k)?.label || k}
-                        </Badge>
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col gap-1 text-[10px] text-muted-foreground">
-                      <div className="flex items-center gap-1"><UsersIcon className="h-3 w-3" /> {p.limits?.users} Utilisateurs</div>
-                      <div className="flex items-center gap-1"><FileText className="h-3 w-3" /> {p.limits?.invoices} Factures</div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => { setEditingPlan(p); setCurrentPlan(p); setIsDialogOpen(true); }}>
-                        <Edit3 className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => deleteDocumentNonBlocking(doc(db, "plans", p.id))}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-32 space-y-4">
+          <Loader2 className="h-12 w-12 animate-spin text-primary opacity-20" />
+          <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Chargement du catalogue...</p>
+        </div>
+      ) : !plans?.length ? (
+        <Card className="border-dashed border-2 py-32 text-center bg-white rounded-3xl">
+          <CardContent className="flex flex-col items-center gap-4">
+            <Layers className="h-16 w-16 text-muted-foreground opacity-10" />
+            <div className="space-y-1">
+              <h3 className="text-xl font-bold">Catalogue vide</h3>
+              <p className="text-sm text-muted-foreground">Utilisez le bouton "Synchroniser" pour charger les offres par défaut.</p>
+            </div>
+            <Button variant="outline" onClick={handleInitializePlans} className="mt-4 rounded-2xl">Lancer la synchronisation</Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {plans.map((p) => (
+            <Card key={p.id} className={`flex flex-col bg-white border-none shadow-xl ring-1 ring-border rounded-3xl overflow-hidden hover:shadow-2xl transition-all border-t-8 ${getPlanColor(p.id)} group`}>
+              <CardHeader className="pb-6">
+                <div className="flex justify-between items-start mb-2">
+                  <Badge variant="outline" className="text-[8px] font-black uppercase tracking-widest border-primary/20 text-primary">{p.id}</Badge>
+                  {!p.isActive && <Badge variant="destructive" className="text-[8px] h-4">INACTIF</Badge>}
+                </div>
+                <CardTitle className="text-2xl font-black text-slate-900 tracking-tighter uppercase">{p.name}</CardTitle>
+                <div className="flex items-baseline gap-1 mt-2">
+                  <span className="text-3xl font-black text-primary">{p.price === 0 ? "GRATUIT" : p.price.toLocaleString()}</span>
+                  {p.price > 0 && <span className="text-[10px] font-bold text-muted-foreground uppercase">{p.period}</span>}
+                </div>
+                <CardDescription className="text-xs mt-4 line-clamp-2 min-h-[32px]">{p.description}</CardDescription>
+              </CardHeader>
 
-      <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-4">
-        <Info className="h-6 w-6 text-blue-600 shrink-0" />
+              <CardContent className="flex-1 space-y-6 pt-4 border-t border-slate-50">
+                <div className="space-y-3">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Capacités & Limites</p>
+                  <div className="grid gap-2">
+                    <div className="flex items-center justify-between p-2 bg-slate-50 rounded-xl border border-slate-100">
+                      <div className="flex items-center gap-2 text-[10px] font-bold">
+                        <UsersIcon className="h-3 w-3 text-blue-500" /> Utilisateurs
+                      </div>
+                      <span className="text-[10px] font-black">{p.limits?.users || '1'}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-2 bg-slate-50 rounded-xl border border-slate-100">
+                      <div className="flex items-center gap-2 text-[10px] font-bold">
+                        <FileText className="h-3 w-3 text-emerald-500" /> Factures / mois
+                      </div>
+                      <span className="text-[10px] font-black">{p.limits?.invoices || '15'}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-2 bg-slate-50 rounded-xl border border-slate-100">
+                      <div className="flex items-center gap-2 text-[10px] font-bold">
+                        <Database className="h-3 w-3 text-amber-500" /> Stockage
+                      </div>
+                      <span className="text-[10px] font-black">{p.limits?.storage || '500 MB'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Modules de l'offre</p>
+                  <div className="grid gap-1.5 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                    {Object.entries(p.modules).map(([key, status]) => {
+                      const mod = MODULES.find(m => m.key === key);
+                      if (status === 'excluded') return null;
+                      return (
+                        <div key={key} className="flex items-center gap-2 text-[10px]">
+                          {status === 'included' ? (
+                            <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
+                          ) : (
+                            <AlertCircle className="h-3 w-3 text-amber-500 shrink-0" />
+                          )}
+                          <span className="font-medium truncate">{mod?.label || key}</span>
+                        </div>
+                      );
+                    })}
+                    {Object.values(p.modules).every(s => s === 'excluded') && (
+                      <p className="text-[10px] text-muted-foreground italic">Aucun module spécifique.</p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+
+              <CardFooter className="bg-slate-50 border-t p-4 flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex-1 rounded-xl font-bold h-9 bg-white"
+                  onClick={() => { setEditingPlan(p); setCurrentPlan(p); setIsDialogOpen(true); }}
+                >
+                  <Edit3 className="h-3 w-3 mr-2" /> Éditer
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="rounded-xl h-9 w-9 text-slate-400 hover:text-destructive hover:bg-destructive/5"
+                  onClick={() => deleteDocumentNonBlocking(doc(db, "plans", p.id))}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <div className="p-6 bg-blue-50 border border-blue-100 rounded-3xl flex items-start gap-4">
+        <div className="h-10 w-10 rounded-2xl bg-white border border-blue-200 flex items-center justify-center shrink-0 shadow-sm">
+          <Info className="h-5 w-5 text-blue-600" />
+        </div>
         <div className="text-xs text-blue-900 leading-relaxed">
-          <p className="font-bold uppercase mb-1">Architecture Commerciale :</p>
-          <p>
-            La modification des plans ici affecte instantanément ce que voient les clients sur la landing page et dans leurs paramètres d'abonnement. 
-            Utilisez la **Synchronisation depuis Source** pour réinitialiser le catalogue selon les spécifications par défaut du projet.
+          <p className="font-bold uppercase tracking-tight mb-1">Architecture Commerciale & Multi-tenancy :</p>
+          <p className="opacity-80">
+            Les plans configurés ici définissent les barrières logicielles pour chaque dossier client. 
+            Le passage d'un module du statut <strong>"Inclus"</strong> à <strong>"Exclu"</strong> désactive instantanément la fonctionnalité correspondante dans le dashboard de l'abonné. 
+            Toute modification est tracée dans l'historique d'audit du Command Center.
           </p>
         </div>
       </div>
