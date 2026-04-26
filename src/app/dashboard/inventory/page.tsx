@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -19,6 +18,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useSearchParams, useRouter } from "next/navigation"
 import { toast } from "@/hooks/use-toast"
+import Link from "next/link"
 
 export default function InventoryDashboard() {
   const db = useFirestore()
