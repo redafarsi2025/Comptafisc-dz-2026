@@ -353,11 +353,10 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
                 <Link href={currentTenant ? `/dashboard/settings?tenantId=${currentTenant.id}` : "/dashboard/settings"}>
                   <Settings /><span>{t.Navigation.settings}</span>
                 </Link>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarGroup>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border/50 p-4 bg-sidebar-accent/30">
