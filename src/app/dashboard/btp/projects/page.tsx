@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge"
 import { 
   Pickaxe, Plus, Search, MapPin, 
   Calendar, Users, HardHat, TrendingUp,
-  Clock, CheckCircle2, AlertTriangle, Loader2
+  Clock, CheckCircle2, AlertTriangle, Loader2,
+  ChevronRight
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useSearchParams } from "next/navigation"
@@ -49,19 +50,27 @@ export default function BtpProjectsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="border-l-4 border-l-primary shadow-sm bg-white">
-          <CardHeader className="pb-2"><CardTitle className="text-[10px] uppercase font-bold text-muted-foreground">Chantiers Actifs</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-[10px] uppercase font-bold text-muted-foreground">Chantiers Actifs</CardTitle>
+          </CardHeader>
           <CardContent><div className="text-2xl font-black text-primary">{projects?.length || 0}</div></CardContent>
         </Card>
         <Card className="border-l-4 border-l-emerald-500 shadow-sm bg-white">
-          <CardHeader className="pb-2"><CardTitle className="text-[10px] uppercase font-bold text-muted-foreground">Avancement Moyen</CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-[10px] uppercase font-bold text-muted-foreground">Avancement Moyen</CardTitle>
+          </CardHeader>
           <CardContent><div className="text-2xl font-black text-emerald-600">64%</div></CardContent>
         </Card>
         <Card className="border-l-4 border-l-amber-500 shadow-sm bg-white">
-          <CardHeader className="pb-2"><CardTitle className="text-[10px] uppercase font-bold text-muted-foreground">Alertes Délais</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-[10px] uppercase font-bold text-muted-foreground">Alertes Délais</CardTitle>
+          </CardHeader>
           <CardContent><div className="text-2xl font-black text-amber-600">2</div></CardContent>
         </Card>
         <Card className="bg-slate-900 text-white border-none shadow-lg">
-          <CardHeader className="pb-2"><CardTitle className="text-[10px] uppercase font-bold opacity-70">Budget Engagé Total</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-[10px] uppercase font-bold opacity-70">Budget Engagé Total</CardTitle>
+          </CardHeader>
           <CardContent><div className="text-xl font-bold">45.2M DA</div></CardContent>
         </Card>
       </div>
@@ -120,24 +129,5 @@ export default function BtpProjectsPage() {
         )}
       </div>
     </div>
-  )
-}
-
-function ChevronRight(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m9 18 6-6-6-6" />
-    </svg>
   )
 }
