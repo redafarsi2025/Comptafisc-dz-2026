@@ -468,7 +468,7 @@ export default function ProjectDetailPage() {
               <div className="p-6 bg-slate-900 text-white rounded-3xl flex items-start gap-4">
                 <Info className="h-6 w-6 text-accent shrink-0" />
                 <div className="text-[11px] leading-relaxed opacity-80 italic">
-                  "L'ICD (Indice de Consommation du Délai) = % Avancement Physique / % Temps Écoulé. Un ICD < 1.0 signifie que le temps s'écoule plus vite que les briques ne montent."
+                  "L'ICD (Indice de Consommation du Délai) = % Avancement Physique / % Temps Écoulé. Un ICD &lt; 1.0 signifie que le temps s'écoule plus vite que les briques ne montent."
                 </div>
               </div>
             </div>
