@@ -67,7 +67,8 @@ import {
   Stethoscope,
   ChevronRight,
   Wrench,
-  FilePlus
+  FilePlus,
+  TableProperties
 } from "lucide-react"
 
 import {
@@ -195,6 +196,7 @@ const payrollNav = [
 
 const fiscalNav = [
   { name: "Déclarations (G50/G12)", href: "/dashboard/declarations", icon: FileText },
+  { name: "État 104 (Ventes)", href: "/dashboard/declarations/etat104", icon: TableProperties },
   { name: "Liasse Fiscale (G4)", href: "/dashboard/declarations/g4", icon: FileText },
 ]
 
