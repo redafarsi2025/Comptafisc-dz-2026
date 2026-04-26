@@ -32,6 +32,7 @@ import {
   FilePlus,
   TableProperties,
   PlusCircle,
+  Plus,
   Loader2,
   LifeBuoy,
   Boxes,
