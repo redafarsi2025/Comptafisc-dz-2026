@@ -163,7 +163,7 @@ export default function DashboardOverview() {
               <CardContent className="p-6 flex items-center gap-4">
                 <div className="h-12 w-12 rounded-2xl bg-white/20 flex items-center justify-center"><Factory className="h-6 w-6 text-white" /></div>
                 <div>
-                  <h4 className="font-bold text-sm">Lancer un O.F.</h4>
+                  <h4 className="font-bold text-sm">Lancer un O.F..</h4>
                   <p className="text-[10px] opacity-70">Initialiser un ordre de fabrication</p>
                 </div>
               </CardContent>
@@ -249,7 +249,7 @@ export default function DashboardOverview() {
               <Activity className="h-5 w-5 text-primary" /> Analyse des Flux (HT)
             </CardTitle>
             <CardDescription>Évolution des produits et charges sur l'exercice en cours.</CardDescription>
-          </header>
+          </CardHeader>
           <CardContent className="h-[350px] pt-6">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthlyData}>
