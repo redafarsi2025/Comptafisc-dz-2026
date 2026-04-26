@@ -29,7 +29,7 @@ import {
   TrendingUp, TrendingDown, ArrowUpRight, BadgeCheck, 
   CheckCircle2, Activity, Sparkles, Landmark, History, ShieldCheck, Zap, Loader2,
   ChevronRight, PlayCircle, Lightbulb, Target, ArrowRight, Pickaxe, Factory, ShoppingCart, Briefcase,
-  Camera, Package
+  Camera, Package, Landmark as BuildingIcon
 } from "lucide-react"
 import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -89,6 +89,17 @@ export default function DashboardOverview() {
   }, [db, currentTenant?.id, user]);
   const { data: entries } = useCollection(entriesQuery);
 
+  const assetsQuery = useMemoFirebase(() => {
+    if (!db || !currentTenant) return null;
+    return collection(db, "tenants", currentTenant.id, "assets");
+  }, [db, currentTenant?.id]);
+  const { data: assets } = useCollection(assetsQuery);
+
+  const totalAssetsValue = React.useMemo(() => {
+    if (!assets) return 0;
+    return assets.reduce((sum, a) => sum + (a.acquisitionValue || 0), 0);
+  }, [assets]);
+
   const { stats, monthlyData } = React.useMemo(() => {
     const monthLabels = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
     const chartData = monthLabels.map(m => ({ month: m, revenue: 0, expenses: 0 }));
@@ -108,20 +119,17 @@ export default function DashboardOverview() {
       const monthIdx = entryDate.getMonth();
 
       entry.lines.forEach((line: any) => {
-        // Revenus (700, 701, 706 etc.)
         if (line.accountCode.startsWith('7')) {
           const val = (line.credit || 0) - (line.debit || 0);
           caHT += val;
           transactions.add(entry.id);
           if (monthIdx >= 0 && monthIdx < 12) chartData[monthIdx].revenue += val;
         }
-        // Charges (Classe 6)
         if (line.accountCode.startsWith('6')) {
           const val = (line.debit || 0) - (line.credit || 0);
           chargesHT += val;
           if (monthIdx >= 0 && monthIdx < 12) chartData[monthIdx].expenses += val;
         }
-        // TVA Collectée (4457)
         if (line.accountCode === '4457') {
           tvaCollectee += (line.credit || 0) - (line.debit || 0);
         }
@@ -174,8 +182,8 @@ export default function DashboardOverview() {
                   <h4 className="font-bold text-sm">Nouveau Chantier</h4>
                   <p className="text-[10px] opacity-70">Ouvrir un nouveau dossier de projet</p>
                 </div>
-              </CardContent>
-            </Link>
+              </Link>
+            </CardContent>
           </Card>
         )}
         <Card className="bg-slate-900 text-white border-none shadow-lg hover:scale-[1.02] transition-transform cursor-pointer" asChild>
@@ -186,8 +194,8 @@ export default function DashboardOverview() {
                 <h4 className="font-bold text-sm">Scan Facture IA</h4>
                 <p className="text-[10px] opacity-70">Capture intelligente OCR Gemini</p>
               </div>
-            </CardContent>
-          </Link>
+            </Link>
+          </CardContent>
         </Card>
         <Card className="border-none shadow-lg hover:scale-[1.02] transition-transform cursor-pointer bg-white" asChild>
           <Link href={`/dashboard/inventory/stock?tenantId=${currentTenant?.id}`}>
@@ -197,8 +205,8 @@ export default function DashboardOverview() {
                 <h4 className="font-bold text-sm">Gestion de Stock</h4>
                 <p className="text-[10px] opacity-70">Contrôler l'état des références</p>
               </div>
-            </CardContent>
-          </Link>
+            </Link>
+          </CardContent>
         </Card>
       </div>
 
@@ -216,7 +224,7 @@ export default function DashboardOverview() {
 
         <Card className="hover:shadow-md transition-shadow border-l-4 border-l-destructive bg-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Charges (Exploitation)</CardTitle>
+            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Charges (Paie incl.)</CardTitle>
             <TrendingDown className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
@@ -236,14 +244,14 @@ export default function DashboardOverview() {
           </CardContent>
         </Card>
 
-        <Card className="bg-primary text-primary-foreground shadow-lg border-none">
+        <Card className="hover:shadow-md transition-shadow border-l-4 border-l-blue-400 bg-blue-50/10">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold uppercase opacity-80">G50 en cours</CardTitle>
-            <BadgeCheck className="h-4 w-4" />
+            <CardTitle className="text-xs font-bold uppercase text-blue-800">Valeur Patrimoine</CardTitle>
+            <BuildingIcon className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-black">20 {new Intl.DateTimeFormat('fr-FR', { month: 'short' }).format(new Date()).toUpperCase()}</div>
-            <p className="text-[10px] mt-1 opacity-90 font-medium italic">Échéance fiscale</p>
+            <div className="text-2xl font-bold text-blue-700">{formatAmount(totalAssetsValue)} DZD</div>
+            <p className="text-[10px] text-blue-600 mt-1 uppercase font-bold">Investissements (Classe 2)</p>
           </CardContent>
         </Card>
       </div>

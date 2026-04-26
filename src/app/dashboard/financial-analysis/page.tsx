@@ -18,7 +18,7 @@ import {
   TrendingUp, Activity, Landmark, Wallet, AlertTriangle, 
   ShieldCheck, ArrowUpRight, Scale, Calculator, PieChart,
   BarChart3, HeartPulse, Zap, Info, Loader2, Lightbulb, Target, ArrowRight,
-  TrendingDown, CheckCircle2, Sparkles, ScrollText
+  TrendingDown, CheckCircle2, Sparkles, ScrollText, Building2
 } from "lucide-react"
 import { calculateBFR, calculateLiquidityRatio, calculateCAF } from "@/lib/calculations"
 import { useSearchParams } from "next/navigation"
@@ -55,6 +55,12 @@ export default function FinancialAnalysisPage() {
   }, [db, currentTenant?.id]);
   const { data: entries, isLoading } = useCollection(entriesQuery);
 
+  const assetsQuery = useMemoFirebase(() => {
+    if (!db || !currentTenant) return null;
+    return collection(db, "tenants", currentTenant.id, "assets");
+  }, [db, currentTenant?.id]);
+  const { data: assets } = useCollection(assetsQuery);
+
   const analysis = React.useMemo(() => {
     if (!entries) return null;
     const balances: Record<string, number> = {};
@@ -69,12 +75,12 @@ export default function FinancialAnalysisPage() {
       .filter(([code]) => code.startsWith(prefix))
       .reduce((sum, [, val]) => sum + val, 0);
 
+    const fixedAssets = assets?.reduce((sum, a) => sum + (a.acquisitionValue || 0), 0) || getBalance('2');
     const stocks = Math.abs(getBalance('3'));
     const receivables = Math.abs(getBalance('41'));
     const payables = Math.abs(getBalance('40'));
     const cash = Math.abs(getBalance('512') + getBalance('53'));
     
-    // TVA
     const tva_collectee = Math.abs(getBalance('4457'));
     const tva_deductible = Math.abs(getBalance('4456'));
 
@@ -95,11 +101,11 @@ export default function FinancialAnalysisPage() {
     const margo = revenue > 0 ? (netProfit / revenue) * 100 : 0;
 
     return { 
-      stocks, receivables, payables, cash, bfr, liquidity, 
+      fixedAssets, stocks, receivables, payables, cash, bfr, liquidity, 
       revenue, netProfit, margo, currentAssets, currentLiabilities,
       tva_collectee, tva_deductible
     };
-  }, [entries]);
+  }, [entries, assets]);
 
   const handleGeneratePlan = async () => {
     if (!analysis || !currentTenant) return;
@@ -114,7 +120,7 @@ export default function FinancialAnalysisPage() {
           cash: analysis.cash,
           tva_collectee: analysis.tva_collectee,
           tva_deductible: analysis.tva_deductible,
-          investissements: 0, 
+          investissements: analysis.fixedAssets, 
           secteur: currentTenant.secteurActivite,
           statut: currentTenant.regimeFiscal
         }
@@ -191,7 +197,7 @@ export default function FinancialAnalysisPage() {
             </p>
             <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100">
                <p className="text-[11px] text-emerald-800 italic">
-                 "Note Moteur : Le réinvestissement de 20% du bénéfice avant fin 2026 optimiserait votre IBS de {Math.round((analysis?.netProfit || 0) * 0.05).toLocaleString()} DA."
+                 "Note Moteur : Les investissements de {analysis?.fixedAssets.toLocaleString()} DA génèrent des amortissements déductibles optimisant votre IBS."
                </p>
             </div>
           </CardContent>
@@ -205,22 +211,22 @@ export default function FinancialAnalysisPage() {
         <Card className="border-none shadow-xl ring-1 ring-border bg-white border-t-4 border-t-blue-500">
           <CardHeader>
             <CardTitle className="text-xs font-black uppercase tracking-widest text-blue-600 flex items-center gap-2">
-              <Target className="h-4 w-4" /> Performance Commerciale
+              <Target className="h-4 w-4" /> Structure du Patrimoine
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm font-medium leading-relaxed">
-              La rotation de vos stocks est sous surveillance.
+              Actifs Immobilisés : <span className="text-blue-600 font-bold">{analysis?.fixedAssets.toLocaleString()} DA</span>.
             </p>
             <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
                <p className="text-[11px] text-blue-800 italic">
-                 "Benchmark SEAD : Votre rotation est 12% plus lente que la moyenne du secteur {currentTenant?.secteurActivite}. Action recommandée : Liquidation stocks lents."
+                 "Analyse : Votre ratio d'intensité capitalistique est stable. Envisagez le renouvellement du matériel usagé pour bénéficier des avantages fiscaux 2026."
                </p>
             </div>
           </CardContent>
           <CardFooter>
             <Button variant="ghost" className="w-full text-blue-600 font-black uppercase tracking-widest text-[10px] h-8">
-              Analyser stocks lents <ArrowRight className="ml-2 h-3 w-3" />
+              Voir registre immo <ArrowRight className="ml-2 h-3 w-3" />
             </Button>
           </CardFooter>
         </Card>
@@ -303,15 +309,15 @@ export default function FinancialAnalysisPage() {
       <div className="grid grid-cols-1 lg:grid-cols-7 gap-8">
         <Card className="lg:col-span-4 shadow-2xl border-none ring-1 ring-border overflow-hidden bg-white">
           <CardHeader className="bg-slate-50 border-b border-slate-100 p-6">
-            <CardTitle className="text-lg font-black uppercase tracking-tighter text-slate-900">Structure du BFR & Liquidité</CardTitle>
-            <CardDescription className="text-[10px] font-bold uppercase text-slate-400">Équilibre des emplois et ressources d'exploitation</CardDescription>
+            <CardTitle className="text-lg font-black uppercase tracking-tighter text-slate-900">Structure du BFR & Patrimoine</CardTitle>
+            <CardDescription className="text-[10px] font-bold uppercase text-slate-400">Équilibre des emplois et ressources (Bilan Simplifié)</CardDescription>
           </CardHeader>
           <CardContent className="h-[350px] p-8">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={[
+                { name: 'Immos (Actif)', value: analysis?.fixedAssets },
                 { name: 'Stocks', value: analysis?.stocks },
                 { name: 'Clients', value: analysis?.receivables },
-                { name: 'Fournisseurs', value: analysis?.payables },
                 { name: 'Trésorerie', value: analysis?.cash },
               ]}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
@@ -345,8 +351,8 @@ export default function FinancialAnalysisPage() {
             </div>
             <div className="space-y-2">
               <div className="flex justify-between items-center text-[10px] font-black uppercase">
-                <span className="text-slate-500">Délai Client (DSO)</span>
-                <span className="text-blue-600">32 jrs</span>
+                <span className="text-slate-500">Intensité Capitalistique</span>
+                <span className="text-blue-600">32%</span>
               </div>
               <Progress value={32} className="h-1.5 bg-slate-100" />
             </div>
@@ -355,7 +361,7 @@ export default function FinancialAnalysisPage() {
                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 blur-3xl -mr-16 -mt-16" />
                <h4 className="text-[10px] font-black uppercase text-accent tracking-widest mb-3">Conseil Stratégique IA</h4>
                <p className="text-[11px] leading-relaxed opacity-80 italic">
-                "Votre BFR est maîtrisé, mais la rotation des stocks dépasse les standards de votre secteur {currentTenant?.secteurActivite}. Une action sur les références à faible rotation libérerait 15% de liquidité supplémentaire."
+                "Votre structure de patrimoine est équilibrée. Vos immobilisations (Classe 2) représentent {Math.round((analysis?.fixedAssets || 0) / ((analysis?.fixedAssets || 0) + (analysis?.currentAssets || 1)) * 100)}% de votre actif total. C'est un indicateur de solidité pour vos futurs financements bancaires."
                </p>
             </div>
           </CardContent>
@@ -369,7 +375,7 @@ export default function FinancialAnalysisPage() {
         <div className="text-[11px] text-blue-900 leading-relaxed font-medium">
           <p className="font-bold uppercase tracking-tight mb-1">Méthodologie d'Analyse (Normes SEAD 2026) :</p>
           <p className="opacity-80">
-            Ces indicateurs sont recalculés dynamiquement à chaque clôture de journal. Le moteur SEAD utilise l'IA Gemini Vision pour comparer vos données aux benchmarks sectoriels algériens. Toute recommandation générée est auditable et basée sur les principes de saine gestion financière et fiscale.
+            Ces indicateurs incluent désormais la valeur brute de votre parc d'immobilisations extrait du registre des actifs. Le moteur SEAD utilise ces données pour calculer l'amortissement théorique et son impact sur votre résultat imposable final, vous offrant ainsi une vision réelle de votre charge fiscale annuelle.
           </p>
         </div>
       </div>
