@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -42,7 +43,8 @@ import {
   BookOpen,
   Target,
   FileBadge,
-  Package
+  Package,
+  ChevronRight
 } from "lucide-react"
 
 import {
@@ -192,9 +194,9 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
                 <SidebarMenuButton asChild isActive={active} tooltip={item.name}>
                   <Link href={href}>
                     <item.icon className={cn(
-                      "transition-colors", 
+                      "transition-all duration-300", 
                       active ? "text-primary" : "text-sidebar-foreground/60 group-hover:text-primary",
-                      isRtl && "rotate-0" // Add specific flipping logic if needed
+                      isRtl && "rotate-0" 
                     )} />
                     <span className="font-bold text-xs uppercase tracking-tight">{item.name}</span>
                   </Link>
@@ -285,7 +287,7 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
                   <div className="flex aspect-square size-9 items-center justify-center rounded-xl bg-primary text-white shadow-lg shadow-primary/20 shrink-0">
                     <Building2 className="size-5" />
                   </div>
-                  <div className={`flex flex-col gap-0.5 leading-none ${isRtl ? 'me-2' : 'ms-2'}`}>
+                  <div className="flex flex-col gap-0.5 leading-none ms-2 me-2">
                     <span className="font-black text-sm text-sidebar-foreground truncate w-32 uppercase tracking-tighter">
                       {isTenantsLoading ? "..." : (currentTenant?.raisonSociale || "---")}
                     </span>
@@ -296,7 +298,7 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
                       </span>
                     </div>
                   </div>
-                  <ChevronDown className={`${isRtl ? 'me-auto' : 'ms-auto'} size-4 text-sidebar-foreground/30`} />
+                  <ChevronDown className={cn("size-4 text-sidebar-foreground/30", isRtl ? "me-auto" : "ms-auto")} />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align={isRtl ? "end" : "start"} className="w-72 p-2 shadow-2xl rounded-xl">
@@ -367,13 +369,13 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
                     <AvatarImage src={`https://picsum.photos/seed/${user?.uid || 'user'}/40/40`} />
                     <AvatarFallback className="rounded-xl bg-primary text-white font-bold">DZ</AvatarFallback>
                   </Avatar>
-                  <div className={`flex flex-col gap-0.5 text-left text-sm leading-tight ${isRtl ? 'me-2' : 'ms-2'}`}>
+                  <div className="flex flex-col gap-0.5 text-left text-sm leading-tight ms-2 me-2">
                     <span className="font-bold text-sidebar-foreground truncate w-32">
                       {user?.displayName || user?.email?.split('@')[0] || "Mon Compte"}
                     </span>
                     <span className="text-[10px] font-bold text-sidebar-foreground/40 uppercase tracking-tighter">{isRtl ? "خبير محاسب" : "Expert-Comptable"}</span>
                   </div>
-                  <ChevronDown className={`${isRtl ? 'me-auto' : 'ms-auto'} size-4 text-sidebar-foreground/30`} />
+                  <ChevronDown className={cn("size-4 text-sidebar-foreground/30", isRtl ? "me-auto" : "ms-auto")} />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="top" align={isRtl ? "start" : "end"} className="w-64 p-2 shadow-2xl rounded-xl">
@@ -397,8 +399,8 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="raisonSociale" className={isRtl ? 'text-right' : 'text-left'}>{isRtl ? "اسم الشركة" : "Raison Sociale"}</Label>
-            <Input id="raisonSociale" placeholder="SARL ..." value={newTenantData.raisonSociale} onChange={e => setNewTenantData({...newTenantData, raisonSociale: e.target.value})} className={isRtl ? 'text-right' : 'text-left'} />
+            <Label htmlFor="raisonSociale" className="text-start">{isRtl ? "اسم الشركة" : "Raison Sociale"}</Label>
+            <Input id="raisonSociale" placeholder="SARL ..." value={newTenantData.raisonSociale} onChange={e => setNewTenantData({...newTenantData, raisonSociale: e.target.value})} className="text-start" />
           </div>
         </div>
         <DialogFooter>
