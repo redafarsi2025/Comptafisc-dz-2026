@@ -5,25 +5,27 @@ import * as React from "react"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, query, where, orderBy } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, AreaChart, Area
+  AreaChart, Area
 } from "recharts"
 import { 
-  TrendingUp, Activity, Landmark, Wallet, AlertTriangle, 
+  Activity, Landmark, Wallet, AlertTriangle, 
   ShieldCheck, ArrowUpRight, Scale, Calculator, PieChart,
   BarChart3, HeartPulse, Zap, Info, Loader2, Lightbulb, Target, ArrowRight,
   TrendingDown, CheckCircle2, Sparkles, ScrollText, Building2
 } from "lucide-react"
-import { calculateBFR, calculateLiquidityRatio, calculateCAF } from "@/lib/calculations"
+import { calculateBFR, calculateLiquidityRatio, calculateCAF, TAX_RATES } from "@/lib/calculations"
 import { useSearchParams } from "next/navigation"
 import { getSeadRecommendation } from "@/ai/flows/sead-decision-flow"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import Link from "next/link"
 
 export default function FinancialAnalysisPage() {
   const db = useFirestore()
@@ -34,6 +36,11 @@ export default function FinancialAnalysisPage() {
   const [isGeneratingPlan, setIsGeneratingPlan] = React.useState(false)
   const [recommendation, setRecommendation] = React.useState<string | null>(null)
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
+  
+  // States for Investment Simulation
+  const [isSimModalOpen, setIsSimModalOpen] = React.useState(false)
+  const [simAmount, setSimAmount] = React.useState(500000)
+  const [simYears, setSimYears] = React.useState(5)
 
   React.useEffect(() => { setMounted(true) }, [])
 
@@ -134,6 +141,14 @@ export default function FinancialAnalysisPage() {
     }
   };
 
+  const simResults = React.useMemo(() => {
+    const rate = currentTenant?.secteurActivite === 'PRODUCTION' ? TAX_RATES.IBS_PRODUCTION : TAX_RATES.IBS_NORMAL;
+    const annualDepreciation = simAmount / (simYears || 1);
+    const annualTaxSaving = annualDepreciation * rate;
+    const netCost = simAmount - (annualTaxSaving * simYears);
+    return { annualDepreciation, annualTaxSaving, netCost };
+  }, [simAmount, simYears, currentTenant]);
+
   if (!mounted || isLoading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary h-10 w-10" /></div>
 
   return (
@@ -202,9 +217,56 @@ export default function FinancialAnalysisPage() {
             </div>
           </CardContent>
           <CardFooter>
-            <Button variant="ghost" className="w-full text-emerald-600 font-black uppercase tracking-widest text-[10px] h-8">
-              Simuler réinvestissement <ArrowRight className="ml-2 h-3 w-3" />
-            </Button>
+            <Dialog open={isSimModalOpen} onOpenChange={setIsSimModalOpen}>
+              <DialogTrigger asChild>
+                <Button variant="ghost" className="w-full text-emerald-600 font-black uppercase tracking-widest text-[10px] h-8">
+                  Simuler réinvestissement <ArrowRight className="ml-2 h-3 w-3" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="rounded-3xl p-8">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2 uppercase tracking-tighter font-black">
+                    <Calculator className="h-5 w-5 text-primary" /> Simulateur d'Investissement
+                  </DialogTitle>
+                  <DialogDescription className="text-[10px] font-bold uppercase tracking-widest">Calcul du bouclier fiscal par amortissement</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-6 py-6">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-slate-400">Montant Investissement HT (DA)</Label>
+                    <Input type="number" value={simAmount} onChange={e => setSimAmount(parseFloat(e.target.value) || 0)} className="rounded-xl border-slate-200" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-slate-400">Durée d'amortissement (Années)</Label>
+                    <Select value={simYears.toString()} onValueChange={v => setSimYears(parseInt(v))}>
+                      <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="3">3 ans (Informatique/Outillage)</SelectItem>
+                        <SelectItem value="5">5 ans (Matériel de transport)</SelectItem>
+                        <SelectItem value="10">10 ans (Mobilier/Installations)</SelectItem>
+                        <SelectItem value="20">20 ans (Constructions)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="mt-4 p-6 bg-slate-900 text-white rounded-2xl space-y-4">
+                     <div className="flex justify-between items-center text-[10px] font-black uppercase text-accent">
+                        <span>Économie IBS Annuelle</span>
+                        <span>{simResults.annualTaxSaving.toLocaleString()} DA</span>
+                     </div>
+                     <div className="flex justify-between items-center text-[10px] font-black uppercase text-white/60">
+                        <span>Dotation Annuelle</span>
+                        <span>{simResults.annualDepreciation.toLocaleString()} DA</span>
+                     </div>
+                     <div className="pt-4 border-t border-white/10 flex justify-between items-baseline">
+                        <p className="text-[10px] font-black uppercase">Coût Net Réel</p>
+                        <span className="text-2xl font-black text-white">{simResults.netCost.toLocaleString()} DA</span>
+                     </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button className="w-full rounded-2xl font-black uppercase text-[10px]" onClick={() => setIsSimModalOpen(false)}>Fermer le simulateur</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </CardFooter>
         </Card>
 
@@ -225,8 +287,10 @@ export default function FinancialAnalysisPage() {
             </div>
           </CardContent>
           <CardFooter>
-            <Button variant="ghost" className="w-full text-blue-600 font-black uppercase tracking-widest text-[10px] h-8">
-              Voir registre immo <ArrowRight className="ml-2 h-3 w-3" />
+            <Button variant="ghost" className="w-full text-blue-600 font-black uppercase tracking-widest text-[10px] h-8" asChild>
+              <Link href={`/dashboard/accounting/assets?tenantId=${currentTenant?.id}`}>
+                Voir registre immo <ArrowRight className="ml-2 h-3 w-3" />
+              </Link>
             </Button>
           </CardFooter>
         </Card>
@@ -239,7 +303,7 @@ export default function FinancialAnalysisPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-black text-primary tracking-tighter">{analysis?.bfr.toLocaleString()} DA</div>
-            <p className="text-[10px] text-muted-foreground mt-2 font-bold uppercase flex items-center gap-1">
+            <p className="text-[10px] text-muted-foreground mt-2 font-bold uppercase tracking-widest flex items-center gap-1">
               <Zap className="h-3 w-3 text-accent" /> Cycle d'exploitation
             </p>
           </CardContent>
@@ -262,7 +326,7 @@ export default function FinancialAnalysisPage() {
           <CardContent>
             <div className="text-2xl font-black text-blue-600 tracking-tighter">{analysis?.margo.toFixed(1)}%</div>
             <div className="mt-3">
-              <Progress value={analysis?.margo} className="h-1 bg-slate-100" />
+              <Progress value={analysis?.margo} className="h-1" />
             </div>
           </CardContent>
         </Card>
