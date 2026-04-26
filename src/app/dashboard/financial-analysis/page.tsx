@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -25,6 +24,7 @@ import { getSeadRecommendation } from "@/ai/flows/sead-decision-flow"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Link from "next/link"
 
 export default function FinancialAnalysisPage() {
@@ -230,7 +230,7 @@ export default function FinancialAnalysisPage() {
                   </DialogTitle>
                   <DialogDescription className="text-[10px] font-bold uppercase tracking-widest">Calcul du bouclier fiscal par amortissement</DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-6 py-6">
+                <div className="grid gap-6 py-6 text-foreground">
                   <div className="space-y-2">
                     <Label className="text-[10px] font-black uppercase text-slate-400">Montant Investissement HT (DA)</Label>
                     <Input type="number" value={simAmount} onChange={e => setSimAmount(parseFloat(e.target.value) || 0)} className="rounded-xl border-slate-200" />
