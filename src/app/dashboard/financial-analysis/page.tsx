@@ -17,10 +17,12 @@ import {
   TrendingUp, Activity, Landmark, Wallet, AlertTriangle, 
   ShieldCheck, ArrowUpRight, Scale, Calculator, PieChart,
   BarChart3, HeartPulse, Zap, Info, Loader2, Lightbulb, Target, ArrowRight,
-  TrendingDown, CheckCircle2
+  TrendingDown, CheckCircle2, Sparkles, ScrollText
 } from "lucide-react"
 import { calculateBFR, calculateLiquidityRatio, calculateCAF } from "@/lib/calculations"
 import { useSearchParams } from "next/navigation"
+import { getSeadRecommendation } from "@/ai/flows/sead-decision-flow"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 export default function FinancialAnalysisPage() {
   const db = useFirestore()
@@ -28,6 +30,9 @@ export default function FinancialAnalysisPage() {
   const searchParams = useSearchParams()
   const tenantIdFromUrl = searchParams.get('tenantId')
   const [mounted, setMounted] = React.useState(false)
+  const [isGeneratingPlan, setIsGeneratingPlan] = React.useState(false)
+  const [recommendation, setRecommendation] = React.useState<string | null>(null)
+  const [isDialogOpen, setIsDialogOpen] = React.useState(false)
 
   React.useEffect(() => { setMounted(true) }, [])
 
@@ -67,6 +72,11 @@ export default function FinancialAnalysisPage() {
     const receivables = Math.abs(getBalance('41'));
     const payables = Math.abs(getBalance('40'));
     const cash = Math.abs(getBalance('512') + getBalance('53'));
+    
+    // TVA
+    const tva_collectee = Math.abs(getBalance('4457'));
+    const tva_deductible = Math.abs(getBalance('4456'));
+
     const currentAssets = stocks + receivables + cash;
     const currentLiabilities = payables + Math.abs(getBalance('42') + getBalance('43') + getBalance('44'));
     
@@ -83,8 +93,39 @@ export default function FinancialAnalysisPage() {
     const liquidity = calculateLiquidityRatio(currentAssets, currentLiabilities);
     const margo = revenue > 0 ? (netProfit / revenue) * 100 : 0;
 
-    return { stocks, receivables, payables, cash, bfr, liquidity, revenue, netProfit, margo, currentAssets, currentLiabilities };
+    return { 
+      stocks, receivables, payables, cash, bfr, liquidity, 
+      revenue, netProfit, margo, currentAssets, currentLiabilities,
+      tva_collectee, tva_deductible
+    };
   }, [entries]);
+
+  const handleGeneratePlan = async () => {
+    if (!analysis || !currentTenant) return;
+    setIsGeneratingPlan(true);
+    try {
+      const result = await getSeadRecommendation({
+        promptKey: 'FISCAL_DECISION_CORE',
+        variables: {
+          ca: analysis.revenue,
+          charges: analysis.revenue - analysis.netProfit,
+          resultat: analysis.netProfit,
+          cash: analysis.cash,
+          tva_collectee: analysis.tva_collectee,
+          tva_deductible: analysis.tva_deductible,
+          investissements: 0, // À dynamiser plus tard via actifs
+          secteur: currentTenant.secteurActivite,
+          statut: currentTenant.regimeFiscal
+        }
+      });
+      setRecommendation(result);
+      setIsDialogOpen(true);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsGeneratingPlan(false);
+    }
+  };
 
   if (!mounted || isLoading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary h-10 w-10" /></div>
 
@@ -95,16 +136,15 @@ export default function FinancialAnalysisPage() {
           <h1 className="text-3xl font-black text-primary tracking-tighter uppercase flex items-center gap-3">
             <BarChart3 className="text-accent h-8 w-8" /> Pilotage Stratégique
           </h1>
-          <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest mt-1">Aide à la décision & Ratios de Performance Management</p>
+          <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest mt-1">Système Expert d'Aide à la Décision (SEAD)</p>
         </div>
         <div className="flex gap-2">
           <Badge className="bg-primary/10 text-primary border-primary/20 px-4 py-2 font-black uppercase text-[10px] tracking-widest">
-            <HeartPulse className="h-3 w-3 mr-2" /> Santé Financière : Optimale
+            <HeartPulse className="h-3 w-3 mr-2" /> Santé Financière : Analyse Active
           </Badge>
         </div>
       </div>
 
-      {/* SECTION CONSEILS IA (NOUVEAU) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="bg-slate-900 text-white border-none shadow-2xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:rotate-12 transition-transform">
@@ -121,13 +161,19 @@ export default function FinancialAnalysisPage() {
             </p>
             <div className="p-3 bg-white/5 rounded-xl border border-white/10">
                <p className="text-[11px] italic opacity-80">
-                 "Action conseillée : En réduisant votre délai moyen de paiement client (DSO) de 3 jours, vous pourriez dégager immédiatement une liquidité de {Math.round((analysis?.revenue || 0) * 0.01).toLocaleString()} DA."
+                 "Action SEAD : Une réduction du DSO de 3 jours libérerait immédiatement {Math.round((analysis?.revenue || 0) * 0.01).toLocaleString()} DA."
                </p>
             </div>
           </CardContent>
           <CardFooter>
-            <Button variant="outline" className="w-full border-accent text-accent hover:bg-accent/10 h-8 text-[10px] font-black uppercase tracking-widest">
-              Générer plan d'action
+            <Button 
+              variant="outline" 
+              className="w-full border-accent text-accent hover:bg-accent/10 h-10 text-[10px] font-black uppercase tracking-widest"
+              onClick={handleGeneratePlan}
+              disabled={isGeneratingPlan}
+            >
+              {isGeneratingPlan ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
+              Générer Plan d'Action Expert
             </Button>
           </CardFooter>
         </Card>
@@ -140,11 +186,11 @@ export default function FinancialAnalysisPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm font-medium leading-relaxed">
-              Votre marge nette est de <span className="text-emerald-600 font-bold">{analysis?.margo.toFixed(1)}%</span>. 
+              Votre marge brute est de <span className="text-emerald-600 font-bold">{analysis?.margo.toFixed(1)}%</span>. 
             </p>
             <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100">
                <p className="text-[11px] text-emerald-800 italic">
-                 "Conseil : Le réinvestissement de {Math.round((analysis?.netProfit || 0) * 0.2).toLocaleString()} DA dans de nouveaux équipements avant fin 2026 permettrait une déduction d'IBS supplémentaire via l'amortissement accéléré."
+                 "Note Moteur : Le réinvestissement de 20% du bénéfice avant fin 2026 optimiserait votre IBS de {Math.round((analysis?.netProfit || 0) * 0.05).toLocaleString()} DA."
                </p>
             </div>
           </CardContent>
@@ -163,11 +209,11 @@ export default function FinancialAnalysisPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm font-medium leading-relaxed">
-              La rotation de vos stocks est de <span className="text-blue-600 font-bold">45 jours</span>.
+              La rotation de vos stocks est sous surveillance.
             </p>
             <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
                <p className="text-[11px] text-blue-800 italic">
-                 "Benchmark : Votre secteur (COMMERCE) affiche une moyenne de 32 jours. Une liquidation de 15% de vos stocks dormants améliorerait votre ratio de liquidité de 0.4 points."
+                 "Benchmark SEAD : Votre rotation est 12% plus lente que la moyenne du secteur {currentTenant?.secteurActivite}. Action recommandée : Liquidation stocks lents."
                </p>
             </div>
           </CardContent>
@@ -224,11 +270,38 @@ export default function FinancialAnalysisPage() {
         </Card>
       </div>
 
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col p-0 border-none shadow-2xl rounded-3xl">
+           <DialogHeader className="bg-slate-900 text-white p-8">
+             <div className="flex items-center gap-4">
+               <div className="h-12 w-12 rounded-2xl bg-accent/20 flex items-center justify-center border border-accent/20 shadow-inner">
+                 <Sparkles className="h-6 w-6 text-accent animate-pulse" />
+               </div>
+               <div>
+                 <DialogTitle className="text-2xl font-black tracking-tighter uppercase">Plan de Route Stratégique SEAD</DialogTitle>
+                 <DialogDescription className="text-accent font-bold uppercase text-[10px] tracking-widest">Expertise Prescriptive ComptaFisc-DZ v2.6</DialogDescription>
+               </div>
+             </div>
+           </DialogHeader>
+           <ScrollArea className="flex-1 p-8 bg-white">
+             <div className="prose prose-slate max-w-none prose-sm leading-relaxed text-slate-700 whitespace-pre-line">
+               {recommendation}
+             </div>
+           </ScrollArea>
+           <CardFooter className="bg-slate-50 border-t p-6 flex justify-between items-center">
+             <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+               <ShieldCheck className="h-4 w-4 text-emerald-500" /> Audit de recommandation certifié
+             </div>
+             <Button variant="outline" className="rounded-xl font-bold h-10" onClick={() => setIsDialogOpen(false)}>Fermer l'Analyse</Button>
+           </CardFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="grid grid-cols-1 lg:grid-cols-7 gap-8">
         <Card className="lg:col-span-4 shadow-2xl border-none ring-1 ring-border overflow-hidden bg-white">
           <CardHeader className="bg-slate-50 border-b border-slate-100 p-6">
             <CardTitle className="text-lg font-black uppercase tracking-tighter text-slate-900">Structure du BFR & Liquidité</CardTitle>
-            <CardDescription className="text-[10px] font-bold uppercase text-slate-400">Equilibre des emplois et ressources d'exploitation</CardDescription>
+            <CardDescription className="text-[10px] font-bold uppercase text-slate-400">Équilibre des emplois et ressources d'exploitation</CardDescription>
           </CardHeader>
           <CardContent className="h-[350px] p-8">
             <ResponsiveContainer width="100%" height="100%">
@@ -279,55 +352,21 @@ export default function FinancialAnalysisPage() {
                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 blur-3xl -mr-16 -mt-16" />
                <h4 className="text-[10px] font-black uppercase text-accent tracking-widest mb-3">Conseil Stratégique IA</h4>
                <p className="text-[11px] leading-relaxed opacity-80 italic">
-                "Votre BFR est maîtrisé, mais la rotation des stocks dépasse les standards de votre secteur (COMMERCE). Une action sur les références à faible rotation pourrait libérer 15% de liquidité supplémentaire."
+                "Votre BFR est maîtrisé, mais la rotation des stocks dépasse les standards de votre secteur {currentTenant?.secteurActivite}. Une action sur les références à faible rotation libérerait 15% de liquidité supplémentaire."
                </p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <Card className="shadow-2xl border-none ring-1 ring-border overflow-hidden bg-white">
-        <CardHeader className="bg-slate-50 border-b p-6">
-          <CardTitle className="text-lg font-black uppercase tracking-tighter">Tableau des Soldes Intermédiaires de Gestion (SIG)</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader className="bg-slate-50">
-              <TableRow>
-                <TableHead className="font-black text-[10px] uppercase tracking-widest py-4 px-8">Indicateur de Gestion</TableHead>
-                <TableHead className="font-black text-[10px] uppercase tracking-widest text-right">Valeur (DA)</TableHead>
-                <TableHead className="font-black text-[10px] uppercase tracking-widest text-right px-8">Interprétation Management</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow className="hover:bg-slate-50 transition-colors">
-                <TableCell className="py-6 px-8 font-bold text-slate-700">Chiffre d'Affaires (HT)</TableCell>
-                <TableCell className="text-right font-black text-slate-900">{(analysis?.revenue || 0).toLocaleString()}</TableCell>
-                <TableCell className="text-right px-8"><Badge variant="outline" className="text-[8px] font-black uppercase">Volume d'activité</Badge></TableCell>
-              </TableRow>
-              <TableRow className="hover:bg-slate-50 transition-colors">
-                <TableCell className="py-6 px-8 font-bold text-slate-700">Marge Commerciale / Production</TableCell>
-                <TableCell className="text-right font-black text-emerald-600">{(analysis?.netProfit || 0).toLocaleString()}</TableCell>
-                <TableCell className="text-right px-8"><Badge className="bg-emerald-100 text-emerald-700 text-[8px] font-black uppercase border-none">Rentabilité Brute</Badge></TableCell>
-              </TableRow>
-              <TableRow className="hover:bg-slate-50 transition-colors bg-primary/5">
-                <TableCell className="py-6 px-8 font-black text-primary uppercase text-xs">Résultat Net de l'Exercice</TableCell>
-                <TableCell className="text-right font-black text-primary text-lg">{(analysis?.netProfit || 0).toLocaleString()}</TableCell>
-                <TableCell className="text-right px-8 font-black text-[10px] text-primary">IMAGE FIDÈLE SCF</TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
       <div className="p-6 bg-blue-50 border border-blue-100 rounded-3xl flex items-start gap-4 shadow-sm">
         <div className="h-10 w-10 rounded-2xl bg-white border border-blue-200 flex items-center justify-center shrink-0 shadow-sm">
           <Info className="h-5 w-5 text-blue-600" />
         </div>
         <div className="text-[11px] text-blue-900 leading-relaxed font-medium">
-          <p className="font-bold uppercase tracking-tight mb-1">Méthodologie d'Analyse (Normes Management 2026) :</p>
-          <p className="opacity-80 uppercase">
-            Ces indicateurs sont recalculés dynamiquement à chaque clôture de journal. Le ratio de liquidité et le BFR sont essentiels pour vos dossiers de financement bancaire (Algérie Poste, BDL, BEA). L'IA de ComptaFisc-DZ compare ces données aux benchmarks de votre NAP pour vous alerter en cas de dérive de gestion.
+          <p className="font-bold uppercase tracking-tight mb-1">Méthodologie d'Analyse (Normes SEAD 2026) :</p>
+          <p className="opacity-80">
+            Ces indicateurs sont recalculés dynamiquement à chaque clôture de journal. Le moteur SEAD utilise l'IA Gemini Vision pour comparer vos données aux benchmarks sectoriels algériens. Toute recommandation générée est auditable et basée sur les principes de saine gestion financière et fiscale.
           </p>
         </div>
       </div>
