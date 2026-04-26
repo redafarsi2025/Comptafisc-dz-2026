@@ -201,7 +201,16 @@ export default function AssetsPage() {
                   <Label>Catégorie SCF</Label>
                   <Select value={newAsset.category} onValueChange={v => {
                     const cat = ASSET_CATEGORIES.find(c => c.id === v);
-                    setNewAsset({...newAsset, category: v, amortizationRate: cat?.rate || 0});
+                    // On met à jour la catégorie ET on suggère le taux correspondant
+                    setNewAsset({
+                      ...newAsset, 
+                      category: v, 
+                      amortizationRate: cat?.rate ?? newAsset.amortizationRate
+                    });
+                    toast({
+                      title: "Taux suggéré",
+                      description: `Taux légal pour cette catégorie : ${cat?.rate}%`
+                    });
                   }}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -244,7 +253,7 @@ export default function AssetsPage() {
                   <Input type="number" value={newAsset.residualValue} onChange={e => setNewAsset({...newAsset, residualValue: parseFloat(e.target.value) || 0})} />
                 </div>
                 <div className="grid gap-2">
-                  <Label>Taux Amort. (%)</Label>
+                  <Label className="text-accent font-bold">Taux Amort. (%)</Label>
                   <Input type="number" value={newAsset.amortizationRate} onChange={e => setNewAsset({...newAsset, amortizationRate: parseFloat(e.target.value) || 0})} />
                 </div>
               </div>
