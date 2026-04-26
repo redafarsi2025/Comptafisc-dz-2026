@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -17,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/hooks/use-toast"
 import { useSearchParams } from "next/navigation"
 import { WILAYAS } from "@/lib/wilaya-data"
+import { cn } from "@/lib/utils"
 
 export default function ContactsPage() {
   const db = useFirestore()
@@ -300,7 +300,7 @@ export default function ContactsPage() {
                             </div>
                             <div className="flex flex-col">
                               <span className="font-black text-xs uppercase text-slate-900">{c.name}</span>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 mt-1">
                                 <span className={cn("text-[9px] font-mono font-bold", c.nif?.length === 20 ? "text-emerald-600" : "text-muted-foreground")}>
                                   NIF: {c.nif || 'NON RENSEIGNÉ'}
                                 </span>
