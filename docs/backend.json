@@ -16,7 +16,7 @@
     "FiscalVariableType": {
       "title": "FiscalVariableType",
       "type": "object",
-      "description": "Définition globale d'une variable (ex: SNMG, TVA_STD).",
+      "description": "Définition globale d'une variable (ex: SNMG, TVA_STD, VALEUR_POINT).",
       "properties": {
         "code": { "type": "string" },
         "name": { "type": "string" },
@@ -35,19 +35,38 @@
         "effectiveStartDate": { "type": "string", "format": "date" }
       }
     },
-    "FiscalBusinessRule": {
-      "title": "FiscalBusinessRule",
+    "Employee": {
+      "title": "Employee",
       "type": "object",
-      "description": "Règle métier DSL (Calculateur dynamique).",
+      "description": "Fiche employé avec paramètres indiciaires.",
       "properties": {
-        "code": { "type": "string" },
+        "id": { "type": "string" },
         "name": { "type": "string" },
-        "category": { "type": "string", "enum": ["COMPTA", "SOCIAL", "FISCAL"] },
-        "priority": { "type": "number" },
-        "when": { "type": "string", "description": "Condition d'application DSL (ex: secteur == 'BTP')" },
-        "then": { "type": "array", "description": "Actions de calcul" },
-        "justify": { "type": "string", "description": "Référence article CIDTA" },
-        "active": { "type": "boolean" }
+        "nin": { "type": "string" },
+        "cnasNumber": { "type": "string" },
+        "position": { "type": "string" },
+        "indice": { "type": "number" },
+        "echelon": { "type": "number" },
+        "primesImposables": { "type": "number" },
+        "indemnitePanier": { "type": "number" },
+        "indemniteTransport": { "type": "number" },
+        "isGrandSud": { "type": "boolean" },
+        "isHandicapped": { "type": "boolean" }
+      }
+    },
+    "Payroll": {
+      "title": "Payroll",
+      "type": "object",
+      "description": "Calcul mensuel de paie.",
+      "properties": {
+        "id": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "period": { "type": "string" },
+        "salaireBase": { "type": "number" },
+        "salairePoste": { "type": "number" },
+        "cnas": { "type": "number" },
+        "irg": { "type": "number" },
+        "net": { "type": "number" }
       }
     }
   },
@@ -58,6 +77,7 @@
     "/fiscal_laws/{lawId}": { "schema": "#/backend/entities/FiscalLaw", "description": "Versions législatives" },
     "/fiscal_variable_types/{typeId}": { "schema": "#/backend/entities/FiscalVariableType", "description": "Référentiel variables" },
     "/fiscal_variable_values/{valId}": { "schema": "#/backend/entities/FiscalVariableValue", "description": "Valeurs versionnées" },
-    "/fiscal_business_rules/{ruleId}": { "schema": "#/backend/entities/FiscalBusinessRule", "description": "Moteur DSL Master" }
+    "/tenants/{tenantId}/employees/{empId}": { "schema": "#/backend/entities/Employee", "description": "Dossier personnel" },
+    "/tenants/{tenantId}/payroll/{payId}": { "schema": "#/backend/entities/Payroll", "description": "Journal de paie" }
   }
 }
