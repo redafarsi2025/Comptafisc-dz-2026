@@ -160,8 +160,10 @@ export default function SalesWorkflowHub() {
             </ul>
           </CardContent>
           <CardFooter>
-            <Button variant="outline" className="w-full border-accent text-accent hover:bg-accent/10">
-              Voir Registre des Tiers
+            <Button variant="outline" className="w-full border-accent text-accent hover:bg-accent/10" asChild>
+              <Link href={`/dashboard/contacts?tenantId=${tenantId}`}>
+                Voir Registre des Tiers
+              </Link>
             </Button>
           </CardFooter>
         </Card>
