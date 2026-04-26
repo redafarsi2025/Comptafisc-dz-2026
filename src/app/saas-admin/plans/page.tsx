@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -18,6 +17,7 @@ import { toast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { PLANS } from "@/lib/plans"
 
 const MODULES = [
   { key: 'billing', label: 'Facturation Clients', category: 'COMPTABILITÉ' },
@@ -64,57 +64,44 @@ export default function PlansManagement() {
   const handleInitializePlans = async () => {
     if (!db) return;
     setIsInitializing(true);
-    // Logique d'initialisation identique au code existant mais adaptée à l'UI claire
-    const standardPlans = [
-      {
-        id: "GRATUIT",
-        name: "GRATUIT",
-        price: 0,
-        period: "DA/mois",
-        description: "Tester sans risque.",
-        isActive: true,
-        modules: { billing: "included", ocr: "limited", accounting: "limited", alerts: "limited", analytics: "limited" },
-        limits: { invoices: "15", users: "1", companies: "1", storage: "500 MB", support: "Email" }
-      },
-      {
-        id: "ESSENTIEL",
-        name: "ESSENTIEL",
-        price: 1500,
-        period: "DA/mois",
-        description: "Être en règle.",
-        isActive: true,
-        modules: { billing: "included", ocr: "included", accounting: "included", bank: "included", tva: "included", g50: "included", alerts: "included", efatura: "included" },
-        limits: { invoices: "200", users: "2", companies: "1", storage: "5 GB", support: "Email+Chat" }
-      },
-      {
-        id: "PRO",
-        name: "PRO",
-        price: 5000,
-        period: "DA/mois",
-        description: "Optimiser et piloter.",
-        isActive: true,
-        modules: { billing: "included", ocr: "included", accounting: "included", bank: "included", tva: "included", g50: "included", alerts: "included", ibs: "included", tap: "included", analytics: "included", cashflow: "included", reports: "included", efatura: "limited" },
-        limits: { invoices: "Illimité", users: "5", companies: "1", storage: "20 GB", support: "Prioritaire" }
-      },
-      {
-        id: "CABINET",
-        name: "CABINET",
-        price: 0,
-        period: "Sur devis",
-        description: "Gestion multi-sociétés.",
-        isActive: true,
-        modules: MODULES.reduce((acc, m) => ({ ...acc, [m.key]: 'included' }), {}),
-        limits: { invoices: "Illimité", users: "Illimité", companies: "Illimité", storage: "100 GB", support: "Dédié" }
-      }
-    ];
-
+    
     try {
-      for (const p of standardPlans) {
+      // On itère sur les plans définis dans src/lib/plans.ts
+      for (const p of PLANS) {
         const planRef = doc(db, "plans", p.id);
-        setDocumentNonBlocking(planRef, { ...p, updatedAt: new Date().toISOString() }, { merge: true });
+        
+        // On construit un objet compatible avec le schéma attendu par Firestore
+        const planData = {
+          id: p.id,
+          name: p.name,
+          price: parseInt(p.price.replace(/\s/g, '')) || 0,
+          period: p.period,
+          description: p.description,
+          isActive: true,
+          limits: p.limits,
+          // Mapping simplifié des modules pour l'initialisation
+          modules: MODULES.reduce((acc, m) => {
+            const isIncluded = p.categories.some(cat => 
+              cat.features.some(f => f.name.toLowerCase().includes(m.label.toLowerCase()) && f.included === 'yes')
+            );
+            return { ...acc, [m.key]: isIncluded ? 'included' : 'excluded' };
+          }, {}),
+          updatedAt: new Date().toISOString()
+        };
+
+        setDocumentNonBlocking(planRef, planData, { merge: true });
       }
-      toast({ title: "Plans initialisés" });
-    } catch (e) { console.error(e); } finally { setIsInitializing(false); }
+      
+      toast({ 
+        title: "Catalogue synchronisé", 
+        description: `${PLANS.length} offres initialisées selon la logique métier.` 
+      });
+    } catch (e) { 
+      console.error(e); 
+      toast({ variant: "destructive", title: "Erreur d'initialisation" });
+    } finally { 
+      setIsInitializing(false); 
+    }
   }
 
   const handleSavePlan = async () => {
@@ -124,7 +111,10 @@ export default function PlansManagement() {
       setDocumentNonBlocking(planRef, { ...currentPlan, updatedAt: new Date().toISOString() }, { merge: true });
       setIsDialogOpen(false);
       setCurrentPlan(initialPlanState);
-    } catch (e) { console.error(e); }
+      toast({ title: "Plan sauvegardé" });
+    } catch (e) { 
+      console.error(e); 
+    }
   }
 
   const toggleModule = (moduleKey: string) => {
@@ -143,9 +133,18 @@ export default function PlansManagement() {
           <p className="text-muted-foreground">Paramétrage des briques fonctionnelles et des limites tarifaires.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleInitializePlans} disabled={isInitializing}>
-            {isInitializing ? <RefreshCcw className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-            Initialiser Standards
+          <Button 
+            variant="outline" 
+            onClick={handleInitializePlans} 
+            disabled={isInitializing}
+            className="border-primary text-primary hover:bg-primary/5"
+          >
+            {isInitializing ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCcw className="mr-2 h-4 w-4" />
+            )}
+            Synchroniser depuis Source
           </Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -154,16 +153,17 @@ export default function PlansManagement() {
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{editingPlan ? "Modifier le Plan" : "Nouveau Plan"}</DialogTitle>
+                <DialogDescription>Définissez les accès et les limitations pour ce palier d'abonnement.</DialogDescription>
               </DialogHeader>
               <div className="grid gap-6 py-4 text-foreground">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>ID (Slug)</Label>
-                    <Input disabled={!!editingPlan} value={currentPlan.id} onChange={e => setCurrentPlan({...currentPlan, id: e.target.value})} />
+                    <Input disabled={!!editingPlan} value={currentPlan.id} onChange={e => setCurrentPlan({...currentPlan, id: e.target.value})} placeholder="EX: PRO_PLUS" />
                   </div>
                   <div className="space-y-2">
                     <Label>Nom</Label>
-                    <Input value={currentPlan.name} onChange={e => setCurrentPlan({...currentPlan, name: e.target.value})} />
+                    <Input value={currentPlan.name} onChange={e => setCurrentPlan({...currentPlan, name: e.target.value})} placeholder="Ex: Offre Professionnelle" />
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
@@ -175,7 +175,11 @@ export default function PlansManagement() {
                   <Label className="font-bold flex items-center gap-2 text-primary"><Zap className="h-4 w-4" /> Modules fonctionnels</Label>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     {MODULES.map((m) => (
-                      <button key={m.key} onClick={() => toggleModule(m.key)} className={`p-3 rounded-lg border text-left transition-all ${currentPlan.modules[m.key] === 'included' ? 'bg-emerald-50 border-emerald-500' : currentPlan.modules[m.key] === 'limited' ? 'bg-amber-50 border-amber-500' : 'bg-muted border-transparent opacity-60'}`}>
+                      <button 
+                        key={m.key} 
+                        onClick={() => toggleModule(m.key)} 
+                        className={`p-3 rounded-lg border text-left transition-all ${currentPlan.modules[m.key] === 'included' ? 'bg-emerald-50 border-emerald-500' : currentPlan.modules[m.key] === 'limited' ? 'bg-amber-50 border-amber-500' : 'bg-muted border-transparent opacity-60'}`}
+                      >
                         <p className="text-xs font-bold">{m.label}</p>
                         <p className="text-[10px] opacity-60">{m.category}</p>
                       </button>
@@ -183,42 +187,69 @@ export default function PlansManagement() {
                   </div>
                 </div>
               </div>
-              <DialogFooter><Button onClick={handleSavePlan} className="w-full">Enregistrer les modifications</Button></DialogFooter>
+              <DialogFooter>
+                <Button onClick={handleSavePlan} className="w-full">
+                  {editingPlan ? "Mettre à jour l'offre" : "Enregistrer la nouvelle offre"}
+                </Button>
+              </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
       </div>
 
-      <Card className="shadow-md border-none">
+      <Card className="shadow-md border-none overflow-hidden">
         <CardContent className="p-0">
           <Table>
             <TableHeader className="bg-muted/50">
               <TableRow>
                 <TableHead>Plan</TableHead>
                 <TableHead>Tarif</TableHead>
-                <TableHead>Modules</TableHead>
+                <TableHead>Modules Actifs</TableHead>
                 <TableHead>Limites</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-12">Chargement...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="text-center py-12"><Loader2 className="animate-spin h-6 w-6 mx-auto text-muted-foreground" /></TableCell></TableRow>
+              ) : !plans?.length ? (
+                <TableRow><TableCell colSpan={5} className="text-center py-12 text-muted-foreground italic">Aucun plan configuré. Utilisez le bouton "Synchroniser" pour commencer.</TableCell></TableRow>
               ) : plans?.map((p) => (
                 <TableRow key={p.id} className="hover:bg-muted/30">
-                  <TableCell><div className="flex flex-col"><span className="font-bold">{p.name}</span><span className="text-[10px] font-mono text-muted-foreground">{p.id}</span></div></TableCell>
-                  <TableCell><span className="text-lg font-black">{p.price.toLocaleString()}</span> <span className="text-[10px] text-muted-foreground">{p.period}</span></TableCell>
                   <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {Object.entries(p.modules).filter(([_, s]) => s === 'included').slice(0, 3).map(([k]) => (
-                        <Badge key={k} variant="secondary" className="text-[8px] bg-emerald-100 text-emerald-700">{MODULES.find(m => m.key === k)?.label}</Badge>
+                    <div className="flex flex-col">
+                      <span className="font-bold">{p.name}</span>
+                      <span className="text-[10px] font-mono text-muted-foreground uppercase">{p.id}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-lg font-black">{p.price.toLocaleString()}</span> 
+                    <span className="text-[10px] text-muted-foreground ml-1">{p.period}</span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1 max-w-[300px]">
+                      {Object.entries(p.modules).filter(([_, s]) => s === 'included').map(([k]) => (
+                        <Badge key={k} variant="secondary" className="text-[8px] bg-emerald-100 text-emerald-700 border-emerald-200">
+                          {MODULES.find(m => m.key === k)?.label || k}
+                        </Badge>
                       ))}
                     </div>
                   </TableCell>
-                  <TableCell><div className="flex items-center gap-2 text-[10px] text-muted-foreground"><UsersIcon className="h-3 w-3" /> {p.limits.users} • <FileText className="h-3 w-3" /> {p.limits.invoices}</div></TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-1 text-[10px] text-muted-foreground">
+                      <div className="flex items-center gap-1"><UsersIcon className="h-3 w-3" /> {p.limits?.users} Utilisateurs</div>
+                      <div className="flex items-center gap-1"><FileText className="h-3 w-3" /> {p.limits?.invoices} Factures</div>
+                    </div>
+                  </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => { setEditingPlan(p); setCurrentPlan(p); setIsDialogOpen(true); }}><Edit3 className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteDocumentNonBlocking(doc(db, "plans", p.id))}><Trash2 className="h-4 w-4" /></Button>
+                    <div className="flex justify-end gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => { setEditingPlan(p); setCurrentPlan(p); setIsDialogOpen(true); }}>
+                        <Edit3 className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => deleteDocumentNonBlocking(doc(db, "plans", p.id))}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -226,6 +257,17 @@ export default function PlansManagement() {
           </Table>
         </CardContent>
       </Card>
+
+      <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-4">
+        <Info className="h-6 w-6 text-blue-600 shrink-0" />
+        <div className="text-xs text-blue-900 leading-relaxed">
+          <p className="font-bold uppercase mb-1">Architecture Commerciale :</p>
+          <p>
+            La modification des plans ici affecte instantanément ce que voient les clients sur la landing page et dans leurs paramètres d'abonnement. 
+            Utilisez la **Synchronisation depuis Source** pour réinitialiser le catalogue selon les spécifications par défaut du projet.
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
