@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -14,7 +13,7 @@ import {
   Gavel, Scale, Loader2, Search, 
   FileCheck, Users, Info, ArrowRight,
   TrendingDown, CheckCircle2, History,
-  Database, Landmark, Save, X
+  Database, Landmark, Save, X, Calculator
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -442,7 +441,7 @@ export default function HrComplianceDashboard() {
                   <div className="space-y-3">
                     <Label className={`text-[10px] font-black uppercase tracking-widest ${selectedAnomaly?.code === 'R1' ? 'text-primary' : 'text-slate-400'}`}>
                       N° Assurance (CNAS)
-                    </div>
+                    </Label>
                     <div className="relative">
                       <Users className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                       <Input 
