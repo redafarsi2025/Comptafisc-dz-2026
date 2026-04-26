@@ -1,8 +1,7 @@
 
 /**
- * @fileOverview Moteur de Calcul (Refactoré v2.5)
- * Ce fichier contient les constantes et fonctions de base conformes à la LF 2026.
- * Il sert désormais de point d'entrée statique avec option de résolution dynamique via le Moteur Fiscal Master.
+ * @fileOverview Moteur de Calcul (Refactoré v2.6)
+ * Intégration des fonctions de Management Financier et Ratios de Pilotage.
  */
 
 export const TAX_RATES = {
@@ -33,55 +32,30 @@ export const CASNOS_CONSTANTS = {
   RATE: 0.15,
 };
 
-// --- Moteurs de Calcul Statics (Fallbacks) ---
-
 /**
- * Calculateur IRG Salarié - Version 2026 (Algorithme Master)
+ * Calculateur IRG Salarié - Version 2026
  */
 export function calculateIRG(netImposable: number, isGrandSud: boolean = false, isHandicapped: boolean = false): number {
   const amount = Math.floor(netImposable / 10) * 10;
-  
-  // Règle LF 2026 : Exonération totale sous 30 000 DA
   if (amount <= 30000) return 0;
 
   let tax = 0;
-  // Barème progressif CIDTA 2026
-  if (amount > 20000) {
-    tax += (Math.min(amount, 40000) - 20000) * 0.23;
-  }
-  if (amount > 40000) {
-    tax += (Math.min(amount, 80000) - 40000) * 0.27;
-  }
-  if (amount > 80000) {
-    tax += (Math.min(amount, 160000) - 80000) * 0.30;
-  }
-  if (amount > 160000) {
-    tax += (Math.min(amount, 320000) - 160000) * 0.33;
-  }
-  if (amount > 320000) {
-    tax += (amount - 320000) * 0.35;
-  }
+  if (amount > 20000) tax += (Math.min(amount, 40000) - 20000) * 0.23;
+  if (amount > 40000) tax += (Math.min(amount, 80000) - 40000) * 0.27;
+  if (amount > 80000) tax += (Math.min(amount, 160000) - 80000) * 0.30;
+  if (amount > 160000) tax += (Math.min(amount, 320000) - 160000) * 0.33;
+  if (amount > 320000) tax += (amount - 320000) * 0.35;
 
-  // Abattement 40% (Min 1000, Max 1500)
   let abatement = tax * 0.4;
   if (abatement < 1000) abatement = 1000;
   if (abatement > 1500) abatement = 1500;
   tax = Math.max(0, tax - abatement);
 
-  // Lissage pour tranches 30k-35k (Formule DGI 2026)
   if (amount > 30000 && amount <= 35000) {
     tax = tax * (137/51) - (27925/8);
   }
 
-  // Abattement spécifique Handicapé / Retraité (Art. 104 al. 2)
-  if (isHandicapped) {
-    // Abattement supplémentaire si revenu <= 42 500 DA
-    if (amount <= 42500) {
-      tax = tax * 0.5; // Simplification pour le prototype
-    }
-  }
-
-  // Réduction Zone Sud (IZCV -50%)
+  if (isHandicapped && amount <= 42500) tax = tax * 0.5;
   if (isGrandSud) tax *= 0.5;
 
   return Math.max(0, Math.round(tax));
@@ -99,10 +73,31 @@ export function calculateStampDuty(totalTTC: number, isCash: boolean): number {
   return Math.max(5, Math.min(2500, duty));
 }
 
-export function calculateIBS(profit: number, rate: number, reinvestedAmount: number = 0): number {
-  if (profit <= 0) return 0;
-  const base = Math.max(0, profit - reinvestedAmount);
-  return Math.max(10000, Math.round(base * rate));
+// --- Fonctions Expertes en Management Financier ---
+
+/**
+ * Calcule le Besoin en Fonds de Roulement (BFR)
+ * Formule : Stocks + Créances Clients - Dettes Fournisseurs
+ */
+export function calculateBFR(stocks: number, receivables: number, payables: number): number {
+  return stocks + receivables - payables;
+}
+
+/**
+ * Calcule la Capacité d'Autofinancement (CAF) simplifiée
+ * Formule : Résultat Net + Dotations aux Amortissements
+ */
+export function calculateCAF(netProfit: number, depreciation: number): number {
+  return netProfit + depreciation;
+}
+
+/**
+ * Ratio de Liquidité Générale
+ * Un ratio > 1 indique que l'entreprise peut payer ses dettes à court terme.
+ */
+export function calculateLiquidityRatio(currentAssets: number, currentLiabilities: number): number {
+  if (currentLiabilities === 0) return 0;
+  return currentAssets / currentLiabilities;
 }
 
 export function calculateIFU(ca: number, rate: number, isAuto: boolean = false, isStartup: boolean = false): number {

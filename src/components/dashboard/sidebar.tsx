@@ -51,7 +51,10 @@ import {
   Gavel,
   Pickaxe,
   Briefcase,
-  FilePlus2
+  FilePlus2,
+  BarChart3,
+  TrendingUp,
+  HeartPulse
 } from "lucide-react"
 
 import {
@@ -99,9 +102,10 @@ import { toast } from "@/hooks/use-toast"
 // Menu Pilotage (Commun)
 const pilotageNav = [
   { name: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Analyse & Pilotage", href: "/dashboard/financial-analysis", icon: BarChart3 },
 ]
 
-// Menu Ventes (Adaptable)
+// Menu Ventes
 const salesNav = [
   { name: "Flux de Vente Hub", href: "/dashboard/sales", icon: CircleDollarSign },
   { name: "Commandes Clients", href: "/dashboard/sales/orders", icon: FileSearch },
@@ -111,26 +115,20 @@ const salesNav = [
   { name: "Avoirs Clients", href: "/dashboard/sales/credit-notes", icon: FileMinus },
 ]
 
-// Menu BTP (Spécifique)
+// Menu BTP
 const btpNav = [
   { name: "Suivi Chantiers", href: "/dashboard/btp/projects", icon: Pickaxe },
   { name: "Situations de Travaux", href: "/dashboard/btp/situations", icon: FileBadge },
   { name: "Engins & Matériel", href: "/dashboard/accounting/assets", icon: HardHat },
 ]
 
-// Menu Industrie (Spécifique)
+// Menu Industrie
 const industryNav = [
   { name: "Ordres de Fabrication", href: "/dashboard/industry/production", icon: Factory },
   { name: "Fiches Recettes / Gammes", href: "/dashboard/industry/recipes", icon: ClipboardList },
 ]
 
-// Menu Profession Libérale (Spécifique)
-const liberaleNav = [
-  { name: "Facturation Honoraires", href: "/dashboard/sales/invoices", icon: Receipt },
-  { name: "Suivi Encaissements", href: "/dashboard/accounting/ledger", icon: HandCoins },
-]
-
-// Menu Achats (Adaptable)
+// Menu Achats
 const purchaseNav = [
   { name: "Flux d'Achat Hub", href: "/dashboard/purchases", icon: ShoppingCart },
   { name: "Demandes d'Achat", href: "/dashboard/purchases/requests", icon: FilePlus2 },
@@ -140,7 +138,7 @@ const purchaseNav = [
   { name: "Retours Fournisseurs", href: "/dashboard/purchases/returns", icon: Undo2 },
 ]
 
-// Menu Comptabilité (Commun)
+// Menu Comptabilité
 const accountingNav = [
   { name: "Saisie Journal", href: "/dashboard/accounting", icon: BookText },
   { name: "Grand Livre", href: "/dashboard/accounting/ledger", icon: Library },
@@ -148,7 +146,7 @@ const accountingNav = [
   { name: "États Financiers", href: "/dashboard/accounting/financial-statements", icon: FileBarChart },
 ]
 
-// Menu Stocks (Adaptable)
+// Menu Stocks
 const inventoryNav = [
   { name: "Sessions d'Inventaire", href: "/dashboard/inventory", icon: ClipboardCheck },
   { name: "Gestion des Stocks", href: "/dashboard/inventory/stock", icon: Boxes },
@@ -269,11 +267,12 @@ export function DashboardSidebar() {
         <SidebarMenu>
           {items.map((item: any) => {
             const href = currentTenant ? `${item.href}?tenantId=${currentTenant.id}` : item.href
+            const active = pathname === item.href;
             return (
               <SidebarMenuItem key={item.name}>
-                <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name}>
+                <SidebarMenuButton asChild isActive={active} tooltip={item.name}>
                   <Link href={href}>
-                    <item.icon className={pathname === item.href ? "text-primary" : "text-sidebar-foreground/60 group-hover:text-primary transition-colors"} />
+                    <item.icon className={active ? "text-primary" : "text-sidebar-foreground/60 group-hover:text-primary transition-colors"} />
                     <span className="font-medium">{item.name}</span>
                   </Link>
                 </SidebarMenuButton>
@@ -342,7 +341,7 @@ export function DashboardSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="px-2">
-        <NavGroup label="Pilotage" items={pilotageNav} />
+        <NavGroup label="Pilotage & Décision" items={pilotageNav} />
         
         <NavGroup 
           label="Ventes & Clients" 
@@ -351,21 +350,15 @@ export function DashboardSidebar() {
         />
 
         <NavGroup 
-          label="Gestion Chantiers & Situations" 
+          label="Gestion Chantiers" 
           items={btpNav} 
           visible={secteur === "BTP"} 
         />
 
         <NavGroup 
-          label="Production & Usine" 
+          label="Production" 
           items={industryNav} 
           visible={secteur === "INDUSTRIE"} 
-        />
-
-        <NavGroup 
-          label="Honoraires & Activité" 
-          items={liberaleNav} 
-          visible={secteur === "PRO_LIBERALE"} 
         />
 
         <NavGroup label="Achats & Dépenses" items={purchaseNav} visible={secteur !== "PRO_LIBERALE"} />
