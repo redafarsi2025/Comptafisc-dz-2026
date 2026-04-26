@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { formatDZD } from "@/utils/fiscalAlgerie"
+import { cn } from "@/lib/utils"
 
 export default function FuelManagementPage() {
   const db = useFirestore()
