@@ -90,3 +90,64 @@ export function numberToFrenchWords(amount: number): string {
 
   return result.toUpperCase();
 }
+
+/**
+ * Algorithme Tafqeet : Convertit un nombre en lettres (Arabe).
+ * Adapté pour le Dinar Algérien.
+ */
+export function numberToArabicWords(amount: number): string {
+  const main = Math.floor(amount);
+  const cents = Math.round((amount - main) * 100);
+
+  const units = ["", "واحد", "اثنان", "ثلاثة", "أربعة", "خمسة", "ستة", "سبعة", "ثمانية", "تسعة", "عشرة"];
+  const teens = ["أحد عشر", "اثنا عشر", "ثلاثة عشر", "أربعة عشر", "خمسة عشر", "ستة عشر", "سبعة عشر", "ثمانية عشر", "تسعة عشر"];
+  const tens = ["", "عشرة", "عشرون", "ثلاثون", "أربعون", "خمسون", "ستون", "سبعون", "ثمانون", "تسعون"];
+  const hundreds = ["", "مائة", "مائتان", "ثلاثمائة", "أربعمائة", "خمسمائة", "ستمائة", "سبعمائة", "ثمانمائة", "تسعمائة"];
+
+  function convert(n: number): string {
+    if (n === 0) return "";
+    if (n <= 10) return units[n];
+    if (n < 20) return teens[n - 11];
+    if (n < 100) {
+      const u = n % 10;
+      const t = Math.floor(n / 10);
+      return (u > 0 ? units[u] + " و" : "") + tens[t];
+    }
+    if (n < 1000) {
+      const r = n % 100;
+      const h = Math.floor(n / 100);
+      return hundreds[h] + (r > 0 ? " و" + convert(r) : "");
+    }
+    if (n < 1000000) {
+      const m = Math.floor(n / 1000);
+      const r = n % 1000;
+      let mStr = "";
+      if (m === 1) mStr = "ألف";
+      else if (m === 2) mStr = "ألفان";
+      else if (m >= 3 && m <= 10) mStr = units[m] + " آلاف";
+      else mStr = convert(m) + " ألف";
+      return mStr + (r > 0 ? " و" + convert(r) : "");
+    }
+    if (n < 1000000000) {
+        const mil = Math.floor(n / 1000000);
+        const r = n % 1000000;
+        let milStr = "";
+        if (mil === 1) milStr = "مليون";
+        else if (mil === 2) milStr = "مليونان";
+        else milStr = convert(mil) + " مليون";
+        return milStr + (r > 0 ? " و" + convert(r) : "");
+    }
+    return n.toString();
+  }
+
+  if (amount === 0) return "صفر دينار";
+
+  let result = convert(main) + " دينار جزائري";
+  if (cents > 0) {
+    result += " و " + convert(cents) + " سنتيم";
+  } else {
+    result += " و صفر سنتيم";
+  }
+
+  return result;
+}

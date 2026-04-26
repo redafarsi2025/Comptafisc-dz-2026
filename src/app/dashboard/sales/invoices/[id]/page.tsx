@@ -14,7 +14,7 @@ import {
 } from "lucide-react"
 import { useRouter, useSearchParams, useParams } from "next/navigation"
 import Link from "next/link"
-import { formatDZD, numberToFrenchWords } from "@/utils/fiscalAlgerie"
+import { formatDZD, numberToFrenchWords, numberToArabicWords } from "@/utils/fiscalAlgerie"
 import { cn } from "@/lib/utils"
 
 export default function InvoiceDetailPage() {
@@ -41,17 +41,8 @@ export default function InvoiceDetailPage() {
   if (!invoice) return <div className="p-20 text-center">Facture introuvable.</div>
 
   const isProvisoire = invoice.status === 'Draft';
-  const amountInWords = numberToFrenchWords(invoice.totalAmountIncludingTax || 0);
-
-  // Simulation de données QR Code pour 2026
-  const qrData = JSON.stringify({
-    nif_em: tenant?.nif,
-    nif_cl: invoice.clientId,
-    fac: invoice.invoiceNumber,
-    date: invoice.invoiceDate,
-    ttc: invoice.totalAmountIncludingTax,
-    tva: invoice.totalTaxAmount
-  });
+  const amountInWordsFr = numberToFrenchWords(invoice.totalAmountIncludingTax || 0);
+  const amountInWordsAr = numberToArabicWords(invoice.totalAmountIncludingTax || 0);
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-20 print:p-0 print:space-y-0">
@@ -201,13 +192,22 @@ export default function InvoiceDetailPage() {
             </div>
           </div>
 
-          {/* 5. ARRETE EN TOUTES LETTRES */}
-          <div className="bg-slate-50 border-2 border-dashed border-slate-200 p-6 rounded-3xl">
-             <p className="text-[9px] font-black uppercase text-slate-400 mb-2">Certification des sommes</p>
-             <p className="text-xs font-bold text-slate-700 leading-relaxed uppercase">
-                Arrêté la présente facture à la somme de : <br />
-                <span className="text-primary font-black">{amountInWords}</span>
-             </p>
+          {/* 5. ARRETE EN TOUTES LETTRES (BILINGUE) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-slate-50 border-2 border-dashed border-slate-200 p-6 rounded-3xl">
+               <p className="text-[9px] font-black uppercase text-slate-400 mb-2">Certification des sommes (FR)</p>
+               <p className="text-[11px] font-bold text-slate-700 leading-relaxed uppercase">
+                  Arrêté la présente facture à la somme de : <br />
+                  <span className="text-primary font-black">{amountInWordsFr}</span>
+               </p>
+            </div>
+            <div className="bg-slate-50 border-2 border-dashed border-slate-200 p-6 rounded-3xl text-right">
+               <p className="text-[9px] font-black uppercase text-slate-400 mb-2">توقيف المبلغ (AR)</p>
+               <p className="text-[13px] font-bold text-slate-700 leading-relaxed" dir="rtl">
+                  أوقفت هذه الفاتورة عند مبلغ : <br />
+                  <span className="text-primary font-black">{amountInWordsAr}</span>
+               </p>
+            </div>
           </div>
         </CardContent>
 
