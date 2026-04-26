@@ -15,7 +15,8 @@ import { collection, query, where, limit, doc } from "firebase/firestore"
 import { findActivityByNap, NAP_ACTIVITIES } from "@/lib/nap-data"
 import { WILAYAS } from "@/lib/wilaya-data"
 import { 
-  Building2, Save, MapPin, ShieldCheck, Zap, Loader2, Info, Search, Check, Rocket, Landmark, CalendarDays
+  Building2, Save, MapPin, ShieldCheck, Zap, Loader2, Info, Search, Check, Rocket, Landmark, CalendarDays,
+  HardHat, Store, Briefcase, Factory
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
@@ -91,7 +92,7 @@ export default function TenantSettingsPage() {
       })
       toast({
         title: "Dossier mis à jour",
-        description: "Les variables fiscales et commerciales ont été synchronisées.",
+        description: "Les variables fiscales et l'interface ont été adaptées.",
       })
     } catch (error) {
       console.error(error)
@@ -121,7 +122,7 @@ export default function TenantSettingsPage() {
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-1">
           <h1 className="text-3xl font-bold text-primary">Configuration du Dossier</h1>
-          <p className="text-muted-foreground">Paramétrage complet du moteur fiscal conforme à la Nomenclature NAP et Loi 2026.</p>
+          <p className="text-muted-foreground">Paramétrage du profil métier et du moteur fiscal conforme Loi 2026.</p>
         </div>
         <Button onClick={handleSave} disabled={isSaving} className="shadow-lg">
           {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
@@ -132,11 +133,11 @@ export default function TenantSettingsPage() {
       <Tabs defaultValue="identification" className="w-full">
         <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 h-auto p-1 bg-muted/50">
           <TabsTrigger value="identification" className="py-2 text-xs">Identification</TabsTrigger>
-          <TabsTrigger value="contact" className="py-2 text-xs">Contact</TabsTrigger>
           <TabsTrigger value="fiscal" className="py-2 text-xs">Profil Fiscal</TabsTrigger>
+          <TabsTrigger value="metier" className="py-2 text-xs">Adaptation Métier</TabsTrigger>
           <TabsTrigger value="exemptions" className="py-2 text-xs">Exonérations</TabsTrigger>
           <TabsTrigger value="subscription" className="py-2 text-xs">Abonnement</TabsTrigger>
-          <TabsTrigger value="efatura" className="py-2 text-xs">e-Fatura</TabsTrigger>
+          <TabsTrigger value="contact" className="py-2 text-xs">Contact</TabsTrigger>
         </TabsList>
 
         <TabsContent value="identification" className="mt-6">
@@ -170,41 +171,68 @@ export default function TenantSettingsPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-bold uppercase">Ville / Commune</label>
-                <Input value={formData.ville || ""} onChange={(e) => handleUpdate("ville", e.target.value)} placeholder="Ex: Chéraga" />
-              </div>
-              <div className="space-y-2">
                 <label className="text-xs font-bold uppercase">NIF (15 chiffres)</label>
                 <Input value={formData.nif || ""} onChange={(e) => handleUpdate("nif", e.target.value)} maxLength={15} />
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-bold uppercase">NIN (Obligatoire 2026)</label>
-                <Input placeholder="Numéro d'Identification Nationale" value={formData.nin || ""} onChange={(e) => handleUpdate("nin", e.target.value)} />
-              </div>
-              <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase flex items-center gap-1"><CalendarDays className="h-3 w-3" /> Date de début d'activité</Label>
                 <Input type="date" value={formData.debutActivite || ""} onChange={(e) => handleUpdate("debutActivite", e.target.value)} />
-                <p className="text-[10px] text-muted-foreground italic">Crucial pour la Déclaration d'Existence (G8).</p>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="contact" className="mt-6">
-          <Card>
-            <CardHeader><CardTitle className="text-lg">Informations de Contact</CardTitle></CardHeader>
+        <TabsContent value="metier" className="mt-6">
+          <Card className="border-accent/20 bg-accent/5">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2 text-primary">
+                <Zap className="h-5 w-5 text-accent" /> Profil d'interface
+              </CardTitle>
+              <CardDescription>L'interface s'adapte automatiquement aux besoins de votre secteur.</CardDescription>
+            </CardHeader>
             <CardContent className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase">Email Professionnel</label>
-                <Input type="email" value={formData.email || ""} onChange={(e) => handleUpdate("email", e.target.value)} />
+              <div 
+                className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center gap-4 ${formData.secteurActivite === 'BTP' ? 'bg-white border-primary shadow-md' : 'bg-muted/50 border-transparent hover:border-muted-foreground/20'}`}
+                onClick={() => handleUpdate("secteurActivite", "BTP")}
+              >
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center"><HardHat className="h-5 w-5 text-primary" /></div>
+                <div>
+                  <p className="font-bold text-sm text-primary">🏗 BTP & Chantier</p>
+                  <p className="text-[10px] text-muted-foreground italic">Facturation par situations, gestion des engins et stocks de matériaux.</p>
+                </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase">Téléphone</label>
-                <Input value={formData.tel || ""} onChange={(e) => handleUpdate("tel", e.target.value)} />
+
+              <div 
+                className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center gap-4 ${formData.secteurActivite === 'COMMERCE' ? 'bg-white border-primary shadow-md' : 'bg-muted/50 border-transparent hover:border-muted-foreground/20'}`}
+                onClick={() => handleUpdate("secteurActivite", "COMMERCE")}
+              >
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center"><Store className="h-5 w-5 text-primary" /></div>
+                <div>
+                  <p className="font-bold text-sm text-primary">🛒 Commerce & Négoce</p>
+                  <p className="text-[10px] text-muted-foreground italic">Flux standard Achat/Vente/Stock, inventaires tournants.</p>
+                </div>
               </div>
-              <div className="space-y-2 md:col-span-2">
-                <label className="text-xs font-bold uppercase">Adresse Complète</label>
-                <Input value={formData.adresse || ""} onChange={(e) => handleUpdate("adresse", e.target.value)} />
+
+              <div 
+                className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center gap-4 ${formData.secteurActivite === 'INDUSTRIE' ? 'bg-white border-primary shadow-md' : 'bg-muted/50 border-transparent hover:border-muted-foreground/20'}`}
+                onClick={() => handleUpdate("secteurActivite", "INDUSTRIE")}
+              >
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center"><Factory className="h-5 w-5 text-primary" /></div>
+                <div>
+                  <p className="font-bold text-sm text-primary">🏭 Industrie & Production</p>
+                  <p className="text-[10px] text-muted-foreground italic">Ordres de fabrication, recettes, matières premières et produits finis.</p>
+                </div>
+              </div>
+
+              <div 
+                className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center gap-4 ${formData.secteurActivite === 'PRO_LIBERALE' ? 'bg-white border-primary shadow-md' : 'bg-muted/50 border-transparent hover:border-muted-foreground/20'}`}
+                onClick={() => handleUpdate("secteurActivite", "PRO_LIBERALE")}
+              >
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center"><Briefcase className="h-5 w-5 text-primary" /></div>
+                <div>
+                  <p className="font-bold text-sm text-primary">👨‍⚕️ Profession Libérale</p>
+                  <p className="text-[10px] text-muted-foreground italic">Interface épurée : facturation d'honoraires et encaissements uniquement.</p>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -214,7 +242,6 @@ export default function TenantSettingsPage() {
           <Card className="border-primary/20 bg-primary/5">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2 text-primary"><Zap className="h-5 w-5" />Profil Fiscal (Moteur 2026)</CardTitle>
-              <CardDescription>Adaptation dynamique des seuils IFU (8M DA) et Auto-entrepreneur (5M DA).</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
@@ -290,7 +317,6 @@ export default function TenantSettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2 text-primary"><Rocket className="h-5 w-5" />Exonérations Temporaires (LF 2026)</CardTitle>
-              <CardDescription>Gérez vos périodes de grâce fiscale (Startup, ANADE, ANGEM).</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
@@ -300,12 +326,6 @@ export default function TenantSettingsPage() {
                     <Switch id="startup-toggle" checked={formData.isStartup} onCheckedChange={(v) => handleUpdate("isStartup", v)} />
                   </div>
                   <p className="text-[10px] text-muted-foreground">Exonération IFU de 4 ans + 1 an si renouvellement (Art. 100 LF 2026).</p>
-                  {formData.isStartup && (
-                    <div className="space-y-2">
-                      <Label className="text-[10px] uppercase">Date d'obtention du label</Label>
-                      <Input type="date" value={formData.startupLabelDate || ""} onChange={(e) => handleUpdate("startupLabelDate", e.target.value)} />
-                    </div>
-                  )}
                 </div>
 
                 <div className="p-4 border rounded-xl space-y-4">
@@ -314,20 +334,6 @@ export default function TenantSettingsPage() {
                     <Switch id="job-sponsor-toggle" checked={formData.isJobSponsor} onCheckedChange={(v) => handleUpdate("isJobSponsor", v)} />
                   </div>
                   <p className="text-[10px] text-muted-foreground">Exonération de 3 ans (6 ans en zone à promouvoir) (Art. 20 LF 2024).</p>
-                  {formData.isJobSponsor && (
-                    <div className="flex items-center space-x-2">
-                      <Checkbox id="isPromoteZone" checked={formData.isPromoteZone} onCheckedChange={(v) => handleUpdate("isPromoteZone", !!v)} />
-                      <Label htmlFor="isPromoteZone" className="text-xs font-normal">Implanté en zone à promouvoir</Label>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
-                <Landmark className="h-5 w-5 text-amber-600 mt-0.5" />
-                <div className="text-xs text-amber-900 leading-relaxed">
-                  <p className="font-bold">Important :</p>
-                  Les exonérations IFU ne sont pas applicables aux activités via plates-formes numériques soumises à la retenue à la source de 5%.
                 </div>
               </div>
             </CardContent>
@@ -361,6 +367,26 @@ export default function TenantSettingsPage() {
                   <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Stockage</p>
                   <p className="text-sm font-bold">45 MB / {PLANS.find(p => p.id === (formData.plan || 'GRATUIT'))?.limits.storage}</p>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="contact" className="mt-6">
+          <Card>
+            <CardHeader><CardTitle className="text-lg">Informations de Contact</CardTitle></CardHeader>
+            <CardContent className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase">Email Professionnel</label>
+                <Input type="email" value={formData.email || ""} onChange={(e) => handleUpdate("email", e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase">Téléphone</label>
+                <Input value={formData.tel || ""} onChange={(e) => handleUpdate("tel", e.target.value)} />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-xs font-bold uppercase">Adresse Complète</label>
+                <Input value={formData.adresse || ""} onChange={(e) => handleUpdate("adresse", e.target.value)} />
               </div>
             </CardContent>
           </Card>

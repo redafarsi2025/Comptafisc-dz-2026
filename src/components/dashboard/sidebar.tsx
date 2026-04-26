@@ -46,7 +46,11 @@ import {
   Plus,
   Undo2,
   FileMinus,
-  CircleDollarSign
+  CircleDollarSign,
+  Factory,
+  Gavel,
+  Pickaxe,
+  Briefcase
 } from "lucide-react"
 
 import {
@@ -91,19 +95,12 @@ import { collection, query, where, doc } from "firebase/firestore"
 import { signOut } from "firebase/auth"
 import { toast } from "@/hooks/use-toast"
 
+// Menu Pilotage (Commun)
 const pilotageNav = [
   { name: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard },
 ]
 
-const accountingNav = [
-  { name: "Saisie Journal", href: "/dashboard/accounting", icon: BookText },
-  { name: "Grand Livre", href: "/dashboard/accounting/ledger", icon: Library },
-  { name: "Balance Générale", href: "/dashboard/accounting/balance", icon: Scale },
-  { name: "États Financiers", href: "/dashboard/accounting/financial-statements", icon: FileBarChart },
-  { name: "Registre des Immos", href: "/dashboard/accounting/assets", icon: TrendingDown },
-  { name: "Rapprochement Bancaire", href: "/dashboard/cabinet/bank-recon", icon: Landmark },
-]
-
+// Menu Ventes (Adaptable)
 const salesNav = [
   { name: "Flux de Vente Hub", href: "/dashboard/sales", icon: CircleDollarSign },
   { name: "Commandes Clients", href: "/dashboard/sales/orders", icon: FileSearch },
@@ -113,41 +110,58 @@ const salesNav = [
   { name: "Avoirs Clients", href: "/dashboard/sales/credit-notes", icon: FileMinus },
 ]
 
+// Menu BTP (Spécifique)
+const btpNav = [
+  { name: "Suivi Chantiers", href: "/dashboard/btp/projects", icon: Pickaxe },
+  { name: "Situations de Travaux", href: "/dashboard/btp/situations", icon: FileBadge },
+  { name: "Engins & Matériel", href: "/dashboard/accounting/assets", icon: HardHat },
+]
+
+// Menu Industrie (Spécifique)
+const industryNav = [
+  { name: "Ordres de Fabrication", href: "/dashboard/industry/production", icon: Factory },
+  { name: "Fiches Recettes / Gammes", href: "/dashboard/industry/recipes", icon: ClipboardList },
+]
+
+// Menu Profession Libérale (Spécifique)
+const liberaleNav = [
+  { name: "Facturation Honoraires", href: "/dashboard/sales/invoices", icon: Receipt },
+  { name: "Suivi Encaissements", href: "/dashboard/accounting/ledger", icon: HandCoins },
+]
+
+// Menu Achats (Adaptable)
 const purchaseNav = [
   { name: "Flux d'Achat Hub", href: "/dashboard/purchases", icon: ShoppingCart },
   { name: "Bons de Commande", href: "/dashboard/purchases/orders", icon: FileSearch },
   { name: "Bons de Réception", href: "/dashboard/purchases/receptions", icon: Truck },
   { name: "Factures Fournisseurs", href: "/dashboard/purchases/invoices", icon: Receipt },
   { name: "Retours Fournisseurs", href: "/dashboard/purchases/returns", icon: Undo2 },
-  { name: "Avoirs Fournisseurs", href: "/dashboard/purchases/credit-notes", icon: FileMinus },
-  { name: "Règlements", href: "/dashboard/purchases/payments", icon: CreditCard },
 ]
 
+// Menu Comptabilité (Commun)
+const accountingNav = [
+  { name: "Saisie Journal", href: "/dashboard/accounting", icon: BookText },
+  { name: "Grand Livre", href: "/dashboard/accounting/ledger", icon: Library },
+  { name: "Balance Générale", href: "/dashboard/accounting/balance", icon: Scale },
+  { name: "États Financiers", href: "/dashboard/accounting/financial-statements", icon: FileBarChart },
+]
+
+// Menu Stocks (Adaptable)
 const inventoryNav = [
   { name: "Sessions d'Inventaire", href: "/dashboard/inventory", icon: ClipboardCheck },
   { name: "Gestion des Stocks", href: "/dashboard/inventory/stock", icon: Boxes },
-  { name: "Inventaire des Actifs", href: "/dashboard/inventory/assets", icon: Package },
-]
-
-const businessNav = [
-  { name: "Tiers (Clients/Fourn.)", href: "/dashboard/contacts", icon: Contact },
 ]
 
 const payrollNav = [
-  { name: "Registre du Personnel", href: "/dashboard/payroll", icon: Users },
   { name: "Livre de Paie", href: "/dashboard/payroll/ledger", icon: BookOpen },
   { name: "Bordereau DAC (CNAS)", href: "/dashboard/payroll/dac", icon: CalendarCheck },
   { name: "DAS Annuelle", href: "/dashboard/payroll/das", icon: ClipboardList },
-  { name: "CACOBATPH (BTP)", href: "/dashboard/payroll/cacobatph", icon: HardHat },
 ]
 
 const fiscalNav = [
   { name: "Déclarations (G50/G12)", href: "/dashboard/declarations", icon: FileText },
-  { name: "G50 ter (Trimestriel)", href: "/dashboard/declarations/g50ter", icon: CalendarDays },
-  { name: "Cotisations CASNOS", href: "/dashboard/declarations/casnos", icon: HandCoins },
   { name: "Liasse Fiscale (G4)", href: "/dashboard/declarations/g4", icon: FileText },
-  { name: "Existence (G8)", href: "/dashboard/declarations/g8", icon: FileBadge },
-  { name: "Taxe Apprentissage", href: "/dashboard/declarations/taxe-apprentissage", icon: GraduationCap },
+  { name: "Cotisations CASNOS", href: "/dashboard/declarations/casnos", icon: HandCoins },
 ]
 
 const aiNav = [
@@ -169,7 +183,8 @@ export function DashboardSidebar() {
   const [newTenantData, setNewTenantData] = React.useState({
     raisonSociale: "",
     formeJuridique: "SARL",
-    regimeFiscal: "REGIME_REEL"
+    regimeFiscal: "REGIME_REEL",
+    secteurActivite: "COMMERCE"
   })
 
   React.useEffect(() => {
@@ -217,15 +232,12 @@ export function DashboardSidebar() {
     setIsCreating(true);
 
     const tenantData = {
-      raisonSociale: newTenantData.raisonSociale,
-      formeJuridique: newTenantData.formeJuridique,
-      regimeFiscal: newTenantData.regimeFiscal,
+      ...newTenantData,
       createdAt: new Date().toISOString(),
       createdByUserId: user.uid,
       members: { [user.uid]: 'owner' },
       onboardingComplete: false,
       plan: 'GRATUIT',
-      secteurActivite: 'SERVICES',
       assujettissementTva: newTenantData.regimeFiscal === 'REGIME_REEL'
     };
 
@@ -234,7 +246,7 @@ export function DashboardSidebar() {
       if (docRef) {
         toast({ title: "Dossier créé", description: `Le dossier ${newTenantData.raisonSociale} est prêt.` });
         setIsCreateDialogOpen(false);
-        setNewTenantData({ raisonSociale: "", formeJuridique: "SARL", regimeFiscal: "REGIME_REEL" });
+        setNewTenantData({ raisonSociale: "", formeJuridique: "SARL", regimeFiscal: "REGIME_REEL", secteurActivite: "COMMERCE" });
         handleTenantSelect(docRef.id);
       }
     } catch (e) {
@@ -245,30 +257,35 @@ export function DashboardSidebar() {
     }
   };
 
-  const NavGroup = ({ label, items }: { label: string, items: any[] }) => (
-    <SidebarGroup>
-      <SidebarGroupLabel className="text-sidebar-foreground/40 uppercase tracking-[0.15em] text-[9px] font-black mt-2">
-        {label}
-      </SidebarGroupLabel>
-      <SidebarMenu>
-        {items.map((item: any) => {
-          const href = currentTenant ? `${item.href}?tenantId=${currentTenant.id}` : item.href
-          return (
-            <SidebarMenuItem key={item.name}>
-              <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name}>
-                <Link href={href}>
-                  <item.icon className={pathname === item.href ? "text-primary" : "text-sidebar-foreground/60 group-hover:text-primary transition-colors"} />
-                  <span className="font-medium">{item.name}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )
-        })}
-      </SidebarMenu>
-    </SidebarGroup>
-  )
+  const NavGroup = ({ label, items, visible = true }: { label: string, items: any[], visible?: boolean }) => {
+    if (!visible) return null;
+    return (
+      <SidebarGroup>
+        <SidebarGroupLabel className="text-sidebar-foreground/40 uppercase tracking-[0.15em] text-[9px] font-black mt-2">
+          {label}
+        </SidebarGroupLabel>
+        <SidebarMenu>
+          {items.map((item: any) => {
+            const href = currentTenant ? `${item.href}?tenantId=${currentTenant.id}` : item.href
+            return (
+              <SidebarMenuItem key={item.name}>
+                <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name}>
+                  <Link href={href}>
+                    <item.icon className={pathname === item.href ? "text-primary" : "text-sidebar-foreground/60 group-hover:text-primary transition-colors"} />
+                    <span className="font-medium">{item.name}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )
+          })}
+        </SidebarMenu>
+      </SidebarGroup>
+    )
+  }
 
   if (!mounted) return null;
+
+  const secteur = currentTenant?.secteurActivite || "COMMERCE";
 
   return (
     <>
@@ -289,7 +306,7 @@ export function DashboardSidebar() {
                     <div className="flex items-center gap-1">
                       <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                       <span className="text-[10px] font-bold text-sidebar-foreground/50 uppercase">
-                        {currentTenant ? `${currentTenant.regimeFiscal}` : "Expert-comptable"}
+                        {secteur}
                       </span>
                     </div>
                   </div>
@@ -324,11 +341,45 @@ export function DashboardSidebar() {
 
       <SidebarContent className="px-2">
         <NavGroup label="Pilotage" items={pilotageNav} />
-        <NavGroup label="Ventes & Clients" items={salesNav} />
-        <NavGroup label="Achats & Dépenses" items={purchaseNav} />
+        
+        {/* VENTES - Masquées pour BTP au profit des Situations */}
+        <NavGroup 
+          label="Ventes & Clients" 
+          items={salesNav} 
+          visible={secteur === "COMMERCE" || secteur === "INDUSTRIE"} 
+        />
+
+        {/* BTP - Actif uniquement pour profil BTP */}
+        <NavGroup 
+          label="Gestion Chantiers & Situations" 
+          items={btpNav} 
+          visible={secteur === "BTP"} 
+        />
+
+        {/* INDUSTRIE - Actif uniquement pour profil INDUSTRIE */}
+        <NavGroup 
+          label="Production & Usine" 
+          items={industryNav} 
+          visible={secteur === "INDUSTRIE"} 
+        />
+
+        {/* LIBERALE - Actif uniquement pour Profession Libérale */}
+        <NavGroup 
+          label="Honoraires & Activité" 
+          items={liberaleNav} 
+          visible={secteur === "PRO_LIBERALE"} 
+        />
+
+        <NavGroup label="Achats & Dépenses" items={purchaseNav} visible={secteur !== "PRO_LIBERALE"} />
+        
         <NavGroup label="Comptabilité SCF" items={accountingNav} />
-        <NavGroup label="Stocks & Inventaires" items={inventoryNav} />
-        <NavGroup label="Activité & Tiers" items={businessNav} />
+        
+        <NavGroup 
+          label="Stocks & Inventaires" 
+          items={inventoryNav} 
+          visible={secteur !== "PRO_LIBERALE"} 
+        />
+
         <NavGroup label="RH & Paie" items={payrollNav} />
         <NavGroup label="Fiscalité & Sociaux" items={fiscalNav} />
         <NavGroup label="Innovation & Veille" items={aiNav} />
@@ -400,7 +451,7 @@ export function DashboardSidebar() {
       <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>Créer un nouveau dossier</DialogTitle>
-          <DialogDescription>Configurez les paramètres de base de l'entreprise.</DialogDescription>
+          <DialogDescription>Configurez les paramètres de base et le profil métier.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
@@ -433,11 +484,23 @@ export function DashboardSidebar() {
               </Select>
             </div>
           </div>
+          <div className="grid gap-2">
+            <Label>Profil Métier (Adaptation Interface)</Label>
+            <Select value={newTenantData.secteurActivite} onValueChange={v => setNewTenantData({...newTenantData, secteurActivite: v})}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="COMMERCE">🛒 Commerce & Négoce</SelectItem>
+                <SelectItem value="BTP">🏗 BTP & Chantier</SelectItem>
+                <SelectItem value="INDUSTRIE">🏭 Industrie & Production</SelectItem>
+                <SelectItem value="PRO_LIBERALE">👨‍⚕️ Profession Libérale</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <DialogFooter>
           <Button onClick={handleCreateTenant} disabled={isCreating || !newTenantData.raisonSociale} className="w-full">
             {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-            Créer le dossier
+            Créer le dossier {newTenantData.secteurActivite}
           </Button>
         </DialogFooter>
       </DialogContent>
