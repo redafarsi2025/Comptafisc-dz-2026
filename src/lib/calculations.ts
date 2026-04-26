@@ -68,6 +68,51 @@ export function calculateIRG(salairePoste: number, isGrandSud: boolean = false, 
   return Math.max(0, Math.round(tax));
 }
 
+/**
+ * Calculateur complet des métriques RH pour simulateur
+ */
+export function calculateRHMetrics(input: {
+  brut: number;
+  primes?: number;
+  heuresSup?: number;
+  avantages?: number;
+  isGrandSud?: boolean;
+  isHandicapped?: boolean;
+}) {
+  const { 
+    brut, 
+    primes = 0, 
+    heuresSup = 0, 
+    avantages = 0, 
+    isGrandSud = false, 
+    isHandicapped = false 
+  } = input;
+  
+  const salairePoste = brut + primes + heuresSup;
+  const totalBrut = salairePoste + avantages;
+  
+  // CNAS
+  const cnasSalariale = salairePoste * PAYROLL_CONSTANTS.CNAS_EMPLOYEE;
+  const cnasPatronale = salairePoste * PAYROLL_CONSTANTS.CNAS_EMPLOYER;
+  
+  // IRG (S'applique sur le salaire imposable : Poste - CNAS)
+  const imposable = salairePoste - cnasSalariale;
+  const irg = calculateIRG(salairePoste, isGrandSud, isHandicapped);
+  
+  const net = imposable - irg + (input.avantages || 0);
+  const cost = salairePoste + cnasPatronale + (input.avantages || 0);
+  
+  return {
+    salairePoste,
+    cnasSalariale,
+    cnasPatronale,
+    irg,
+    net,
+    cost,
+    ratio: cost > 0 ? (net / cost) * 100 : 0,
+  };
+}
+
 export function calculateTVA(ht: number, type: 'TVA_19' | 'TVA_9' | 'TVA_EXONERE' = 'TVA_19', isIFU: boolean = false): number {
   if (isIFU || type === 'TVA_EXONERE') return 0;
   const rate = type === 'TVA_9' ? TAX_RATES.TVA_REDUIT : TAX_RATES.TVA_NORMAL;

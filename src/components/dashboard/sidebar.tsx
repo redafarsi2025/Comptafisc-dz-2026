@@ -56,7 +56,8 @@ import {
   TrendingUp,
   HeartPulse,
   Zap,
-  Target
+  Target,
+  Calculator
 } from "lucide-react"
 
 import {
@@ -153,9 +154,10 @@ const inventoryNav = [
 ]
 
 const payrollNav = [
+  { name: "Registre Personnel", href: "/dashboard/payroll", icon: Users },
+  { name: "Simulateur RH", href: "/dashboard/payroll/simulator", icon: Calculator },
   { name: "Livre de Paie", href: "/dashboard/payroll/ledger", icon: BookOpen },
   { name: "Bordereau DAC (CNAS)", href: "/dashboard/payroll/dac", icon: CalendarCheck },
-  { name: "DAS Annuelle", href: "/dashboard/payroll/das", icon: ClipboardList },
 ]
 
 const fiscalNav = [
@@ -343,21 +345,18 @@ export function DashboardSidebar() {
       <SidebarContent className="px-2">
         <NavGroup label="Pilotage & Décision" items={pilotageNav} />
         
-        {/* VENTES & CLIENTS : Visible pour Commerce, Industrie et BTP (sous forme simplifiée) */}
         <NavGroup 
           label="Ventes & Clients" 
           items={salesNav} 
           visible={secteur === "COMMERCE" || secteur === "INDUSTRIE"} 
         />
 
-        {/* BTP : Exclusivement pour le secteur BTP */}
         <NavGroup 
           label="Gestion Chantiers" 
           items={btpNav} 
           visible={secteur === "BTP"} 
         />
 
-        {/* INDUSTRIE : Exclusivement pour le secteur Industrie */}
         <NavGroup 
           label="Production Industrielle" 
           items={industryNav} 
