@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -8,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Badge } from "@/components/ui/badge"
+import { Label } from "@/components/ui/label"
 import { 
   Calculator, TrendingUp, HeartPulse, Zap, ShieldCheck, 
   ArrowRight, Info, AlertTriangle, Scale, Target, 
@@ -73,7 +73,7 @@ export default function RHSimulatorPage() {
         <Card className="lg:col-span-1 border-none shadow-2xl ring-1 ring-border bg-white rounded-3xl overflow-hidden">
           <CardHeader className="bg-slate-50 border-b border-slate-100 p-6">
             <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-              <Zap className="h-4 w-4 text-primary" /> Paramètres d'entrée
+              <Zap className="h-4 w-4" /> Paramètres d'entrée
             </CardTitle>
           </CardHeader>
           <CardContent className="p-8 space-y-10">
