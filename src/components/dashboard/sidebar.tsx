@@ -104,7 +104,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { useUser, useFirestore, useAuth, useCollection, useMemoFirebase, useDoc, initiateAnonymousSignIn, addDocumentNonBlocking } from "@/firebase"
+import { useUser, useFirestore, useAuth, useCollection, useMemoFirebase, useDoc, initiateAnonymousSignIn, setDocumentNonBlocking } from "@/firebase"
 import { collection, query, where, doc } from "firebase/firestore"
 import { signOut } from "firebase/auth"
 import { toast } from "@/hooks/use-toast"
@@ -212,7 +212,7 @@ export function DashboardSidebar() {
   const { data: tenants, isLoading: isTenantsLoading } = useCollection(tenantsQuery);
 
   const adminDocRef = useMemoFirebase(() => (db && user) ? doc(db, "saas_admins", user.uid) : null, [db, user?.uid]);
-  const { data: adminRecord } = useDoc(adminDocRef);
+  const { data: adminRecord, isLoading: isAdminLoading } = useDoc(adminDocRef);
   const isSaaSAdmin = !!adminRecord;
 
   const tenantIdFromUrl = searchParams.get('tenantId')
@@ -241,7 +241,14 @@ export function DashboardSidebar() {
   const handleCreateTenant = async () => {
     if (!db || !user || !newTenantData.raisonSociale) return;
     setIsCreating(true);
+
+    // 1. Génération synchrone de la référence pour éviter le gel
+    const tenantsColRef = collection(db, "tenants");
+    const newTenantRef = doc(tenantsColRef);
+    const tenantId = newTenantRef.id;
+
     const tenantData = {
+      id: tenantId,
       ...newTenantData,
       createdAt: new Date().toISOString(),
       createdByUserId: user.uid,
@@ -250,14 +257,22 @@ export function DashboardSidebar() {
       plan: 'GRATUIT',
       assujettissementTva: newTenantData.regimeFiscal === 'REGIME_REEL'
     };
+
     try {
-      const docRef = await addDocumentNonBlocking(collection(db, "tenants"), tenantData);
-      if (docRef) {
-        setIsCreateDialogOpen(false);
-        handleTenantSelect(docRef.id);
-      }
+      // 2. Écriture non-bloquante
+      setDocumentNonBlocking(newTenantRef, tenantData, { merge: true });
+      
+      // 3. Navigation immédiate (Optimiste)
+      setIsCreateDialogOpen(false);
+      handleTenantSelect(tenantId);
+      
+      toast({ 
+        title: "Dossier initialisé", 
+        description: `Le dossier ${newTenantData.raisonSociale} est prêt.` 
+      });
     } catch (e) {
       console.error(e);
+      toast({ variant: "destructive", title: "Erreur lors de la création" });
     } finally {
       setIsCreating(false);
     }

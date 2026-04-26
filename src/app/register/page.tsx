@@ -53,12 +53,13 @@ export default function RegisterPage() {
   // Finalize Onboarding once user is created
   React.useEffect(() => {
     const finalizeOnboarding = async () => {
-      if (user && !isUserLoading && !user.isAnonymous && !isFinishing) {
+      // Verrouillage pour éviter les exécutions multiples lors de la navigation
+      if (user && !isUserLoading && !user.isAnonymous && !isFinishing && step === 2) {
         setIsFinishing(true);
         try {
-          // 1. Create User Profile
+          // 1. Profil Utilisateur (Non-bloquant)
           const profileRef = doc(db, "userProfiles", user.uid);
-          await setDocumentNonBlocking(profileRef, {
+          setDocumentNonBlocking(profileRef, {
             id: user.uid,
             email: user.email,
             firstName: formData.name.split(' ')[0],
@@ -67,9 +68,13 @@ export default function RegisterPage() {
             updatedAt: new Date().toISOString(),
           }, { merge: true });
 
-          // 2. Create Initial Tenant (Dossier)
+          // 2. Pré-génération de l'ID Dossier pour navigation immédiate
           const tenantRef = collection(db, "tenants");
+          const newTenantRef = doc(tenantRef);
+          const tenantId = newTenantRef.id;
+
           const tenantData = {
+            id: tenantId,
             raisonSociale: formData.raisonSociale || `${formData.name} Enterprise`,
             formeJuridique: formData.formeJuridique,
             wilaya: formData.wilaya,
@@ -86,22 +91,20 @@ export default function RegisterPage() {
             assujettissementTva: formData.regimeFiscal === 'REGIME_REEL',
           };
 
-          const newTenant = await addDocumentNonBlocking(tenantRef, tenantData);
+          // 3. Écriture Firestore (Non-bloquante)
+          setDocumentNonBlocking(newTenantRef, tenantData, { merge: true });
           
           toast({
-            title: "Bienvenue !",
-            description: `Le dossier ${formData.raisonSociale} a été initialisé avec succès.`,
+            title: "Dossier initialisé",
+            description: `Bienvenue, ${formData.raisonSociale} est maintenant en ligne.`,
           });
 
-          // Redirect to dashboard with the new tenant ID
-          if (newTenant) {
-            router.push(`/dashboard?tenantId=${newTenant.id}`);
-          } else {
-             router.push("/dashboard");
-          }
+          // 4. Redirection IMMÉDIATE (Navigation Optimiste)
+          router.push(`/dashboard?tenantId=${tenantId}`);
         } catch (e) {
           console.error("Onboarding error:", e);
           setIsFinishing(false);
+          setIsLoading(false);
         }
       }
     };
@@ -131,16 +134,11 @@ export default function RegisterPage() {
     if (step > 0) setStep((step - 1) as WizardStep);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    try {
-      initiateEmailSignUp(auth, formData.email, formData.password);
-      // The useEffect will pick it up once the user object is available
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
-      setIsLoading(false);
-    }
+    // Appel non-bloquant vers Firebase Auth
+    initiateEmailSignUp(auth, formData.email, formData.password);
   };
 
   return (
@@ -270,7 +268,7 @@ export default function RegisterPage() {
                      <Select value={formData.regimeFiscal} onValueChange={(v) => setFormData({...formData, regimeFiscal: v})}>
                        <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
                        <SelectContent>
-                         <SelectItem value="IFU">IFU (Impôt Forfaitaire Unique)</SelectItem>
+                         <SelectItem value="IFU">IFU (Forfaitaire)</SelectItem>
                          <SelectItem value="REGIME_REEL">Régime du Réel</SelectItem>
                        </SelectContent>
                      </Select>
