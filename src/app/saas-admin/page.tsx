@@ -147,7 +147,7 @@ export default function AdminDashboard() {
         </Card>
 
         <Card className="bg-slate-800 border-slate-700 text-white shadow-2xl relative overflow-hidden group">
-          <div className="absolute inset-0 bg-gradient-to-br from-accent/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="absolute inset-0 bg-gradient-to-br from-accent/5 to-transparent opacity-0 group-hover:opacity-10 transition-opacity" />
           <CardHeader className="pb-2">
             <CardTitle className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">SANTÉ INFRASTRUCTURE</CardTitle>
           </CardHeader>
@@ -254,8 +254,8 @@ export default function AdminDashboard() {
             </CardContent>
          </Card>
 
-         <Card className="bg-blue-600 text-white border-none shadow-2xl group cursor-pointer hover:bg-blue-500 transition-colors relative overflow-hidden" asChild>
-            <Link href="/saas-admin/dgi-watch">
+         <Link href="/saas-admin/dgi-watch" className="block group">
+           <Card className="bg-blue-600 text-white border-none shadow-2xl group cursor-pointer hover:bg-blue-500 transition-colors relative overflow-hidden h-full">
               <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-125 transition-transform duration-700">
                 <Eye className="h-32 w-32" />
               </div>
@@ -272,8 +272,8 @@ export default function AdminDashboard() {
                   <ArrowUpRight className="h-6 w-6" />
                 </div>
               </CardContent>
-            </Link>
-         </Card>
+           </Card>
+         </Link>
       </div>
     </div>
   )
