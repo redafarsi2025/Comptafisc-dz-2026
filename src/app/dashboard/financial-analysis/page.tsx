@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -113,7 +114,7 @@ export default function FinancialAnalysisPage() {
           cash: analysis.cash,
           tva_collectee: analysis.tva_collectee,
           tva_deductible: analysis.tva_deductible,
-          investissements: 0, // À dynamiser plus tard via actifs
+          investissements: 0, 
           secteur: currentTenant.secteurActivite,
           statut: currentTenant.regimeFiscal
         }
@@ -271,8 +272,8 @@ export default function FinancialAnalysisPage() {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col p-0 border-none shadow-2xl rounded-3xl">
-           <DialogHeader className="bg-slate-900 text-white p-8">
+        <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 border-none shadow-2xl rounded-3xl overflow-hidden">
+           <DialogHeader className="bg-slate-900 text-white p-8 shrink-0">
              <div className="flex items-center gap-4">
                <div className="h-12 w-12 rounded-2xl bg-accent/20 flex items-center justify-center border border-accent/20 shadow-inner">
                  <Sparkles className="h-6 w-6 text-accent animate-pulse" />
@@ -283,12 +284,14 @@ export default function FinancialAnalysisPage() {
                </div>
              </div>
            </DialogHeader>
-           <ScrollArea className="flex-1 p-8 bg-white">
-             <div className="prose prose-slate max-w-none prose-sm leading-relaxed text-slate-700 whitespace-pre-line">
+           
+           <ScrollArea className="flex-1 w-full bg-white">
+             <div className="p-8 prose prose-slate max-w-none prose-sm leading-relaxed text-slate-700 whitespace-pre-line">
                {recommendation}
              </div>
            </ScrollArea>
-           <CardFooter className="bg-slate-50 border-t p-6 flex justify-between items-center">
+
+           <CardFooter className="bg-slate-50 border-t p-6 flex justify-between items-center shrink-0">
              <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                <ShieldCheck className="h-4 w-4 text-emerald-500" /> Audit de recommandation certifié
              </div>
