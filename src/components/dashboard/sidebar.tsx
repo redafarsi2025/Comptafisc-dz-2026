@@ -50,7 +50,8 @@ import {
   Factory,
   Gavel,
   Pickaxe,
-  Briefcase
+  Briefcase,
+  FilePlus2
 } from "lucide-react"
 
 import {
@@ -132,6 +133,7 @@ const liberaleNav = [
 // Menu Achats (Adaptable)
 const purchaseNav = [
   { name: "Flux d'Achat Hub", href: "/dashboard/purchases", icon: ShoppingCart },
+  { name: "Demandes d'Achat", href: "/dashboard/purchases/requests", icon: FilePlus2 },
   { name: "Bons de Commande", href: "/dashboard/purchases/orders", icon: FileSearch },
   { name: "Bons de Réception", href: "/dashboard/purchases/receptions", icon: Truck },
   { name: "Factures Fournisseurs", href: "/dashboard/purchases/invoices", icon: Receipt },
