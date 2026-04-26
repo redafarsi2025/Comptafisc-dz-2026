@@ -59,6 +59,22 @@ export function calculateIRG(salairePoste: number, isGrandSud: boolean = false, 
 }
 
 /**
+ * Agrégateur de métriques RH pour le simulateur
+ */
+export function calculateRHMetrics(input: { brut: number; primes: number; avantages: number }): { net: number; cost: number; irg: number; ratio: number } {
+  const { brut, primes, avantages } = input;
+  const salairePoste = brut + primes;
+  const cnasSalariale = salairePoste * PAYROLL_CONSTANTS.CNAS_EMPLOYEE;
+  const irg = calculateIRG(salairePoste); 
+  const net = salairePoste - cnasSalariale - irg + avantages;
+  const cnasPatronale = salairePoste * PAYROLL_CONSTANTS.CNAS_EMPLOYER;
+  const cost = salairePoste + cnasPatronale + avantages;
+  const ratio = cost > 0 ? (net / cost) * 100 : 0;
+
+  return { net, cost, irg, ratio };
+}
+
+/**
  * Calculateur TVA par secteur
  */
 export function calculateTVA(ht: number, type: 'TVA_19' | 'TVA_9' | 'TVA_EXONERE' = 'TVA_19', sector?: string, isIFU: boolean = false): number {
