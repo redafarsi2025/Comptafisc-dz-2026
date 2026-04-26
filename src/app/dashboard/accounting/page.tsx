@@ -46,7 +46,7 @@ export default function AccountingJournal() {
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
-  }, [db, user]);
+  }, [db, user?.uid]);
   const { data: tenants } = useCollection(tenantsQuery);
   
   const currentTenant = React.useMemo(() => {
@@ -61,10 +61,9 @@ export default function AccountingJournal() {
   const customAccountsQuery = useMemoFirebase(() => {
     if (!db || !currentTenantId || !user) return null;
     return query(
-      collection(db, "tenants", currentTenantId, "accounts"),
-      where(`tenantMembers.${user.uid}`, "!=", null)
+      collection(db, "tenants", currentTenantId, "accounts")
     );
-  }, [db, currentTenantId, user]);
+  }, [db, currentTenantId, user?.uid]);
   const { data: customAccounts } = useCollection(customAccountsQuery);
 
   const allAccounts = React.useMemo(() => {
@@ -306,7 +305,7 @@ export default function AccountingJournal() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Créer un sous-compte PCE</DialogTitle></DialogHeader>
-              <div className="grid gap-4 py-4">
+              <div className="grid gap-4 py-4 text-foreground">
                 <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Code</Label><Input className="col-span-3" value={newAccountData.code} onChange={(e) => setNewAccountData({...newAccountData, code: e.target.value})} /></div>
                 <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Intitulé</Label><Input className="col-span-3" value={newAccountData.name} onChange={(e) => setNewAccountData({...newAccountData, name: e.target.value})} /></div>
               </div>

@@ -35,7 +35,7 @@ export default function DeclarationsPage() {
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
-  }, [db, user]);
+  }, [db, user?.uid]);
   const { data: tenants, isLoading: isTenantsLoading } = useCollection(tenantsQuery);
   
   // 2. Resolve current tenant based on URL
@@ -53,10 +53,9 @@ export default function DeclarationsPage() {
   const invoicesQuery = useMemoFirebase(() => {
     if (!db || !currentTenant || !user) return null;
     return query(
-      collection(db, "tenants", currentTenant.id, "invoices"),
-      where(`tenantMembers.${user.uid}`, "!=", null)
+      collection(db, "tenants", currentTenant.id, "invoices")
     );
-  }, [db, currentTenant?.id, user]);
+  }, [db, currentTenant?.id, user?.uid]);
   const { data: invoices } = useCollection(invoicesQuery);
 
   const stats = React.useMemo(() => {
@@ -121,7 +120,7 @@ export default function DeclarationsPage() {
             </CardContent>
           </Card>
         ) : (
-          <React.Fragment>
+          <>
             <Card className="border-l-4 border-l-primary shadow-sm">
               <CardHeader className="pb-2">
                 <CardTitle className="text-xs font-bold uppercase text-muted-foreground">TVA Collectée</CardTitle>
@@ -142,7 +141,7 @@ export default function DeclarationsPage() {
                 </div>
               </CardContent>
             </Card>
-          </React.Fragment>
+          </>
         )}
         <Card className="border-l-4 border-l-blue-500 shadow-sm">
           <CardHeader className="pb-2">
@@ -181,7 +180,7 @@ export default function DeclarationsPage() {
                 </TableHeader>
                 <TableBody>
                   {isIFU ? (
-                    <React.Fragment>
+                    <>
                       <TableRow>
                         <TableCell className="font-bold">Série G n°12 bis</TableCell>
                         <TableCell className="text-amber-600 font-bold">01 Mars 2026</TableCell>
@@ -200,7 +199,7 @@ export default function DeclarationsPage() {
                         <TableCell>IRG Salariés (Retenue à la source)</TableCell>
                         <TableCell className="text-right"><Button size="sm" variant="outline" asChild><Link href={`/dashboard/declarations/g50ter?tenantId=${currentTenant?.id}`}>Générer</Link></Button></TableCell>
                       </TableRow>
-                    </React.Fragment>
+                    </>
                   ) : (
                     <TableRow>
                       <TableCell className="font-bold">Série G n°50</TableCell>
@@ -220,51 +219,7 @@ export default function DeclarationsPage() {
             </CardContent>
           </Card>
         </TabsContent>
-
-        <TabsContent value="onboarding">
-          <Card>
-            <CardHeader>
-              <CardTitle>Premières étapes obligatoires</CardTitle>
-              <CardDescription>Déclarations à effectuer lors de la création de l'entreprise.</CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader className="bg-muted/50">
-                  <TableRow>
-                    <TableHead>Déclaration</TableHead>
-                    <TableHead>Délai légal</TableHead>
-                    <TableHead>Sanction retard</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow>
-                    <TableCell className="font-bold">Série G n°8</TableCell>
-                    <TableCell>30 jours après début</TableCell>
-                    <TableCell className="text-destructive font-bold">30 000 DA</TableCell>
-                    <TableCell className="text-right">
-                      <Button size="sm" variant="default" asChild className="bg-accent text-accent-foreground">
-                        <Link href={`/dashboard/declarations/g8?tenantId=${currentTenant?.id}`}><FileBadge className="mr-2 h-4 w-4" /> Existence</Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
-
-      <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-4">
-        <ShieldCheck className="h-6 w-6 text-emerald-600 shrink-0" />
-        <div className="text-xs text-emerald-900 space-y-2">
-          <p className="font-bold">Audit de Conformité DGI 2026</p>
-          <p>
-            Les seuils IFU ont été vérifiés : 8 millions DA pour le régime général et 5 millions DA pour les auto-entrepreneurs. 
-            Toute activité excédant ces seuils sera automatiquement basculée au régime du réel l'année suivante.
-          </p>
-        </div>
-      </div>
     </div>
   )
 }

@@ -159,10 +159,10 @@ export function DashboardSidebar() {
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
-  }, [db, user]);
+  }, [db, user?.uid]);
   const { data: tenants, isLoading: isTenantsLoading } = useCollection(tenantsQuery);
 
-  const adminDocRef = useMemoFirebase(() => (db && user) ? doc(db, "saas_admins", user.uid) : null, [db, user]);
+  const adminDocRef = useMemoFirebase(() => (db && user) ? doc(db, "saas_admins", user.uid) : null, [db, user?.uid]);
   const { data: adminRecord } = useDoc(adminDocRef);
   const isSaaSAdmin = !!adminRecord;
 

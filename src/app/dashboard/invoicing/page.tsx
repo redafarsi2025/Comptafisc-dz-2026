@@ -34,7 +34,7 @@ export default function InvoicingPage() {
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
-  }, [db, user]);
+  }, [db, user?.uid]);
   const { data: tenants, isLoading: isTenantsLoading } = useCollection(tenantsQuery);
   
   // 2. Select current tenant based on URL
@@ -274,27 +274,6 @@ export default function InvoicingPage() {
                 </p>
               </CardFooter>
             )}
-          </Card>
-
-          <Card className="bg-slate-900 text-white border-none shadow-xl">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-bold uppercase text-slate-400">Aperçu du Document</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="h-32 bg-slate-800/50 rounded-lg flex items-center justify-center border border-slate-700 border-dashed">
-                <div className="flex flex-col items-center gap-2 opacity-40">
-                  <QrCode className="h-12 w-12" />
-                  <span className="text-[8px] font-mono">CODE DE TRAÇABILITÉ DGI</span>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[10px] text-slate-500">CONFORMITÉ LÉGALE</p>
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-emerald-500 text-white text-[8px] h-4">LF 2026 OK</Badge>
-                  <Badge className="bg-blue-500 text-white text-[8px] h-4">PCE SCF OK</Badge>
-                </div>
-              </div>
-            </CardContent>
           </Card>
         </div>
       </div>
