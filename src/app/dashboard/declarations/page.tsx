@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { FileText, Calculator, Info, Landmark, Sparkles, TrendingDown, CalendarDays, AlertCircle, Clock, ShieldCheck, FileBadge, Loader2, ArrowRight } from "lucide-react"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, query, where, limit } from "firebase/firestore"
@@ -41,9 +42,10 @@ export default function DeclarationsPage() {
   // 2. Resolve current tenant based on URL
   const currentTenant = React.useMemo(() => {
     if (!tenants || tenants.length === 0) return null;
-    if (tenantIdFromUrl) return tenants.find(t => t.id === tenantIdFromUrl) || tenants[0];
+    const urlId = searchParams.get('tenantId');
+    if (urlId) return tenants.find(t => t.id === urlId) || tenants[0];
     return tenants[0];
-  }, [tenants, tenantIdFromUrl]);
+  }, [tenants, searchParams]);
 
   const isIFU = currentTenant?.regimeFiscal === "IFU";
   const ifuRate = isIFU ? getIFURate(currentTenant?.secteurActivite || "SERVICES", currentTenant?.formeJuridique || "") : 0;
