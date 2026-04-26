@@ -7,7 +7,7 @@ import { collection, query, where, orderBy, limit } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { BookText, Printer, FileDown, Search, Filter, Loader2 } from "lucide-react"
+import { BookText, Printer, FileDown, Search, Filter, Loader2, Link2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { JournalEntry, JournalEntryLine } from "@/lib/scf-accounts"
@@ -46,7 +46,7 @@ export default function LivreJournal() {
   }, [db, currentTenant?.id]);
   const { data: entries, isLoading } = useCollection<JournalEntry>(entriesQuery);
 
-  const formatAmount = (val: number) => mounted ? val.toLocaleString() : "..."
+  const formatAmount = (val: number) => mounted ? val.toLocaleString('fr-FR', { minimumFractionDigits: 2 }) : "..."
 
   const totalDebit = entries?.reduce((sum, e) => sum + e.lines.reduce((lsum, l) => lsum + (l.debit || 0), 0), 0) || 0
   const totalCredit = entries?.reduce((sum, e) => sum + e.lines.reduce((lsum, l) => lsum + (l.credit || 0), 0), 0) || 0
@@ -94,24 +94,25 @@ export default function LivreJournal() {
                 <TableHead className="w-[100px]">Journal</TableHead>
                 <TableHead className="w-[120px]">Compte</TableHead>
                 <TableHead>Libellé / Intitulé</TableHead>
+                <TableHead className="text-center w-[120px]">Analytique</TableHead>
                 <TableHead className="w-[150px] text-right">Débit</TableHead>
                 <TableHead className="w-[150px] text-right">Crédit</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground"><Loader2 className="animate-spin inline mr-2 h-4 w-4" />Chargement des écritures...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center py-12 text-muted-foreground"><Loader2 className="animate-spin inline mr-2 h-4 w-4" />Chargement des écritures...</TableCell></TableRow>
               ) : !entries?.length ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">Aucune écriture enregistrée.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center py-12 text-muted-foreground">Aucune écriture enregistrée.</TableCell></TableRow>
               ) : (
                 entries.map((entry) => (
                   <React.Fragment key={entry.id}>
                     <TableRow className="bg-primary/5 hover:bg-primary/5">
-                      <TableCell className="font-bold text-[10px] text-primary" colSpan={6}>
+                      <TableCell className="font-bold text-[10px] text-primary" colSpan={7}>
                         PIÈCE: {entry.documentReference || 'N/A'} — {entry.description}
                       </TableCell>
                     </TableRow>
-                    {entry.lines.map((line: JournalEntryLine, lidx: number) => (
+                    {entry.lines.map((line: JournalEntryLine & { projectId?: string }, lidx: number) => (
                       <TableRow key={`${entry.id}-${lidx}`} className="hover:bg-muted/10 border-none">
                         <TableCell className="text-xs">{lidx === 0 ? new Date(entry.entryDate).toLocaleDateString() : ""}</TableCell>
                         <TableCell>
@@ -123,6 +124,15 @@ export default function LivreJournal() {
                         </TableCell>
                         <TableCell className="font-mono text-xs">{line.accountCode}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{line.accountName}</TableCell>
+                        <TableCell className="text-center">
+                          {line.projectId ? (
+                            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100 text-[8px] font-black uppercase">
+                              <Link2 className="h-2 w-2 mr-1" /> Projet lié
+                            </Badge>
+                          ) : (line.accountCode.startsWith('6') || line.accountCode.startsWith('7')) ? (
+                            <Badge variant="outline" className="text-[8px] text-amber-600 border-amber-200 uppercase">Orphelin</Badge>
+                          ) : null}
+                        </TableCell>
                         <TableCell className="text-right font-mono text-xs">{line.debit > 0 ? formatAmount(line.debit) : "-"}</TableCell>
                         <TableCell className="text-right font-mono text-xs">{line.credit > 0 ? formatAmount(line.credit) : "-"}</TableCell>
                       </TableRow>
