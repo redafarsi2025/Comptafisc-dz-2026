@@ -41,7 +41,7 @@ export default function FiscalEngineAdmin() {
   const typesQuery = useMemoFirebase(() => db ? query(collection(db, "fiscal_variable_types"), orderBy("name", "asc")) : null, [db]);
   const { data: types } = useCollection(typesQuery);
 
-  const rulesQuery = useMemoFirebase(() => db ? query(collection(db, "fiscal_business_rules"), orderBy("effectiveStartDate", "desc")) : null, [db]);
+  const rulesQuery = useMemoFirebase(() => db ? query(collection(db, "fiscal_business_rules"), orderBy("priority", "asc")) : null, [db]);
   const { data: rules } = useCollection(rulesQuery);
 
   const handleAiAnalysis = async () => {
@@ -89,6 +89,26 @@ export default function FiscalEngineAdmin() {
         status: 'VALIDATED'
       }, { merge: true });
 
+      // Règle IBS via nouveau moteur DSL
+      const ibsRuleId = "RULE_IBS_2026";
+      await setDocumentNonBlocking(doc(db, "fiscal_business_rules", ibsRuleId), {
+        id: ibsRuleId,
+        code: "IBS_CALC",
+        name: "Calcul IBS 2026",
+        category: "FISCAL",
+        priority: 300,
+        active: true,
+        effectiveStartDate: "2026-01-01",
+        sourceLawId: lawId,
+        when: "resultat > 0",
+        then: [
+          { if: "secteur == 'PRODUCTION'", set: "IBS = resultat * 0.19" },
+          { if: "secteur == 'BTP'", set: "IBS = resultat * 0.26" },
+          { if: "secteur == 'SERVICES'", set: "IBS = resultat * 0.23" }
+        ],
+        justify: "Calcul de l'IBS selon le taux préférentiel par secteur (Art. 150 CIDTA)."
+      }, { merge: true });
+
       const irgRuleId = "RULE_IRG_SALARY_2026";
       await setDocumentNonBlocking(doc(db, "fiscal_business_rules", irgRuleId), {
         id: irgRuleId,
@@ -96,7 +116,7 @@ export default function FiscalEngineAdmin() {
         name: "Calcul IRG Salarié 2026",
         type: "PROGRESSIVE_BRACKETS",
         category: "FISCAL",
-        order: 200,
+        priority: 200,
         effectiveStartDate: "2026-01-01",
         sourceLawId: lawId,
         active: true,
@@ -110,10 +130,11 @@ export default function FiscalEngineAdmin() {
         ],
         abatementFormula: "Math.max(1000, Math.min(1500, tax * 0.4))",
         smoothingEnabled: true,
-        smoothingThreshold: 30000
+        smoothingThreshold: 30000,
+        justify: "Barème progressif avec abattement de 40% et lissage pour les bas salaires."
       }, { merge: true });
 
-      toast({ title: "Moteur 2026 Prêt" });
+      toast({ title: "Moteur 2026 Prêt (DSL Edition)" });
     } finally { setIsInitializing(false); }
   }
 
@@ -124,12 +145,12 @@ export default function FiscalEngineAdmin() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">Moteur Fiscal Master</h1>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Legislative Logic & Data Hub</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Legislative Logic & DSL Engine</p>
         </div>
         <div className="flex gap-3">
           <Button variant="outline" size="sm" onClick={handleInitialize2026} disabled={isInitializing} className="rounded-2xl bg-white border-slate-200 font-bold">
             {isInitializing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
-            Reset Standards 2026
+            Initialiser DSL 2026
           </Button>
         </div>
       </div>
@@ -140,7 +161,7 @@ export default function FiscalEngineAdmin() {
             <CardTitle className="text-lg font-black flex items-center gap-2 text-slate-900 uppercase tracking-tighter">
               <BrainCircuit className="h-5 w-5 text-primary" /> IA Gemini Vision
             </CardTitle>
-            <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Extraction de données</CardDescription>
+            <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Extraction de données législatives</CardDescription>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
             <Textarea 
@@ -151,7 +172,7 @@ export default function FiscalEngineAdmin() {
             />
             <Button className="w-full bg-primary text-white font-black uppercase tracking-widest text-[10px] h-12 rounded-2xl shadow-lg shadow-primary/20" onClick={handleAiAnalysis} disabled={isAiProcessing || !aiInput.trim()}>
               {isAiProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-              Analyse Contextuelle
+              Analyse & Mapping DSL
             </Button>
             {aiProposals && (
               <div className="pt-6 space-y-3 animate-in fade-in duration-300">
@@ -173,10 +194,9 @@ export default function FiscalEngineAdmin() {
         <div className="lg:col-span-2">
           <Tabs defaultValue="rules" className="w-full">
             <TabsList className="bg-slate-100 border border-slate-200 p-1.5 rounded-3xl h-auto mb-8">
-              <TabsTrigger value="rules" className="rounded-2xl px-6 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs font-bold"><Code2 className="h-4 w-4 mr-2" /> Règles</TabsTrigger>
+              <TabsTrigger value="rules" className="rounded-2xl px-6 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs font-bold"><Code2 className="h-4 w-4 mr-2" /> Pipeline DSL</TabsTrigger>
               <TabsTrigger value="lab" className="rounded-2xl px-6 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs font-bold"><FlaskConical className="h-4 w-4 mr-2" /> Simulation</TabsTrigger>
               <TabsTrigger value="vars" className="rounded-2xl px-6 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs font-bold"><DatabaseZap className="h-4 w-4 mr-2" /> Variables</TabsTrigger>
-              <TabsTrigger value="laws" className="rounded-2xl px-6 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs font-bold"><Check className="h-4 w-4 mr-2" /> Lois</TabsTrigger>
             </TabsList>
 
             <TabsContent value="rules" className="space-y-6">
@@ -189,17 +209,20 @@ export default function FiscalEngineAdmin() {
                           {rule.name}
                           <Badge variant="outline" className="text-[8px] h-4 font-mono">{rule.code}</Badge>
                         </CardTitle>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Actif depuis : {rule.effectiveStartDate} • Source: {rule.sourceLawId}</p>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Actif depuis : {rule.effectiveStartDate} • Priorité: {rule.priority}</p>
                       </div>
                       <Badge className="bg-emerald-100 text-emerald-700 text-[8px] font-black border-none h-5">ACTIVE</Badge>
                     </div>
                   </CardHeader>
                   <CardContent className="p-8">
                     <div className="bg-slate-900 rounded-2xl p-6 font-mono text-[10px] text-emerald-400 shadow-inner">
-                      {rule.type === 'PROGRESSIVE_BRACKETS' && rule.brackets?.map((b: any, i: number) => (
-                        <p key={i} className="mb-1 opacity-90">IF (base &gt; {b.min}) THEN tax += (min(base, {b.max || 'inf'}) - {b.min}) * {b.rate}</p>
-                      ))}
-                      {rule.abatementFormula && <p className="mt-4 text-blue-400 border-t border-white/10 pt-3">ABATEMENT = {rule.abatementFormula}</p>}
+                      <p className="mb-2 text-blue-400">WHEN {rule.when || "TRUE"}</p>
+                      {Array.isArray(rule.then) ? rule.then.map((t: any, i: number) => (
+                        <p key={i} className="mb-1 opacity-90">THEN SET {t.set} {t.if ? `IF ${t.if}` : ""}</p>
+                      )) : (
+                        <p className="opacity-90">THEN SET {rule.code} = {rule.formula}</p>
+                      )}
+                      <p className="mt-4 text-slate-400 italic border-t border-white/10 pt-3">JUSTIFY: "{rule.justify}"</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -263,26 +286,6 @@ export default function FiscalEngineAdmin() {
                   </TableBody>
                 </Table>
               </Card>
-            </TabsContent>
-
-            <TabsContent value="laws">
-              <div className="grid md:grid-cols-2 gap-6">
-                {laws?.map((law) => (
-                  <Card key={law.id} className="border-none shadow-xl bg-white rounded-3xl ring-1 ring-slate-200 border-l-4 border-l-primary group">
-                    <CardHeader className="pb-4">
-                      <div className="flex justify-between items-start">
-                        <CardTitle className="text-sm font-black text-slate-900 uppercase tracking-tighter">{law.name}</CardTitle>
-                        <ShieldCheck className="h-5 w-5 text-emerald-500" />
-                      </div>
-                      <CardDescription className="text-[11px] font-medium text-slate-500 leading-relaxed mt-2">{law.description}</CardDescription>
-                    </CardHeader>
-                    <CardFooter className="pt-4 border-t border-slate-50 flex justify-between text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                      <span>Effet : {law.effectiveStartDate}</span>
-                      <span>Publié : {law.publicationDate}</span>
-                    </CardFooter>
-                  </Card>
-                ))}
-              </div>
             </TabsContent>
           </Tabs>
         </div>

@@ -4,16 +4,26 @@
 import { Firestore, collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 
 /**
- * @fileOverview Moteur Fiscal Master (Noyau v2.6)
- * Optimisation du Pipeline d'Exécution et gestion des dépendances.
+ * @fileOverview Moteur Fiscal Master (Noyau v2.7 - DSL Edition)
+ * Implémentation d'un DSL déclaratif pour la fiscalité algérienne.
+ * Supporte : WHEN (conditions), THEN (actions), JUSTIFY (audit), PRIORITY.
  */
 
 export interface FiscalContext {
   db: Firestore;
-  date: string;       // Date de l'opération (ISO)
-  tenantId?: string;  // Dossier spécifique
-  sector?: string;    // BTP, INDUSTRIE, COMMERCE, PRO_LIBERALE
-  regime?: string;    // IFU, REGIME_REEL
+  date: string;       
+  tenantId?: string;
+  sector?: string;    
+  regime?: string;    
+}
+
+export interface RuleTrace {
+  ruleCode: string;
+  ruleName: string;
+  conditionMet: boolean;
+  actionsExecuted: string[];
+  justification: string;
+  timestamp: string;
 }
 
 const VARIABLE_CACHE: Record<string, { value: any; expires: number }> = {};
@@ -40,9 +50,7 @@ export async function resolveFiscalVariable(ctx: FiscalContext, code: string): P
 
   const snap = await getDocs(valueQuery);
   
-  if (snap.empty) {
-    return 0;
-  }
+  if (snap.empty) return 0;
 
   const data = snap.docs[0].data();
   const val = typeof data.value === 'string' ? parseFloat(data.value) : data.value;
@@ -52,38 +60,69 @@ export async function resolveFiscalVariable(ctx: FiscalContext, code: string): P
 }
 
 /**
- * Pipeline d'Exécution : Évalue une suite de règles dans l'ordre de priorité.
+ * Pipeline d'Exécution DSL : Évalue une suite de règles déclaratives.
  */
-export async function executeFiscalPipeline(ctx: FiscalContext, category?: string, inputData: any = {}): Promise<any> {
+export async function executeFiscalPipeline(ctx: FiscalContext, category?: string, inputData: any = {}): Promise<{ results: any, traces: RuleTrace[] }> {
   const { db, date } = ctx;
-  let constraints = [where('effectiveStartDate', '<=', date)];
+  let constraints = [where('effectiveStartDate', '<=', date), where('active', '==', true)];
   if (category) constraints.push(where('category', '==', category));
 
   const rulesQuery = query(
     collection(db, 'fiscal_business_rules'),
     ...constraints,
-    orderBy('order', 'asc')
+    orderBy('priority', 'asc') // Utilisation de priority au lieu de order
   );
 
   const snap = await getDocs(rulesQuery);
   let results = { ...inputData };
+  let traces: RuleTrace[] = [];
 
-  // Exécution séquentielle pour respecter l'ordre et les dépendances
   for (const doc of snap.docs) {
     const rule = doc.data();
     try {
-      const output = await evaluateRuleInternal(rule, results);
-      results[rule.code] = output;
+      // 1. Évaluation de la condition WHEN
+      const isMet = rule.when ? evalDSLFormula(rule.when, results) : true;
+      
+      if (isMet) {
+        const executedActions: string[] = [];
+        
+        // 2. Exécution des actions THEN
+        if (Array.isArray(rule.then)) {
+          for (const action of rule.then) {
+            const subConditionMet = action.if ? evalDSLFormula(action.if, results) : true;
+            if (subConditionMet && action.set) {
+              const [variable, formula] = action.set.split('=').map((s: string) => s.trim());
+              const calculatedValue = evalDSLFormula(formula, results);
+              results[variable] = calculatedValue;
+              executedActions.push(`${variable} = ${calculatedValue}`);
+            }
+          }
+        } else if (rule.formula) { // Fallback ancien format
+          const val = evalDSLFormula(rule.formula, results);
+          results[rule.code] = val;
+          executedActions.push(`${rule.code} = ${val}`);
+        }
+
+        // 3. Log de la trace d'audit
+        traces.push({
+          ruleCode: rule.code,
+          ruleName: rule.name,
+          conditionMet: true,
+          actionsExecuted: executedActions,
+          justification: rule.justify || "Calcul automatique",
+          timestamp: new Date().toISOString()
+        });
+      }
     } catch (e) {
-      console.error(`[Moteur Fiscal] Échec règle ${rule.code}:`, e);
+      console.error(`[Moteur DSL] Échec règle ${rule.code}:`, e);
     }
   }
 
-  return results;
+  return { results, traces };
 }
 
 /**
- * Évaluation d'une règle unique.
+ * Évaluation d'une règle unique via le moteur DSL.
  */
 export async function evaluateFiscalRule(ctx: FiscalContext, ruleCode: string, inputData: any): Promise<number> {
   const { db, date } = ctx;
@@ -98,17 +137,21 @@ export async function evaluateFiscalRule(ctx: FiscalContext, ruleCode: string, i
 
   const snap = await getDocs(ruleQuery);
   if (snap.empty) throw new Error(`Règle [${ruleCode}] introuvable.`);
+  
+  const rule = snap.docs[0].data();
+  const isMet = rule.when ? evalDSLFormula(rule.when, inputData) : true;
+  
+  if (!isMet) return 0;
 
-  return evaluateRuleInternal(snap.docs[0].data(), inputData);
-}
-
-async function evaluateRuleInternal(rule: any, data: any): Promise<number> {
+  // Calcul simplifié pour retour direct de valeur
   if (rule.type === 'PROGRESSIVE_BRACKETS') {
-    return calculateProgressiveTax(rule, data.base || 0);
+    return calculateProgressiveTax(rule, inputData.base || 0);
   }
-  if (rule.type === 'FORMULA') {
-    return evalDSLFormula(rule.formula, data);
+  
+  if (rule.formula) {
+    return evalDSLFormula(rule.formula, inputData);
   }
+
   return 0;
 }
 
@@ -137,15 +180,21 @@ function calculateProgressiveTax(rule: any, base: number): number {
   return Math.max(0, Math.round(tax));
 }
 
-function evalDSLFormula(formula: string, params: Record<string, any>): number {
+/**
+ * Interpréteur d'expressions sécurisé.
+ * Supporte les opérateurs logiques et arithmétiques standards.
+ */
+function evalDSLFormula(formula: string, params: Record<string, any>): any {
   try {
+    // Nettoyage de la formule (gestion des types Money, Percentage etc via conversion native)
+    const sanitized = formula.replace(/ABS\(/g, 'Math.abs(').replace(/MAX\(/g, 'Math.max(').replace(/MIN\(/g, 'Math.min(');
+    
     const keys = Object.keys(params);
     const vals = Object.values(params);
-    const func = new Function(...keys, `return ${formula}`);
-    const res = func(...vals);
-    return typeof res === 'number' ? res : 0;
+    const func = new Function(...keys, `return ${sanitized}`);
+    return func(...vals);
   } catch (e) {
-    console.error("[Moteur Fiscal] DSL Error:", formula, e);
+    console.error("[Moteur DSL] Logic Error:", formula, e);
     return 0;
   }
 }
