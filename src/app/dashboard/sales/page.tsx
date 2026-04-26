@@ -10,7 +10,7 @@ import {
   CircleDollarSign, ShieldCheck, CheckCircle2, 
   ArrowRight, Calculator, FileSearch, Truck, 
   Receipt, CreditCard, Sparkles, AlertCircle, TrendingUp,
-  Undo2, FileMinus, Plus, Users, Landmark
+  Undo2, FileMinus, Plus, HandCoins
 } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
@@ -72,7 +72,7 @@ export default function SalesWorkflowHub() {
         <Card className="md:col-span-2 shadow-2xl border-none ring-1 ring-border overflow-hidden">
           <CardHeader className="bg-primary text-white">
             <CardTitle className="flex items-center gap-2"><Calculator className="h-5 w-5" /> Performance Commerciale 2026</CardTitle>
-            <CardDescription className="text-white/70">Analyse du CA réalisé vs objectifs du dossier.</CardDescription>
+            <CardDescription>Analyse du CA réalisé vs objectifs du dossier.</CardDescription>
           </CardHeader>
           <CardContent className="p-8 space-y-8">
             <div className="grid grid-cols-3 gap-8">
