@@ -54,7 +54,7 @@ export default function ProjectDetailPage() {
   const { data: allEntries } = useCollection(analyticEntriesQuery);
 
   const analyticMetrics = React.useMemo(() => {
-    if (!allEntries || !id) return { charges: 0, revenus: 0, marge: 0 };
+    if (!allEntries || !id) return { charges: 0, revenus: 0, marge: 0, tauxMarge: 0 };
     let charges = 0;
     let revenus = 0;
 
