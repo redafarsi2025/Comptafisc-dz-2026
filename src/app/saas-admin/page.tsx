@@ -4,14 +4,14 @@
 import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  PieChart, Pie, Cell, Legend, AreaChart, Area
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  PieChart, Pie, Cell, Legend
 } from "recharts"
 import { 
-  TrendingUp, ArrowUpRight, Activity, Target, Sparkles, Zap, CreditCard, 
-  Users, ShieldCheck, Download, Loader2, TrendingDown, Building2, Eye, 
-  MessageSquare, ShieldAlert, DatabaseZap, Clock, Server, Globe, Cpu,
-  CloudLightning, MousePointerClick, BellRing
+  TrendingUp, Activity, Target, Sparkles, Zap, CreditCard, 
+  Users, ShieldCheck, DatabaseZap, Eye, MessageSquare, 
+  Cpu, CloudLightning, MousePointerClick, BellRing, ArrowUpRight,
+  ShieldAlert, Globe, Server, Loader2
 } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
@@ -22,7 +22,7 @@ import Link from "next/link"
 
 const PLAN_COLORS: Record<string, string> = {
   'GRATUIT': '#94a3b8',
-  'ESSENTIEL': '#3b82f6',
+  'ESSENTIEL': '#0C55CC',
   'PRO': '#10b981',
   'CABINET': '#8b5cf6',
 };
@@ -43,12 +43,11 @@ export default function AdminDashboard() {
     setMounted(true)
   }, [])
 
-  // Admin Guard
+  // Admin Guard & Data Fetching
   const adminDocRef = useMemoFirebase(() => (db && user) ? doc(db, "saas_admins", user.uid) : null, [db, user?.uid]);
   const { data: adminRecord } = useDoc(adminDocRef);
   const isSaaSAdmin = !!adminRecord;
 
-  // Real-time Data
   const profilesQuery = useMemoFirebase(() => (db && isSaaSAdmin) ? collection(db, "userProfiles") : null, [db, isSaaSAdmin]);
   const { data: profiles } = useCollection(profilesQuery);
 
@@ -58,7 +57,7 @@ export default function AdminDashboard() {
   const ticketsQuery = useMemoFirebase(() => (db && isSaaSAdmin) ? query(collection(db, "support_tickets"), where("status", "==", "open"), limit(5)) : null, [db, isSaaSAdmin]);
   const { data: pendingTickets } = useCollection(ticketsQuery);
 
-  const newsQuery = useMemoFirebase(() => (db && isSaaSAdmin) ? query(collection(db, "dgi_publications"), where("analysisCompleted", "==", true), orderBy("detectedAt", "desc"), limit(5)) : null, [db, isSaaSAdmin]);
+  const newsQuery = useMemoFirebase(() => (db && isSaaSAdmin) ? query(collection(db, "dgi_publications"), orderBy("detectedAt", "desc"), limit(5)) : null, [db, isSaaSAdmin]);
   const { data: recentNews } = useCollection(newsQuery);
 
   const stats = React.useMemo(() => {
@@ -90,45 +89,45 @@ export default function AdminDashboard() {
     };
   }, [profiles, tenants]);
 
-  if (!mounted || !isSaaSAdmin) return (
-    <div className="h-screen flex items-center justify-center">
-      <Loader2 className="h-10 w-10 animate-spin text-primary" />
-    </div>
-  );
+  if (!mounted || !isSaaSAdmin) {
+    return (
+      <div className="h-[80vh] flex flex-col items-center justify-center space-y-4">
+        <Loader2 className="h-12 w-12 animate-spin text-primary opacity-20" />
+        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">Initialisation du Cockpit Master...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 pb-20">
-      {/* Header High-Tech */}
+      {/* Header Statégique */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          <div className="h-16 w-16 rounded-2xl bg-slate-900 border border-white/10 flex items-center justify-center shadow-2xl">
+          <div className="h-16 w-16 rounded-2xl bg-slate-900 flex items-center justify-center shadow-2xl border border-white/10">
             <Target className="h-8 w-8 text-accent animate-pulse" />
           </div>
           <div>
-            <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Console de Commandement</h1>
+            <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Command Center</h1>
             <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] mt-2 flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-              Pilotage SaaS Direct • Root Access • 2026.4
+              Pilotage SaaS Direct • Root Access • v2.5
             </p>
           </div>
         </div>
         <div className="flex gap-3">
-          <div className="bg-white/80 backdrop-blur-sm border-2 border-primary/10 p-3 rounded-2xl flex items-center gap-4 shadow-xl">
-             <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center">
+          <div className="bg-white border-2 border-primary/10 p-3 rounded-2xl flex items-center gap-4 shadow-xl">
+             <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
                <ShieldCheck className="text-white h-5 w-5" />
              </div>
              <div>
-               <p className="text-[9px] font-black text-primary uppercase">Calculateur DGI</p>
+               <p className="text-[9px] font-black text-primary uppercase">Moteur Fiscal</p>
                <p className="text-base font-black text-slate-900">CERTIFIÉ LF 2026</p>
              </div>
           </div>
-          <Button variant="outline" className="bg-white border-slate-200 h-14 rounded-2xl px-6 font-black text-[10px] uppercase tracking-widest shadow-sm hover:shadow-md transition-all">
-            <Download className="mr-2 h-4 w-4" /> Export Audit
-          </Button>
         </div>
       </div>
 
-      {/* Primary KPI Row */}
+      {/* KPI Business Row */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="border-none shadow-2xl ring-1 ring-border bg-white overflow-hidden relative group">
           <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-20 transition-opacity">
@@ -136,27 +135,31 @@ export default function AdminDashboard() {
           </div>
           <CardHeader className="pb-2">
             <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] flex items-center gap-2">
-              MRR Réel (Projeté) <TrendingUp className="h-3 w-3 text-emerald-500" />
+              MRR PROJETÉ <TrendingUp className="h-3 w-3 text-emerald-500" />
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-black text-primary tracking-tighter">{stats.mrr.toLocaleString()} <span className="text-xs font-normal">DA</span></div>
+            <div className="text-4xl font-black text-primary tracking-tighter">
+              {stats.mrr.toLocaleString()} <span className="text-xs font-normal">DA</span>
+            </div>
             <div className="flex items-center gap-1 text-emerald-600 text-[9px] mt-2 font-black uppercase tracking-tighter">
-              +14.2% VS MOIS N-1
+              +14.2% VS M-1 • PERFORMANCE NOMINALE
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-2xl ring-1 ring-border bg-white group">
+        <Card className="border-none shadow-2xl ring-1 ring-border bg-white">
           <CardHeader className="pb-2">
             <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] flex items-center gap-2">
-              Parc Dossiers <Building2 className="h-3 w-3 text-accent" />
+              PARC DOSSIERS <Building2 className="h-3 w-3 text-accent" />
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-black text-slate-900 tracking-tighter">{stats.totalTenants} <span className="text-xs font-normal opacity-40">NODES</span></div>
+            <div className="text-4xl font-black text-slate-900 tracking-tighter">
+              {stats.totalTenants} <span className="text-xs font-normal opacity-40">NODES</span>
+            </div>
             <p className="text-[9px] text-muted-foreground mt-2 font-black uppercase tracking-tighter">
-              Ratio de service : 1:{(stats.totalTenants / stats.totalUsers || 0).toFixed(1)}
+              Actifs sur cluster Firebase Algeria
             </p>
           </CardContent>
         </Card>
@@ -164,7 +167,7 @@ export default function AdminDashboard() {
         <Card className="border-none shadow-2xl ring-1 ring-border bg-white">
           <CardHeader className="pb-2">
             <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] flex items-center gap-2">
-              Score Onboarding <Zap className="h-3 w-3 text-amber-500" />
+              ONBOARDING <Zap className="h-3 w-3 text-amber-500" />
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -172,7 +175,6 @@ export default function AdminDashboard() {
               {Math.round((stats.upToDateTenants / stats.totalTenants || 0) * 100)}<span className="text-xs opacity-40">%</span>
             </div>
             <Progress value={(stats.upToDateTenants / stats.totalTenants || 0) * 100} className="mt-4 h-1.5 bg-slate-100" />
-            <p className="text-[8px] mt-2 text-muted-foreground font-black uppercase tracking-widest">Dossiers conformes DGI</p>
           </CardContent>
         </Card>
 
@@ -181,12 +183,12 @@ export default function AdminDashboard() {
             <Cpu className="h-24 w-24 text-accent" />
           </div>
           <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em]">Disponibilité Cloud IA</CardTitle>
+            <CardTitle className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em]">CLOUD IA HEARTBEAT</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-black tracking-tighter text-accent">99.99%</div>
+            <div className="text-4xl font-black tracking-tighter text-accent">99.9%</div>
             <div className="flex items-center gap-2 mt-2">
-               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]" />
+               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                <span className="text-[9px] font-black uppercase tracking-[0.15em] text-emerald-400">Gemini 2.5 Flash Online</span>
             </div>
           </CardContent>
@@ -196,25 +198,22 @@ export default function AdminDashboard() {
       {/* Main Command Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-7 gap-8">
         
-        {/* Core Business Chart */}
+        {/* Growth & Distribution */}
         <div className="lg:col-span-4 space-y-8">
           <Card className="shadow-2xl border-none ring-1 ring-border overflow-hidden bg-white">
             <CardHeader className="bg-slate-50 border-b flex flex-row items-center justify-between p-6">
               <div className="space-y-1">
                 <CardTitle className="text-xl font-black text-slate-900 flex items-center gap-2 uppercase tracking-tighter">
-                  <Activity className="h-5 w-5 text-primary" /> Flux Dossiers Firestore
+                  <Activity className="h-5 w-5 text-primary" /> Flux Dossiers Live
                 </CardTitle>
-                <CardDescription className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.1em]">Analyse de croissance organique par trimestre</CardDescription>
-              </div>
-              <div className="flex gap-2">
-                <Badge variant="outline" className="bg-white text-[9px] font-black uppercase px-3 py-1">T1 2026</Badge>
+                <CardDescription className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.1em]">Analyse de scalabilité du parc client</CardDescription>
               </div>
             </CardHeader>
-            <CardContent className="h-[400px] p-4">
+            <CardContent className="h-[350px] p-4">
                <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={[
-                    { name: 'Jan', value: Math.round(stats.totalTenants * 0.75) },
-                    { name: 'Feb', value: Math.round(stats.totalTenants * 0.90) },
+                    { name: 'Jan', value: Math.round(stats.totalTenants * 0.8) },
+                    { name: 'Feb', value: Math.round(stats.totalTenants * 0.9) },
                     { name: 'Mar', value: stats.totalTenants }
                   ]} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
                     <defs>
@@ -227,174 +226,115 @@ export default function AdminDashboard() {
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'black', fill: '#94a3b8' }} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'black', fill: '#94a3b8' }} />
                     <Tooltip 
-                      contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.25)', fontWeight: 'bold' }} 
-                      cursor={{ stroke: '#0C55CC', strokeWidth: 2 }}
+                      contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.25)' }} 
                     />
                     <Area type="monotone" dataKey="value" stroke="#0C55CC" strokeWidth={4} fillOpacity={1} fill="url(#colorValue)" />
                   </AreaChart>
                </ResponsiveContainer>
             </CardContent>
-            <CardFooter className="bg-slate-50 border-t p-4 flex justify-around text-center divide-x">
-               <div className="flex-1">
-                 <p className="text-[9px] font-black text-muted-foreground uppercase">Retention</p>
-                 <p className="text-lg font-black text-slate-900">98.2%</p>
-               </div>
-               <div className="flex-1">
-                 <p className="text-[9px] font-black text-muted-foreground uppercase">Churn</p>
-                 <p className="text-lg font-black text-destructive">1.8%</p>
-               </div>
-               <div className="flex-1">
-                 <p className="text-[9px] font-black text-muted-foreground uppercase">ARPU</p>
-                 <p className="text-lg font-black text-primary">{(stats.mrr / stats.totalTenants || 0).toFixed(0)} DA</p>
-               </div>
-            </CardFooter>
           </Card>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <Card className="border-none shadow-2xl ring-1 ring-border bg-white overflow-hidden">
-              <CardHeader className="bg-blue-600 text-white py-3 px-5 flex flex-row items-center justify-between">
+            <Card className="border-none shadow-xl ring-1 ring-border bg-white overflow-hidden">
+              <CardHeader className="bg-primary text-white py-3 px-5 flex flex-row items-center justify-between">
                 <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
-                  <Eye className="h-4 w-4" /> DGI Watch Active
+                  <Eye className="h-4 w-4" /> DGI Watch Inbox
                 </CardTitle>
-                <Badge className="bg-white/20 text-white text-[8px]">IA LIVE</Badge>
               </CardHeader>
               <CardContent className="p-0">
                 <ScrollArea className="h-[250px]">
                   <div className="divide-y divide-slate-100">
-                    {recentNews?.length ? recentNews.map((news) => (
-                      <div key={news.id} className="p-4 hover:bg-slate-50 transition-colors group cursor-pointer">
+                    {recentNews?.map((news) => (
+                      <div key={news.id} className="p-4 hover:bg-slate-50 transition-colors cursor-pointer">
                         <div className="flex justify-between items-start mb-1">
-                          <span className="text-[8px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{news.category}</span>
+                          <span className="text-[8px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full uppercase">{news.category}</span>
                           <span className="text-[9px] font-bold text-slate-400">{news.publishedDate}</span>
                         </div>
-                        <p className="text-xs font-black text-slate-900 leading-tight group-hover:text-primary transition-colors">{news.title}</p>
+                        <p className="text-xs font-black text-slate-900 leading-tight line-clamp-2">{news.title}</p>
                       </div>
-                    )) : (
-                      <div className="p-12 text-center text-slate-300 italic text-xs">Analyse réglementaire en veille...</div>
-                    )}
+                    ))}
                   </div>
                 </ScrollArea>
               </CardContent>
-              <CardFooter className="bg-slate-50 border-t p-3">
-                <Button variant="link" className="w-full text-[9px] font-black uppercase text-primary h-8" asChild>
-                  <Link href="/saas-admin/dgi-watch">Accéder à la Veille Expert</Link>
-                </Button>
-              </CardFooter>
             </Card>
 
-            <Card className="border-none shadow-2xl ring-1 ring-border bg-white overflow-hidden">
+            <Card className="border-none shadow-xl ring-1 ring-border bg-white overflow-hidden">
               <CardHeader className="bg-emerald-600 text-white py-3 px-5 flex flex-row items-center justify-between">
                 <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4" /> Support Abonnés
+                  <MessageSquare className="h-4 w-4" /> Support Critique
                 </CardTitle>
-                {pendingTickets?.length ? <Badge className="bg-white text-emerald-700 text-[8px]">{pendingTickets.length} URGENT</Badge> : null}
               </CardHeader>
               <CardContent className="p-0">
                 <ScrollArea className="h-[250px]">
                   <div className="divide-y divide-slate-100">
-                    {pendingTickets?.length ? pendingTickets.map((ticket) => (
-                      <div key={ticket.id} className="p-4 hover:bg-slate-50 transition-colors group cursor-pointer">
+                    {pendingTickets?.map((ticket) => (
+                      <div key={ticket.id} className="p-4 hover:bg-slate-50 transition-colors">
                         <div className="flex justify-between items-start mb-1">
                           <span className={`text-[8px] font-black px-2 py-0.5 rounded-full ${ticket.priority === 'critical' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{ticket.priority.toUpperCase()}</span>
-                          <span className="text-[9px] font-bold text-slate-400">ID: {ticket.id.substring(0, 6)}</span>
+                          <span className="text-[9px] font-bold text-slate-400">#{ticket.id.substring(0, 6)}</span>
                         </div>
-                        <p className="text-xs font-black text-slate-900 leading-tight group-hover:text-primary transition-colors">{ticket.subject}</p>
-                        <p className="text-[10px] text-muted-foreground mt-1 font-bold">Client: {ticket.userName}</p>
+                        <p className="text-xs font-black text-slate-900 truncate">{ticket.subject}</p>
+                        <p className="text-[9px] text-muted-foreground mt-1 font-bold">DE : {ticket.userName}</p>
                       </div>
-                    )) : (
-                      <div className="p-12 text-center text-slate-300 italic text-xs">Tous les tickets sont résolus.</div>
-                    )}
+                    ))}
                   </div>
                 </ScrollArea>
               </CardContent>
-              <CardFooter className="bg-slate-50 border-t p-3">
-                <Button variant="link" className="w-full text-[9px] font-black uppercase text-primary h-8" asChild>
-                  <Link href="/saas-admin/support">Ouvrir le Centre de Résolution</Link>
-                </Button>
-              </CardFooter>
             </Card>
           </div>
         </div>
 
-        {/* Right Side Control Panel */}
+        {/* Action & Control Sidebar */}
         <div className="lg:col-span-3 space-y-8">
-          {/* Offer Segmentation */}
           <Card className="shadow-2xl border-none ring-1 ring-border overflow-hidden bg-white">
             <CardHeader className="bg-slate-50 border-b p-6">
               <CardTitle className="text-lg font-black text-slate-900 uppercase tracking-tighter">Segmentation Offres</CardTitle>
-              <CardDescription className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Valeur par palier d'abonnement</CardDescription>
             </CardHeader>
-            <CardContent className="h-[320px] pt-8">
+            <CardContent className="h-[300px] pt-4">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie
-                    data={stats.planDistribution}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={75}
-                    outerRadius={110}
-                    paddingAngle={10}
-                    dataKey="value"
-                    stroke="none"
-                  >
-                    {stats.planDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
+                  <Pie data={stats.planDistribution} cx="50%" cy="50%" innerRadius={70} outerRadius={100} paddingAngle={5} dataKey="value" stroke="none">
+                    {stats.planDistribution.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
                   </Pie>
-                  <Tooltip 
-                    contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.3)', fontWeight: 'bold' }}
-                  />
-                  <Legend iconType="circle" wrapperStyle={{ fontSize: '9px', fontWeight: 'black', textTransform: 'uppercase', paddingTop: '20px' }} />
+                  <Tooltip contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.3)' }} />
+                  <Legend iconType="circle" wrapperStyle={{ fontSize: '9px', fontWeight: 'black', textTransform: 'uppercase' }} />
                 </PieChart>
               </ResponsiveContainer>
             </CardContent>
-            <CardFooter className="bg-slate-50 border-t flex flex-col p-6 gap-6">
-               <div className="w-full space-y-3">
-                  <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                    <span>Conversion Payante</span>
-                    <span className="text-primary font-black">
-                      {Math.round(((stats.totalTenants - (stats.planDistribution.find(p => p.name === 'GRATUIT')?.value || 0)) / stats.totalTenants || 0) * 100)}%
-                    </span>
-                  </div>
-                  <Progress value={((stats.totalTenants - (stats.planDistribution.find(p => p.name === 'GRATUIT')?.value || 0)) / stats.totalTenants || 0) * 100} className="h-2 bg-slate-200" />
-               </div>
-            </CardFooter>
           </Card>
 
-          {/* Quick Core Actions */}
           <div className="grid grid-cols-1 gap-4">
-             <Card className="border-none shadow-xl ring-1 ring-border bg-white group hover:bg-primary transition-all cursor-pointer">
-               <Link href="/saas-admin/fiscal-engine" className="p-5 flex items-center justify-between">
-                 <div className="flex items-center gap-4">
-                   <div className="h-12 w-12 rounded-2xl bg-primary/10 group-hover:bg-white/20 flex items-center justify-center transition-colors">
-                     <DatabaseZap className="h-6 w-6 text-primary group-hover:text-white" />
-                   </div>
-                   <div className="flex flex-col">
-                     <span className="text-sm font-black group-hover:text-white uppercase tracking-tighter">Moteur Fiscal Master</span>
-                     <span className="text-[9px] text-muted-foreground font-black uppercase group-hover:text-white/60 tracking-widest mt-1">Variables & Business Rules</span>
-                   </div>
-                 </div>
-                 <ArrowUpRight className="h-5 w-5 text-muted-foreground group-hover:text-white" />
-               </Link>
-             </Card>
+             <Button variant="outline" className="h-20 bg-white shadow-xl hover:bg-primary hover:text-white border-none ring-1 ring-border group transition-all" asChild>
+                <Link href="/saas-admin/fiscal-engine" className="flex items-center justify-between w-full px-6">
+                  <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-2xl bg-primary/10 group-hover:bg-white/20 flex items-center justify-center">
+                      <DatabaseZap className="h-6 w-6 text-primary group-hover:text-white" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-black uppercase tracking-tighter">Moteur Fiscal Master</p>
+                      <p className="text-[8px] font-black uppercase tracking-widest opacity-60">Gestion des variables & règles</p>
+                    </div>
+                  </div>
+                  <ArrowUpRight className="h-5 w-5" />
+                </Link>
+             </Button>
 
-             <Card className="border-none shadow-xl ring-1 ring-border bg-white group hover:bg-slate-900 transition-all cursor-pointer">
-               <Link href="/saas-admin/monitoring" className="p-5 flex items-center justify-between">
-                 <div className="flex items-center gap-4">
-                   <div className="h-12 w-12 rounded-2xl bg-slate-100 group-hover:bg-white/10 flex items-center justify-center transition-colors">
-                     <Server className="h-6 w-6 text-slate-600 group-hover:text-accent" />
-                   </div>
-                   <div className="flex flex-col">
-                     <span className="text-sm font-black group-hover:text-white uppercase tracking-tighter">Monitoring Live</span>
-                     <span className="text-[9px] text-muted-foreground font-black uppercase group-hover:text-white/60 tracking-widest mt-1">Performance Firebase & CDN</span>
-                   </div>
-                 </div>
-                 <ArrowUpRight className="h-5 w-5 text-muted-foreground group-hover:text-white" />
-               </Link>
-             </Card>
+             <Button variant="outline" className="h-20 bg-slate-900 text-white shadow-xl hover:bg-slate-800 border-none group transition-all" asChild>
+                <Link href="/saas-admin/monitoring" className="flex items-center justify-between w-full px-6">
+                  <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center">
+                      <Server className="h-6 w-6 text-accent" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-black uppercase tracking-tighter">Monitoring Système</p>
+                      <p className="text-[8px] font-black uppercase tracking-widest opacity-60">Status Firebase & IA</p>
+                    </div>
+                  </div>
+                  <ArrowUpRight className="h-5 w-5" />
+                </Link>
+             </Button>
           </div>
 
-          {/* System Health Heartbeat */}
           <Card className="bg-slate-900 text-white border-none shadow-2xl relative overflow-hidden ring-1 ring-white/5">
              <CardHeader className="border-b border-white/5 py-4">
                 <CardTitle className="text-[10px] font-black uppercase tracking-[0.3em] text-accent flex items-center gap-2">
@@ -402,9 +342,9 @@ export default function AdminDashboard() {
                 </CardTitle>
              </CardHeader>
              <CardContent className="text-[10px] text-emerald-400 font-mono py-6 space-y-2">
-                <div className="flex gap-3"><span className="opacity-40">09:42:01</span> <span className="font-bold">[SUCCESS]</span> <span>Firestore Resolver : 0.4ms</span></div>
-                <div className="flex gap-3"><span className="opacity-40">09:42:04</span> <span className="font-bold">[SUCCESS]</span> <span>Auth Token Verified</span></div>
-                <div className="flex gap-3"><span className="opacity-40">09:42:15</span> <span className="font-bold text-blue-400">[INFO]</span> <span className="italic">Gemini 2.5 Analysis Queue : Empty</span></div>
+                <div className="flex gap-3"><span className="opacity-40">14:04:31</span> <span className="font-bold">[SUCCESS]</span> <span>Firestore Resolver : 0.4ms</span></div>
+                <div className="flex gap-3"><span className="opacity-40">14:04:42</span> <span className="font-bold">[SUCCESS]</span> <span>Admin Accreditations Verified</span></div>
+                <div className="flex gap-3"><span className="opacity-40">14:06:30</span> <span className="font-bold text-blue-400">[INFO]</span> <span className="italic">Data-Driven Engine Active</span></div>
                 <div className="flex gap-2 animate-pulse mt-4">
                    <span className="text-emerald-500 font-bold">&gt;</span> 
                    <span className="italic tracking-widest uppercase text-[8px] font-black">System Heartbeat... Normal</span>
