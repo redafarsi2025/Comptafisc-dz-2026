@@ -3,7 +3,7 @@
 
 import * as React from "react"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, query, where, orderBy, limit } from "firebase/firestore"
+import { collection, query, where, orderBy, limit, doc } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -31,10 +31,6 @@ export default function IssuedInvoicesListing() {
     setMounted(true)
   }, [])
 
-  // 1. Charger les informations du dossier pour le secteur
-  const tenantRef = useMemoFirebase(() => (db && tenantId) ? doc(db, "tenants", tenantId) : null, [db, tenantId]);
-  // Note: we use useCollection to get tenants earlier in sidebar, here we focus on the invoices list
-  
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
@@ -49,7 +45,6 @@ export default function IssuedInvoicesListing() {
 
   const isTransport = currentTenant?.secteurActivite === "TRANSPORT";
 
-  // 2. Charger les factures
   const invoicesQuery = useMemoFirebase(() => 
     (db && tenantId) ? query(collection(db, "tenants", tenantId, "invoices"), orderBy("createdAt", "desc"), limit(100)) : null
   , [db, tenantId]);
@@ -215,7 +210,7 @@ export default function IssuedInvoicesListing() {
                         <Printer className="h-4 w-4" />
                       </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl" asChild>
-                        <Link href={`/dashboard/invoicing/${inv.id}?tenantId=${tenantId}`}>
+                        <Link href={`/dashboard/sales/invoices/${inv.id}?tenantId=${tenantId}`}>
                           <ArrowRight className="h-4 w-4" />
                         </Link>
                       </Button>
@@ -239,8 +234,4 @@ export default function IssuedInvoicesListing() {
       </div>
     </div>
   )
-}
-
-function doc(db: any, arg1: string, tenantId: string): any {
-  throw new Error("Function not implemented.")
 }
