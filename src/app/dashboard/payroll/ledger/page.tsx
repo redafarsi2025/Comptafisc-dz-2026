@@ -2,16 +2,17 @@
 "use client"
 
 import * as React from "react"
-import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
+import { useFirestore, useUser, useCollection, useMemoFirebase, addDocumentNonBlocking } from "@/firebase"
 import { collection, query, where, limit } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table"
-import { Printer, FileDown, BookOpen, Calendar, Calculator, ShieldCheck } from "lucide-react"
+import { Printer, FileDown, BookOpen, Calendar, Calculator, ShieldCheck, Loader2, Send } from "lucide-react"
 import { PAYROLL_CONSTANTS, calculateIRG } from "@/lib/calculations"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useSearchParams } from "next/navigation"
+import { toast } from "@/hooks/use-toast"
 
 export default function PayrollLedger() {
   const db = useFirestore()
@@ -20,6 +21,7 @@ export default function PayrollLedger() {
   const tenantIdFromUrl = searchParams.get('tenantId')
   const [mounted, setMounted] = React.useState(false)
   const [selectedMonth, setSelectedMonth] = React.useState(new Date().getMonth().toString())
+  const [isPosting, setIsPosting] = React.useState(false)
 
   React.useEffect(() => {
     setMounted(true)
@@ -85,6 +87,43 @@ export default function PayrollLedger() {
     }), { base: 0, poste: 0, cnasE: 0, irg: 0, net: 0, cnasP: 0 });
   }, [ledgerData]);
 
+  const handlePostToJournal = async () => {
+    if (!db || !currentTenant || !user || ledgerData.length === 0) return;
+    setIsPosting(true);
+
+    const monthName = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"][parseInt(selectedMonth)];
+    const journalEntriesRef = collection(db, "tenants", currentTenant.id, "journal_entries");
+
+    const entryData = {
+      tenantId: currentTenant.id,
+      entryDate: new Date(2026, parseInt(selectedMonth), 28).toISOString(),
+      description: `PAIE DU MOIS DE ${monthName.toUpperCase()} 2026`,
+      documentReference: `PAIE-${selectedMonth}-2026`,
+      journalType: "OD",
+      status: 'Validated',
+      createdAt: new Date().toISOString(),
+      createdByUserId: user.uid,
+      tenantMembers: currentTenant.members,
+      lines: [
+        { accountCode: "631", accountName: "Rémunérations du personnel (Brut)", debit: totals.poste, credit: 0 },
+        { accountCode: "635", accountName: "Cotisations aux organismes sociaux (Patr.)", debit: totals.cnasP, credit: 0 },
+        { accountCode: "421", accountName: "Personnel - Net à payer", debit: 0, credit: totals.net },
+        { accountCode: "431", accountName: "Sécurité Sociale (CNAS 9%+26%)", debit: 0, credit: totals.cnasE + totals.cnasP },
+        { accountCode: "442", accountName: "État - Impôts et taxes retenus (IRG)", debit: 0, credit: totals.irg },
+        { accountCode: "421", accountName: "Indemnités de frais (Panier/Transp)", debit: 0, credit: ledgerData.reduce((s, e) => s + e.totalFrais, 0) }
+      ]
+    };
+
+    try {
+      await addDocumentNonBlocking(journalEntriesRef, entryData);
+      toast({ title: "Paie Journalisée", description: "Les charges de personnel ont été intégrées à la comptabilité de l'exercice." });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsPosting(false);
+    }
+  };
+
   if (isLoading) return <div className="flex items-center justify-center h-screen"><BookOpen className="animate-spin h-8 w-8 text-primary" /></div>
 
   return (
@@ -108,8 +147,16 @@ export default function PayrollLedger() {
               ))}
             </SelectContent>
           </Select>
+          <Button 
+            variant="outline" 
+            className="border-emerald-600 text-emerald-600 hover:bg-emerald-50"
+            onClick={handlePostToJournal}
+            disabled={isPosting || ledgerData.length === 0}
+          >
+            {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+            Journaliser la Paie
+          </Button>
           <Button variant="outline" size="sm" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Imprimer</Button>
-          <Button variant="outline" size="sm"><FileDown className="mr-2 h-4 w-4" /> Exporter CSV</Button>
         </div>
       </div>
 

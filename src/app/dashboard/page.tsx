@@ -86,7 +86,6 @@ export default function DashboardOverview() {
     return tenants[0];
   }, [tenants, searchParams]);
 
-  // Utilisation des écritures comptables pour une vision consolidée
   const entriesQuery = useMemoFirebase(() => {
     if (!db || !currentTenant || !user) return null;
     return query(
@@ -96,37 +95,43 @@ export default function DashboardOverview() {
   const { data: entries } = useCollection(entriesQuery);
 
   const stats = React.useMemo(() => {
-    if (!entries || !mounted) return { ca: 0, tva: 0, count: 0 };
+    if (!entries || !mounted) return { ca: 0, tva: 0, charges: 0, count: 0 };
     
-    // Calcul du CA basé sur les comptes de classe 7 dans le journal
     let caHT = 0;
     let tvaCollectee = 0;
+    let chargesHT = 0;
     let transactions = new Set();
 
     entries.forEach(entry => {
       entry.lines.forEach((line: any) => {
+        // Revenus
         if (line.accountCode.startsWith('7')) {
           caHT += line.credit - line.debit;
           transactions.add(entry.id);
         }
+        // Charges (inclut 60 Achats et 63 Paie)
+        if (line.accountCode.startsWith('6')) {
+          chargesHT += line.debit - line.credit;
+        }
+        // TVA
         if (line.accountCode === '4457') {
           tvaCollectee += line.credit - line.debit;
         }
       });
     });
 
-    return { ca: caHT, tva: tvaCollectee, count: transactions.size };
+    return { ca: caHT, tva: tvaCollectee, charges: chargesHT, count: transactions.size };
   }, [entries, mounted]);
 
   const formatAmount = (val: number) => mounted ? Math.round(val).toLocaleString() : "...";
 
   const monthlyData = [
-    { month: "Jan", revenue: stats.ca * 0.1, expenses: stats.ca * 0.05 },
-    { month: "Feb", revenue: stats.ca * 0.15, expenses: stats.ca * 0.08 },
-    { month: "Mar", revenue: stats.ca * 0.2, expenses: stats.ca * 0.1 },
-    { month: "Apr", revenue: stats.ca * 0.25, expenses: stats.ca * 0.12 },
-    { month: "May", revenue: stats.ca * 0.3, expenses: stats.ca * 0.15 },
-    { month: "Jun", revenue: stats.ca, expenses: stats.ca * 0.6 },
+    { month: "Jan", revenue: stats.ca * 0.1, expenses: stats.charges * 0.1 },
+    { month: "Feb", revenue: stats.ca * 0.15, expenses: stats.charges * 0.15 },
+    { month: "Mar", revenue: stats.ca * 0.2, expenses: stats.charges * 0.2 },
+    { month: "Apr", revenue: stats.ca * 0.25, expenses: stats.charges * 0.25 },
+    { month: "May", revenue: stats.ca * 0.3, expenses: stats.charges * 0.3 },
+    { month: "Jun", revenue: stats.ca, expenses: stats.charges },
   ]
 
   if (!mounted || isSeeding || isTenantsLoading) {
@@ -171,32 +176,6 @@ export default function DashboardOverview() {
             </Link>
           </Card>
         )}
-        {secteur === 'INDUSTRIE' && (
-          <Card className="bg-primary text-white border-none shadow-lg hover:scale-[1.02] transition-transform cursor-pointer" asChild>
-            <Link href={`/dashboard/industry/production?tenantId=${currentTenant?.id}`}>
-              <CardContent className="p-6 flex items-center gap-4">
-                <div className="h-12 w-12 rounded-2xl bg-white/20 flex items-center justify-center"><Factory className="h-6 w-6 text-white" /></div>
-                <div>
-                  <h4 className="font-bold text-sm">Lancer un O.F.</h4>
-                  <p className="text-[10px] opacity-70">Initialiser un ordre de fabrication</p>
-                </div>
-              </CardContent>
-            </Link>
-          </Card>
-        )}
-        {(secteur === 'COMMERCE' || secteur === 'INDUSTRIE') && (
-          <Card className="bg-accent text-primary border-none shadow-lg hover:scale-[1.02] transition-transform cursor-pointer" asChild>
-            <Link href={`/dashboard/inventory/stock?tenantId=${currentTenant?.id}`}>
-              <CardContent className="p-6 flex items-center gap-4">
-                <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center"><Package className="h-6 w-6 text-primary" /></div>
-                <div>
-                  <h4 className="font-bold text-sm">Gestion de Stock</h4>
-                  <p className="text-[10px] opacity-70">Contrôler l'état des références</p>
-                </div>
-              </CardContent>
-            </Link>
-          </Card>
-        )}
         <Card className="bg-slate-900 text-white border-none shadow-lg hover:scale-[1.02] transition-transform cursor-pointer" asChild>
           <Link href={`/dashboard/ocr?tenantId=${currentTenant?.id}`}>
             <CardContent className="p-6 flex items-center gap-4">
@@ -218,29 +197,29 @@ export default function DashboardOverview() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatAmount(stats.ca)} DZD</div>
-            <p className="text-[10px] text-muted-foreground mt-1">Données journalisées (Livre-Journal).</p>
+            <p className="text-[10px] text-muted-foreground mt-1">Revenus journalisés.</p>
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-md transition-shadow border-l-4 border-l-amber-500 bg-white">
+        <Card className="hover:shadow-md transition-shadow border-l-4 border-l-destructive bg-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Optimisation IRG</CardTitle>
-            <Target className="h-4 w-4 text-amber-600" />
+            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Charges (Paie incl.)</CardTitle>
+            <TrendingDown className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">Lissage Activé</div>
-            <p className="text-[10px] text-emerald-600 mt-1 font-bold">GAIN : -40% d'abattement</p>
+            <div className="text-2xl font-bold">{formatAmount(stats.charges)} DZD</div>
+            <p className="text-[10px] text-muted-foreground mt-1">Exploitation & Salaires.</p>
           </CardContent>
         </Card>
 
         <Card className="hover:shadow-md transition-shadow border-l-4 border-l-emerald-500 bg-emerald-50/20">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-bold uppercase text-emerald-800">Santé Financière</CardTitle>
+            <CardTitle className="text-xs font-bold uppercase text-emerald-800">Résultat Brut</CardTitle>
             <Activity className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-600">SCORE 98/100</div>
-            <p className="text-[10px] text-emerald-700 italic mt-1">Risque de contrôle : Très Faible</p>
+            <div className="text-2xl font-bold text-emerald-600">{formatAmount(stats.ca - stats.charges)} DZD</div>
+            <p className="text-[10px] text-emerald-700 italic mt-1">Performance consolidée.</p>
           </CardContent>
         </Card>
 
@@ -262,7 +241,7 @@ export default function DashboardOverview() {
             <CardTitle className="flex items-center gap-2 text-lg">
               <Activity className="h-5 w-5 text-primary" /> Analyse des Flux (HT)
             </CardTitle>
-            <CardDescription>Évolution des produits et charges sur l'exercice en cours.</CardDescription>
+            <CardDescription>Évolution des produits et charges (Paie incluse).</CardDescription>
           </CardHeader>
           <CardContent className="h-[350px] pt-6">
             <ResponsiveContainer width="100%" height="100%">
@@ -276,7 +255,7 @@ export default function DashboardOverview() {
                 />
                 <Legend iconType="circle" />
                 <Bar dataKey="revenue" name="Ventes (CA)" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="expenses" name="Achats / Charges" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="expenses" name="Charges réelles" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
