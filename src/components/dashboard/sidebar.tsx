@@ -383,16 +383,16 @@ export function DashboardSidebar() {
                 <Link href={currentTenant ? `/dashboard/support?tenantId=${currentTenant.id}` : "/dashboard/support"}>
                   <LifeBuoy /><span>Assistance & Support</span>
                 </Link>
-              </SidebarMenuItem>
-            </SidebarMenu>
-            <SidebarMenu>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname === "/dashboard/settings"} tooltip="Paramètres">
                 <Link href={currentTenant ? `/dashboard/settings?tenantId=${currentTenant.id}` : "/dashboard/settings"}>
                   <Settings /><span>Paramètres Dossier</span>
                 </Link>
-              </SidebarMenuItem>
-            </SidebarMenu>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
 
@@ -476,7 +476,7 @@ export function DashboardSidebar() {
           </div>
         </div>
         <DialogFooter>
-          <Button onClick={handleCreateTenant} disabled={isCreating || !newTenantData.raisonSociale} className="w-full">
+          <Button onClick={handleCreateTenant} disabled={isCreating} className="w-full">
             {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
             Initialiser le Dossier {newTenantData.secteurActivite}
           </Button>
