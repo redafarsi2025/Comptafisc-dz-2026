@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -378,7 +377,7 @@ export function DashboardSidebar() {
                   <Settings />
                   <span>Paramètres Dossier</span>
                 </Link>
-              </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenuItem>
             
             {isSaaSAdmin && (
