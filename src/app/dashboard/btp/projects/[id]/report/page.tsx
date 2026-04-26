@@ -11,7 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { 
   Pickaxe, Printer, ChevronLeft, MapPin, 
   CalendarDays, Calculator, ShieldCheck, 
-  Clock, History, FileText, Landmark, Loader2 
+  Clock, History, FileText, Landmark, Loader2,
+  AlertTriangle, CheckCircle2
 } from "lucide-react"
 import { useRouter, useSearchParams, useParams } from "next/navigation"
 import Link from "next/link"
