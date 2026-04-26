@@ -215,7 +215,7 @@ export default function AccountingJournal() {
     try {
       addDocumentNonBlocking(journalEntriesRef, entryData);
       toast({
-        title: "Écriture enregistrée",
+        title: "Écritures enregistrée",
         description: `L'écriture a été ajoutée au journal ${journalType} avec succès.`,
       });
       setLines([
@@ -241,7 +241,7 @@ export default function AccountingJournal() {
       toast({
         variant: "destructive",
         title: "Racine invalide",
-        description: "Le code doit commencer par une racine SCF valide (2 chiffres).",
+        description: "Le compte doit commencer par une racine SCF valide (2 chiffres).",
       });
       return;
     }
