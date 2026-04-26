@@ -6,7 +6,7 @@ import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebas
 import { collection, query, orderBy } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { 
   FileBadge, Plus, Search, Printer, 
@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useSearchParams } from "next/navigation"
+import { calculateRetenueGarantie } from "@/lib/calculations"
 
 export default function BtpSituationsPage() {
   const db = useFirestore()
@@ -30,6 +31,17 @@ export default function BtpSituationsPage() {
   , [db, tenantId]);
   const { data: situations, isLoading } = useCollection(situationsQuery);
 
+  const stats = React.useMemo(() => {
+    if (!situations) return { totalCertifie: 0, totalRetenue: 0, netEncaisser: 0 };
+    const totalCertifie = situations.reduce((acc, s) => acc + (s.certifiedAmount || 0), 0);
+    const totalRetenue = situations.reduce((acc, s) => acc + calculateRetenueGarantie(s.certifiedAmount || 0, 'BTP'), 0);
+    return {
+      totalCertifie,
+      totalRetenue,
+      netEncaisser: totalCertifie - totalRetenue
+    };
+  }, [situations]);
+
   if (!mounted) return null;
 
   return (
@@ -39,7 +51,7 @@ export default function BtpSituationsPage() {
           <h1 className="text-3xl font-black text-primary flex items-center gap-3">
             <FileBadge className="text-accent h-8 w-8" /> Situations de Travaux
           </h1>
-          <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest">Facturation à l'avancement conforme aux marchés de travaux</p>
+          <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest">Facturation à l'avancement avec retenue de garantie (5%)</p>
         </div>
         <Button className="bg-primary shadow-lg" disabled={!tenantId}>
           <Plus className="mr-2 h-4 w-4" /> Nouvelle Situation
@@ -50,19 +62,20 @@ export default function BtpSituationsPage() {
         <Card className="bg-blue-50 border-blue-200 border-l-4 border-l-blue-500 shadow-sm">
           <CardContent className="pt-6">
             <p className="text-[10px] uppercase font-bold text-blue-800">Total Certifié HT</p>
-            <h2 className="text-3xl font-black text-blue-600">12.4M DA</h2>
+            <h2 className="text-3xl font-black text-blue-600">{stats.totalCertifie.toLocaleString()} DA</h2>
           </CardContent>
         </Card>
         <Card className="bg-amber-50 border-amber-200 border-l-4 border-l-amber-500 shadow-sm">
           <CardContent className="pt-6">
             <p className="text-[10px] uppercase font-bold text-amber-800">Retenues de Garantie (5%)</p>
-            <h2 className="text-3xl font-black text-amber-600">620k DA</h2>
+            <h2 className="text-3xl font-black text-amber-600">{stats.totalRetenue.toLocaleString()} DA</h2>
+            <p className="text-[9px] text-amber-700 italic mt-1">Libérable à la réception définitive.</p>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-emerald-500 shadow-sm bg-white">
           <CardContent className="pt-6">
             <p className="text-[10px] uppercase font-bold text-muted-foreground">Net à Encaisser</p>
-            <h2 className="text-3xl font-black text-emerald-600">11.78M DA</h2>
+            <h2 className="text-3xl font-black text-emerald-600">{stats.netEncaisser.toLocaleString()} DA</h2>
           </CardContent>
         </Card>
       </div>
@@ -72,7 +85,7 @@ export default function BtpSituationsPage() {
           <CardTitle className="text-lg">Registre des Décomptes</CardTitle>
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Rechercher projet ou situation..." className="pl-9 h-9 w-64 bg-white text-xs" />
+            <Input placeholder="Rechercher projet..." className="pl-9 h-9 w-64 bg-white text-xs" />
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -80,48 +93,53 @@ export default function BtpSituationsPage() {
             <TableHeader className="bg-muted/50">
               <TableRow className="text-[10px] uppercase font-black">
                 <TableHead>N° / Date</TableHead>
-                <TableHead>Projet / Chantier</TableHead>
+                <TableHead>Projet</TableHead>
                 <TableHead className="text-center">Avancement</TableHead>
-                <TableHead className="text-right">Montant Brut HT</TableHead>
-                <TableHead className="text-right font-bold text-primary">Montant Certifié</TableHead>
+                <TableHead className="text-right">Montant Certifié</TableHead>
+                <TableHead className="text-right text-amber-600">Retenue (5%)</TableHead>
+                <TableHead className="text-right font-bold text-primary">Net à Payer</TableHead>
                 <TableHead className="text-center">Statut Visa</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-10"><Loader2 className="animate-spin h-6 w-6 mx-auto text-primary" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center py-10"><Loader2 className="animate-spin h-6 w-6 mx-auto text-primary" /></TableCell></TableRow>
               ) : !situations?.length ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-20 text-muted-foreground italic flex flex-col items-center gap-4">
+                <TableRow><TableCell colSpan={7} className="text-center py-20 text-muted-foreground italic flex flex-col items-center gap-4">
                   <FileText className="h-12 w-12 opacity-10" />
                   <span>Aucun décompte enregistré.</span>
                 </TableCell></TableRow>
               ) : (
-                situations.map((sit) => (
-                  <TableRow key={sit.id} className="hover:bg-muted/5 group transition-colors">
-                    <TableCell className="text-xs font-bold">
-                      <div className="flex flex-col">
-                        <span>SIT-N°{sit.number}</span>
-                        <span className="text-[10px] text-muted-foreground font-normal">{sit.date}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-xs font-medium uppercase">{sit.projectName}</TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex flex-col items-center gap-1">
-                        <span className="text-[10px] font-black">{sit.progress}%</span>
-                        <div className="w-16 h-1 bg-slate-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-primary" style={{ width: `${sit.progress}%` }} />
+                situations.map((sit) => {
+                  const retenue = calculateRetenueGarantie(sit.certifiedAmount, 'BTP');
+                  return (
+                    <TableRow key={sit.id} className="hover:bg-muted/5 group transition-colors">
+                      <TableCell className="text-xs font-bold">
+                        <div className="flex flex-col">
+                          <span>SIT-N°{sit.number}</span>
+                          <span className="text-[10px] text-muted-foreground font-normal">{sit.date}</span>
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-xs">{sit.amountHT.toLocaleString()} DA</TableCell>
-                    <TableCell className="text-right font-black text-xs text-primary">{sit.certifiedAmount.toLocaleString()} DA</TableCell>
-                    <TableCell className="text-center">
-                      <Badge className={sit.isSigned ? "bg-emerald-500" : "bg-amber-500"}>
-                        {sit.isSigned ? "VISÉ MAÎTRISE" : "EN ATTENTE VISA"}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))
+                      </TableCell>
+                      <TableCell className="text-xs font-medium uppercase">{sit.projectName}</TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="text-[10px] font-black">{sit.progress}%</span>
+                          <div className="w-16 h-1 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-primary" style={{ width: `${sit.progress}%` }} />
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs">{sit.certifiedAmount.toLocaleString()} DA</TableCell>
+                      <TableCell className="text-right font-mono text-xs text-amber-600">-{retenue.toLocaleString()} DA</TableCell>
+                      <TableCell className="text-right font-black text-xs text-primary">{(sit.certifiedAmount - retenue).toLocaleString()} DA</TableCell>
+                      <TableCell className="text-center">
+                        <Badge className={sit.isSigned ? "bg-emerald-500" : "bg-amber-500"}>
+                          {sit.isSigned ? "VISÉ MAÎTRISE" : "EN ATTENTE VISA"}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -133,8 +151,9 @@ export default function BtpSituationsPage() {
         <div className="text-xs leading-relaxed space-y-2">
           <p className="font-bold text-accent uppercase tracking-widest">Expertise BTP - Retenue de Garantie :</p>
           <p className="opacity-80">
-            Le système calcule automatiquement la <strong>Retenue de Garantie (5%)</strong> et la <strong>Caution de Bonne Exécution</strong> si applicable. 
-            Les écritures comptables de classe 4 (411/4457) sont générées uniquement sur la base du montant certifié par le Maître d'Ouvrage ou le Bureau d'Études.
+            Conformément aux usages du BTP en Algérie, la retenue de garantie de 5% est calculée sur le montant brut certifié de chaque situation. 
+            Le système comptabilise automatiquement cette retenue au crédit d'un sous-compte de tiers (4118 - Clients retenue de garantie) 
+            jusqu'à la levée des réserves à la fin du délai de garantie.
           </p>
         </div>
       </div>

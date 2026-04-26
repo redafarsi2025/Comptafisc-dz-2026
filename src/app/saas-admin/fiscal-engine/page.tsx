@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -29,7 +30,7 @@ export default function FiscalEngineAdmin() {
   const [aiProposals, setAiProposals] = React.useState<any[] | null>(null)
 
   const [simBase, setSimBase] = React.useState("100000")
-  const [simMode, setSimBaseMode] = React.useState("PAIE") // PAIE or IBS
+  const [simMode, setSimBaseMode] = React.useState("PAIE") 
   const [simSector, setSimSector] = React.useState("PRODUCTION")
   const [simResult, setSimResult] = React.useState<any>(null)
   const [isSimulating, setIsSimulating] = React.useState(false)
@@ -80,7 +81,7 @@ export default function FiscalEngineAdmin() {
     try {
       const lawId = "LF_2026";
       
-      // --- BLOC FISCALITÉ ENTREPRISE ---
+      // --- SECTORIAL IBS RULE ---
       await setDocumentNonBlocking(doc(db, "fiscal_business_rules", "RULE_IBS_2026"), {
         id: "RULE_IBS_2026",
         code: "IBS_TAUX",
@@ -97,10 +98,47 @@ export default function FiscalEngineAdmin() {
           { if: "secteur == 'SERVICES' || secteur == 'COMMERCE'", set: "taux_IBS = 0.26" },
           { set: "IBS = resultat_fiscal * taux_IBS" }
         ],
-        justify: "Application des taux IBS différentiés selon l'activité (Art. 150 CIDTA)."
+        justify: "Modèle fiscal 2026 : IBS différencié par activité (Art. 150 CIDTA)."
       }, { merge: true });
 
-      // --- BLOC PAIE & IRG 2026 ---
+      // --- BTP SPECIFIC RULE ---
+      await setDocumentNonBlocking(doc(db, "fiscal_business_rules", "RULE_BTP_RETENUE"), {
+        id: "RULE_BTP_RETENUE",
+        code: "RETENUE_GARANTIE",
+        name: "BTP : Retenue de Garantie 5%",
+        category: "COMPTA",
+        priority: 50,
+        active: true,
+        effectiveStartDate: "2026-01-01",
+        sourceLawId: lawId,
+        when: "secteur == 'BTP' && facture_ht > 0",
+        then: [
+          { set: "retenue = facture_ht * 0.05" },
+          { set: "net_a_payer = (facture_ht * 1.19) - retenue" }
+        ],
+        justify: "Modèle BTP : Retenue légale de garantie de 5% sur situations de travaux."
+      }, { merge: true });
+
+      // --- AGRICULTURE EXEMPTION ---
+      await setDocumentNonBlocking(doc(db, "fiscal_business_rules", "RULE_AGRI_EXEMPT"), {
+        id: "RULE_AGRI_EXEMPT",
+        code: "AGRI_EXEMPTION",
+        name: "Agriculture : Exonération Totale",
+        category: "FISCAL",
+        priority: 1,
+        active: true,
+        effectiveStartDate: "2026-01-01",
+        sourceLawId: lawId,
+        when: "secteur == 'AGRICULTURE'",
+        then: [
+          { set: "TVA = 0" },
+          { set: "IBS = 0" },
+          { set: "IRG = 0" }
+        ],
+        justify: "Exonération fiscale permanente pour les activités agricoles."
+      }, { merge: true });
+
+      // --- PAIE ENGINE 2026 ---
       await setDocumentNonBlocking(doc(db, "fiscal_business_rules", "RULE_BASE_IRG"), {
         id: "RULE_BASE_IRG",
         code: "BASE_IRG",
@@ -118,61 +156,7 @@ export default function FiscalEngineAdmin() {
         justify: "Déduction CNAS ouvrière (9%) pour obtenir le revenu imposable."
       }, { merge: true });
 
-      await setDocumentNonBlocking(doc(db, "fiscal_business_rules", "RULE_ABATTEMENT_IRG"), {
-        id: "RULE_ABATTEMENT_IRG",
-        code: "ABATTEMENT_IRG",
-        name: "Paie : Abattement 40% (2026)",
-        category: "SOCIAL",
-        priority: 20,
-        active: true,
-        effectiveStartDate: "2026-01-01",
-        sourceLawId: lawId,
-        when: "salaire_imposable > 0",
-        then: [
-          { set: "val_abattement = salaire_imposable * 0.40" },
-          { if: "val_abattement > 12000", set: "val_abattement = 12000" },
-          { set: "base_IRG_net = salaire_imposable - val_abattement" }
-        ],
-        justify: "Application de l'abattement 40% plafonné à 12 000 DA (Art. 104 CIDTA)."
-      }, { merge: true });
-
-      await setDocumentNonBlocking(doc(db, "fiscal_business_rules", "RULE_IRG_PROGRESSIF"), {
-        id: "RULE_IRG_PROGRESSIF",
-        code: "IRG_FINAL",
-        name: "Paie : Barème Progressif IRG",
-        category: "SOCIAL",
-        priority: 30,
-        active: true,
-        effectiveStartDate: "2026-01-01",
-        sourceLawId: lawId,
-        when: "base_IRG_net > 0",
-        then: [
-          { if: "base_IRG_net <= 30000", set: "IRG = 0" },
-          { if: "base_IRG_net > 30000 && base_IRG_net <= 120000", set: "IRG = (base_IRG_net - 30000) * 0.20" },
-          { if: "base_IRG_net > 120000 && base_IRG_net <= 360000", set: "IRG = 18000 + (base_IRG_net - 120000) * 0.30" },
-          { if: "base_IRG_net > 360000", set: "IRG = 90000 + (base_IRG_net - 360000) * 0.35" }
-        ],
-        justify: "Barème progressif 2026 : Exonération jusqu'à 30 000 DA."
-      }, { merge: true });
-
-      await setDocumentNonBlocking(doc(db, "fiscal_business_rules", "RULE_CNAS_PATRONALE"), {
-        id: "RULE_CNAS_PATRONALE",
-        code: "CNAS_PATRONALE",
-        name: "Charges : CNAS Patronale (26%)",
-        category: "SOCIAL",
-        priority: 5,
-        active: true,
-        effectiveStartDate: "2026-01-01",
-        sourceLawId: lawId,
-        when: "salaire_brut > 0",
-        then: [
-          { set: "cotisation_patronale = salaire_brut * 0.26" },
-          { set: "cout_total_employeur = salaire_brut + cotisation_patronale" }
-        ],
-        justify: "Charges sociales à la charge de l'employeur."
-      }, { merge: true });
-
-      toast({ title: "Noyau DSL 2026 (Fiscal & Paie) Opérationnel" });
+      toast({ title: "Moteur Multi-Activités 2026 Initialisé" });
     } finally { setIsInitializing(false); }
   }
 
@@ -183,12 +167,12 @@ export default function FiscalEngineAdmin() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">Moteur Fiscal Master</h1>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Industrial DSL & 2026 Compliance</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Multi-Activity DSL & 2026 Compliance</p>
         </div>
         <div className="flex gap-3">
           <Button variant="outline" size="sm" onClick={handleInitialize2026DSL} disabled={isInitializing} className="rounded-2xl bg-white border-slate-200 font-bold">
             {isInitializing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
-            Réinitialiser DSL 2026
+            Initialiser Modèle Multi-Secteurs
           </Button>
         </div>
       </div>
@@ -199,7 +183,7 @@ export default function FiscalEngineAdmin() {
             <CardTitle className="text-lg font-black flex items-center gap-2 text-slate-900 uppercase tracking-tighter">
               <Beaker className="h-5 w-5 text-primary" /> Simulation Lab
             </CardTitle>
-            <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Test du pipeline de calcul</CardDescription>
+            <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Test des modèles sectoriels</CardDescription>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
             <Tabs value={simMode} onValueChange={setSimBaseMode} className="w-full">
@@ -222,6 +206,7 @@ export default function FiscalEngineAdmin() {
                       <SelectItem value="PRODUCTION">Production (19%)</SelectItem>
                       <SelectItem value="BTP">BTP (23%)</SelectItem>
                       <SelectItem value="SERVICES">Services (26%)</SelectItem>
+                      <SelectItem value="AGRICULTURE">Agriculture (0%)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -229,28 +214,22 @@ export default function FiscalEngineAdmin() {
             </div>
             <Button className="w-full bg-slate-900 text-white font-black uppercase tracking-widest text-[10px] h-12 rounded-2xl shadow-lg" onClick={handleRunFullSimulation} disabled={isSimulating}>
               {isSimulating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
-              Exécuter Pipeline DSL
+              Tester Modèle DSL
             </Button>
             
             {simResult && (
               <div className="pt-6 space-y-4 animate-in fade-in duration-300">
                 <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10">
-                  <p className="text-[9px] font-black text-primary uppercase mb-1">Impact Calculé</p>
+                  <p className="text-[9px] font-black text-primary uppercase mb-1">Impact Calculé ({simSector})</p>
                   <div className="flex justify-between items-baseline">
                     <span className="text-2xl font-black text-slate-900">
                       {simMode === "PAIE" ? (simResult.results.IRG || 0).toLocaleString() : (simResult.results.IBS || 0).toLocaleString()} DA
                     </span>
                     <Badge className="bg-primary text-white text-[8px] uppercase">{simMode === "PAIE" ? "IRG FINAL" : "IBS FINAL"}</Badge>
                   </div>
-                  {simMode === "PAIE" && (
-                    <div className="mt-2 text-[10px] font-bold text-slate-500 flex justify-between">
-                       <span>Coût Total Employeur :</span>
-                       <span>{Math.round(simResult.results.cout_total_employeur || 0).toLocaleString()} DA</span>
-                    </div>
-                  )}
                 </div>
                 <div className="space-y-2">
-                  <p className="text-[9px] font-black text-slate-400 uppercase">Traces d'Audit :</p>
+                  <p className="text-[9px] font-black text-slate-400 uppercase">Traces d'Audit (Compliance) :</p>
                   {simResult.traces.map((t: any, i: number) => (
                     <div key={i} className="text-[9px] border-l-2 border-emerald-500 pl-3 py-1">
                       <p className="font-bold text-slate-700 uppercase">{t.ruleName}</p>
@@ -263,30 +242,27 @@ export default function FiscalEngineAdmin() {
           </CardContent>
         </Card>
 
-        <div className="lg:col-span-2">
-          <Tabs defaultValue="rules" className="w-full">
-            <TabsList className="bg-slate-100 border border-slate-200 p-1.5 rounded-3xl h-auto mb-8">
-              <TabsTrigger value="rules" className="rounded-2xl px-6 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs font-bold"><Code2 className="h-4 w-4 mr-2" /> Pipeline DSL Actif</TabsTrigger>
-              <TabsTrigger value="ai" className="rounded-2xl px-6 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs font-bold"><Sparkles className="h-4 w-4 mr-2" /> IA Vision</TabsTrigger>
-            </TabsList>
+        <div className="lg:col-span-2 space-y-8">
+           <Card className="bg-emerald-50 border border-emerald-200 p-6 flex items-start gap-4 rounded-3xl">
+              <ShieldCheck className="h-6 w-6 text-emerald-600 shrink-0 mt-1" />
+              <div className="text-xs text-emerald-900 leading-relaxed">
+                <p className="font-black uppercase tracking-widest mb-1">Audit de Modèle Multi-Secteurs :</p>
+                <p>Le moteur DSL applique désormais une hiérarchie de règles isolées par profil métier. Un dossier classé en "AGRICULTURE" sera automatiquement exonéré via la règle `RULE_AGRI_EXEMPT`, tandis qu'un dossier "BTP" appliquera la retenue de garantie sur ses flux de facturation.</p>
+              </div>
+           </Card>
 
-            <TabsContent value="rules" className="space-y-6">
+           <div className="space-y-6">
               {rules?.map((rule) => (
-                <Card key={rule.id} className="border-none shadow-xl shadow-slate-200/50 bg-white rounded-3xl border-l-4 border-l-primary group">
+                <Card key={rule.id} className="border-none shadow-xl shadow-slate-200/50 bg-white rounded-3xl border-l-4 border-l-primary overflow-hidden group">
                   <CardHeader className="py-4 px-8 bg-slate-50/50 border-b border-slate-100 flex flex-row justify-between items-center">
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                         <CardTitle className="text-sm font-black text-slate-900 uppercase tracking-tighter">
-                          {rule.name}
-                        </CardTitle>
-                        {rule.category === 'SOCIAL' ? <Users className="h-3 w-3 text-blue-500" /> : <Banknote className="h-3 w-3 text-emerald-500" />}
-                      </div>
+                      <CardTitle className="text-sm font-black text-slate-900 uppercase tracking-tighter">{rule.name}</CardTitle>
                       <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Priorité: {rule.priority} • {rule.category}</p>
                     </div>
-                    <Badge className="bg-emerald-100 text-emerald-700 text-[8px] font-black h-5">DSL 2026</Badge>
+                    <Badge className="bg-emerald-100 text-emerald-700 text-[8px] font-black h-5">DSL v3.1</Badge>
                   </CardHeader>
                   <CardContent className="p-8">
-                    <div className="bg-slate-900 rounded-2xl p-6 font-mono text-[10px] text-emerald-400 shadow-inner">
+                    <div className="bg-slate-900 rounded-2xl p-6 font-mono text-[10px] text-emerald-400">
                       <p className="mb-2 text-blue-400 font-bold">WHEN {rule.when || "TRUE"}</p>
                       <div className="space-y-1 pl-4 border-l border-white/10">
                         {Array.isArray(rule.then) ? rule.then.map((t: any, i: number) => (
@@ -306,28 +282,7 @@ export default function FiscalEngineAdmin() {
                   </CardContent>
                 </Card>
               ))}
-            </TabsContent>
-
-            <TabsContent value="ai">
-              <Card className="border-none shadow-xl bg-white rounded-3xl">
-                <CardHeader>
-                  <CardTitle className="text-lg font-black flex items-center gap-2 uppercase tracking-tighter"><BrainCircuit className="h-5 w-5 text-primary" /> Extraction de Texte Officiel</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <Textarea 
-                    placeholder="Collez ici un communiqué de la DGI ou un article de la Loi de Finances..." 
-                    className="min-h-[250px] bg-slate-50 border-slate-200 text-xs rounded-2xl"
-                    value={aiInput}
-                    onChange={(e) => setAiInput(e.target.value)}
-                  />
-                  <Button className="w-full bg-primary h-12 rounded-2xl font-black uppercase tracking-widest text-[10px]" onClick={handleAiAnalysis} disabled={isAiProcessing}>
-                    {isAiProcessing ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-                    Convertir en DSL Fiscal
-                  </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+           </div>
         </div>
       </div>
     </div>
