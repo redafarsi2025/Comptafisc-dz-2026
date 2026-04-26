@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress"
 import { 
   ShoppingCart, ShieldCheck, CheckCircle2, 
   ArrowRight, Calculator, FileSearch, Truck, 
-  Receipt, CreditCard, Sparkles, AlertCircle, TrendingDown,
+  Receipt, CreditCard, Sparkles, AlertCircle, TrendingUp,
   Undo2, FileMinus, Plus
 } from "lucide-react"
 import Link from "next/link"

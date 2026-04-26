@@ -23,29 +23,37 @@ export default function AdminLayout({
   const adminDocRef = useMemoFirebase(() => (db && user) ? doc(db, "saas_admins", user.uid) : null, [db, user?.uid]);
   const { data: adminRecord, isLoading: isAdminLoading } = useDoc(adminDocRef);
 
+  // Redirection sécurisée : on attend que le chargement soit fini
+  React.useEffect(() => {
+    if (!isUserLoading && !isAdminLoading) {
+      if (!user || !adminRecord) {
+        router.push("/dashboard");
+      }
+    }
+  }, [user, isUserLoading, isAdminLoading, adminRecord, router]);
+
   // Écran de chargement haute sécurité
-  if (isUserLoading || isAdminLoading) return (
-    <div className="h-screen flex flex-col items-center justify-center bg-[#0F172A] gap-6 overflow-hidden">
-      <div className="relative">
-        <div className="h-32 w-32 rounded-full border-4 border-accent/10 border-t-accent animate-spin" />
-        <ShieldCheck className="absolute inset-0 m-auto h-12 w-12 text-accent animate-pulse" />
+  if (isUserLoading || isAdminLoading) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center bg-[#0F172A] gap-6 overflow-hidden">
+        <div className="relative">
+          <div className="h-32 w-32 rounded-full border-4 border-accent/10 border-t-accent animate-spin" />
+          <ShieldCheck className="absolute inset-0 m-auto h-12 w-12 text-accent animate-pulse" />
+        </div>
+        <div className="text-center space-y-2 animate-in fade-in duration-1000">
+          <p className="text-sm font-black text-white uppercase tracking-[0.4em]">Master Node Authentication</p>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Décryptage des jetons d'accréditation...</p>
+        </div>
+        <div className="absolute bottom-10 text-[8px] font-mono text-slate-700 uppercase tracking-widest">
+          Secured by ComptaFisc-DZ Internal Engine v2.5
+        </div>
       </div>
-      <div className="text-center space-y-2 animate-in fade-in duration-1000">
-        <p className="text-sm font-black text-white uppercase tracking-[0.4em]">Master Node Authentication</p>
-        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Décryptage des jetons d'accréditation...</p>
-      </div>
-      <div className="absolute bottom-10 text-[8px] font-mono text-slate-700 uppercase tracking-widest">
-        Secured by ComptaFisc-DZ Internal Engine v2.5
-      </div>
-    </div>
-  )
+    );
+  }
   
-  // Redirection si non authentifié ou non admin
+  // Si non autorisé, on affiche rien pendant que le useEffect redirige
   if (!user || !adminRecord) {
-    React.useEffect(() => {
-      router.push("/dashboard")
-    }, [router])
-    return null
+    return null;
   }
 
   return (
@@ -94,5 +102,5 @@ export default function AdminLayout({
         </SidebarInset>
       </div>
     </SidebarProvider>
-  )
+  );
 }
