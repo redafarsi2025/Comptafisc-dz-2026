@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -16,8 +15,11 @@ import {
   Settings2, PackageX, History, TrendingDown, TrendingUp, Landmark, AlertCircle
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useSearchParams, useParams, useRouter } from "next/navigation"
 import { toast } from "@/hooks/use-toast"
 import Link from "next/link"
