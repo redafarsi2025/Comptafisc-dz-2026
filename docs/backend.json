@@ -4,7 +4,7 @@
     "FiscalLaw": {
       "title": "FiscalLaw",
       "type": "object",
-      "description": "Référentiel des lois de finances et décrets sources.",
+      "description": "Référentiel des versions législatives (ex: LF 2026).",
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },
@@ -16,7 +16,7 @@
     "FiscalVariableType": {
       "title": "FiscalVariableType",
       "type": "object",
-      "description": "Définition d'une variable (ex: SNMG, TVA_STD).",
+      "description": "Définition globale d'une variable (ex: SNMG, TVA_STD).",
       "properties": {
         "code": { "type": "string" },
         "name": { "type": "string" },
@@ -27,7 +27,7 @@
     "FiscalVariableValue": {
       "title": "FiscalVariableValue",
       "type": "object",
-      "description": "Valeur historisée d'une variable.",
+      "description": "Valeur versionnée par loi et par date.",
       "properties": {
         "fiscalVariableTypeId": { "type": "string" },
         "fiscalLawId": { "type": "string" },
@@ -38,17 +38,16 @@
     "FiscalBusinessRule": {
       "title": "FiscalBusinessRule",
       "type": "object",
-      "description": "Règle de calcul complexe (IRG, IFU).",
+      "description": "Règle métier DSL (Calculateur dynamique).",
       "properties": {
         "code": { "type": "string" },
         "name": { "type": "string" },
-        "type": { "type": "string" },
         "category": { "type": "string", "enum": ["COMPTA", "SOCIAL", "FISCAL"] },
-        "order": { "type": "number", "description": "Priorité d'exécution (le plus bas en premier)." },
-        "dependsOn": { "type": "array", "items": { "type": "string" }, "description": "Codes des règles dont cette règle dépend." },
-        "effectiveStartDate": { "type": "string", "format": "date" },
-        "brackets": { "type": "array" },
-        "formula": { "type": "string" }
+        "priority": { "type": "number" },
+        "when": { "type": "string", "description": "Condition d'application DSL (ex: secteur == 'BTP')" },
+        "then": { "type": "array", "description": "Actions de calcul" },
+        "justify": { "type": "string", "description": "Référence article CIDTA" },
+        "active": { "type": "boolean" }
       }
     }
   },
@@ -56,9 +55,9 @@
     "providers": ["password", "anonymous"]
   },
   "firestore": {
-    "/fiscal_laws/{lawId}": { "schema": "#/backend/entities/FiscalLaw", "description": "Lois sources" },
-    "/fiscal_variable_types/{typeId}": { "schema": "#/backend/entities/FiscalVariableType", "description": "Types de variables" },
-    "/fiscal_variable_values/{valId}": { "schema": "#/backend/entities/FiscalVariableValue", "description": "Historique des valeurs" },
-    "/fiscal_business_rules/{ruleId}": { "schema": "#/backend/entities/FiscalBusinessRule", "description": "Moteur de règles" }
+    "/fiscal_laws/{lawId}": { "schema": "#/backend/entities/FiscalLaw", "description": "Versions législatives" },
+    "/fiscal_variable_types/{typeId}": { "schema": "#/backend/entities/FiscalVariableType", "description": "Référentiel variables" },
+    "/fiscal_variable_values/{valId}": { "schema": "#/backend/entities/FiscalVariableValue", "description": "Valeurs versionnées" },
+    "/fiscal_business_rules/{ruleId}": { "schema": "#/backend/entities/FiscalBusinessRule", "description": "Moteur DSL Master" }
   }
 }

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Firestore, collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
@@ -5,7 +6,7 @@ import { Firestore, collection, query, where, getDocs, orderBy, limit } from 'fi
 /**
  * @fileOverview Moteur Fiscal Master (Noyau v3.0 - Pro DSL Edition)
  * Implémentation d'un DSL déclaratif pour la fiscalité algérienne.
- * Supporte les conditions complexes, les modèles sectoriels et l'audit trail.
+ * Architecture : GLOBAL (Loi) → ACTIVITÉ (Secteur) → CLIENT (Profil) → DOCUMENT (Input)
  */
 
 export interface FiscalContext {
@@ -29,7 +30,7 @@ const VARIABLE_CACHE: Record<string, { value: any; expires: number }> = {};
 const CACHE_TTL = 300000; 
 
 /**
- * Résout une variable fiscale avec cache intelligent.
+ * Résout une variable fiscale via la hiérarchie GLOBAL (versionnée).
  */
 export async function resolveFiscalVariable(ctx: FiscalContext, code: string): Promise<number> {
   const { db, date } = ctx;
@@ -59,12 +60,16 @@ export async function resolveFiscalVariable(ctx: FiscalContext, code: string): P
 }
 
 /**
- * Pipeline d'Exécution DSL : Évalue une suite de règles déclaratives.
- * C'est le coeur "vivant" de l'intelligence de l'ERP.
+ * Pipeline Master DSL : Évalue les règles en respectant l'isolation par ACTIVITÉ et CLIENT.
  */
 export async function executeFiscalPipeline(ctx: FiscalContext, category?: string, inputData: any = {}): Promise<{ results: any, traces: RuleTrace[] }> {
-  const { db, date } = ctx;
-  let constraints = [where('effectiveStartDate', '<=', date), where('active', '==', true)];
+  const { db, date, sector, regime } = ctx;
+  
+  // 1. Filtrage Global & Temporel
+  let constraints = [
+    where('effectiveStartDate', '<=', date), 
+    where('active', '==', true)
+  ];
   if (category) constraints.push(where('category', '==', category));
 
   const rulesQuery = query(
@@ -74,19 +79,27 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
   );
 
   const snap = await getDocs(rulesQuery);
-  let results = { ...inputData };
+  
+  // Initialisation des variables avec le contexte CLIENT et ACTIVITÉ
+  let results = { 
+    ...inputData, 
+    secteur: sector || 'SERVICES', 
+    regime: regime || 'REGIME_REEL',
+    date_calcul: date
+  };
+  
   let traces: RuleTrace[] = [];
 
   for (const doc of snap.docs) {
     const rule = doc.data();
     try {
-      // 1. Évaluation de la condition WHEN
+      // 2. Évaluation de la condition WHEN (Isolation ACTIVITÉ / PROFIL)
       const isMet = rule.when ? evalDSLFormula(rule.when, results) : true;
       
       if (isMet) {
         const executedActions: string[] = [];
         
-        // 2. Exécution des actions THEN conditionnelles
+        // 3. Exécution des actions THEN (Calcul DOCUMENT)
         if (Array.isArray(rule.then)) {
           for (const action of rule.then) {
             const subConditionMet = action.if ? evalDSLFormula(action.if, results) : true;
@@ -107,7 +120,7 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
           executedActions.push(`${rule.code} = ${val}`);
         }
 
-        // 3. Log de la trace d'audit pour le "Digital Twin"
+        // 4. Justification (Audit-Ready)
         traces.push({
           ruleCode: rule.code,
           ruleName: rule.name,
@@ -126,7 +139,7 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
 }
 
 /**
- * Interpréteur d'expressions métier.
+ * Interpréteur d'expressions métier (Logic-less).
  */
 function evalDSLFormula(formula: string, params: Record<string, any>): any {
   try {
