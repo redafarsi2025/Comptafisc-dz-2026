@@ -39,7 +39,10 @@ import {
   ClipboardCheck,
   FileSearch,
   FilePlus2,
-  BookOpen
+  BookOpen,
+  Target,
+  FileBadge,
+  Package
 } from "lucide-react"
 
 import {
