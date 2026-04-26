@@ -223,19 +223,23 @@ export default function AdminDashboard() {
 
       {/* Operational Widgets */}
       <div className="grid md:grid-cols-3 gap-8">
-         <Card className="bg-slate-900 border-slate-800 shadow-xl overflow-hidden group border-l-4 border-l-primary">
-            <CardHeader className="bg-primary/10 border-b border-slate-800 py-4">
-              <CardTitle className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-2">
-                <DatabaseZap className="h-4 w-4" /> Moteur Fiscal Master
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <p className="text-xs text-slate-400 leading-relaxed italic mb-6">"Le Rule Engine est actuellement configuré pour évaluer dynamiquement 45 règles fiscales sur 120 variables législatives."</p>
-              <Button className="w-full bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-[10px] h-12 shadow-xl shadow-primary/20" asChild>
-                <Link href="/saas-admin/fiscal-engine">Accéder au Moteur</Link>
-              </Button>
-            </CardContent>
-         </Card>
+         <div className="group">
+           <Link href="/saas-admin/fiscal-engine" className="block">
+             <Card className="bg-slate-900 border-slate-800 shadow-xl overflow-hidden group border-l-4 border-l-primary h-full">
+                <CardHeader className="bg-primary/10 border-b border-slate-800 py-4">
+                  <CardTitle className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-2">
+                    <DatabaseZap className="h-4 w-4" /> Moteur Fiscal Master
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <p className="text-xs text-slate-400 leading-relaxed italic mb-6">"Le Rule Engine est actuellement configuré pour évaluer dynamiquement 45 règles fiscales sur 120 variables législatives."</p>
+                  <Button className="w-full bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-[10px] h-12 shadow-xl shadow-primary/20">
+                    Accéder au Moteur
+                  </Button>
+                </CardContent>
+             </Card>
+           </Link>
+         </div>
 
          <Card className="bg-slate-950 border-slate-800 shadow-2xl relative overflow-hidden ring-1 ring-accent/20">
             <CardHeader className="border-b border-white/5 py-4 bg-accent/5">

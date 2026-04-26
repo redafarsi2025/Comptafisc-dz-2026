@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { useUser, useAuth, useFirestore, setDocumentNonBlocking, useDoc, useMemoFirebase } from "@/firebase"
 import { signOut } from "firebase/auth"
 import { doc } from "firebase/firestore"
-import { User, Mail, Shield, LogOut, Loader2, KeyRound, ShieldCheck, ArrowRight, Target, Lock } from "lucide-react"
+import { Mail, Shield, LogOut, Loader2, KeyRound, ShieldCheck, ArrowRight, Target, Lock } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import Link from "next/link"
 
@@ -65,14 +65,10 @@ export default function ProfilePage() {
 
       toast({ 
         title: "Accréditation Root Activée", 
-        description: "Droits SuperAdmin validés. Redirection vers le cockpit...",
+        description: "Droits SuperAdmin validés. Accès débloqué.",
       });
       
       setAdminKey("");
-      // Petit délai pour laisser Firestore propager
-      setTimeout(() => {
-        router.push("/saas-admin");
-      }, 1500);
     } catch (e) {
       console.error(e)
     } finally {

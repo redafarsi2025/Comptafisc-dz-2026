@@ -6,7 +6,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { AdminSidebar } from "@/components/admin/sidebar"
 import { useUser, useFirestore, useMemoFirebase, useDoc } from "@/firebase"
 import { useRouter } from "next/navigation"
-import { ShieldCheck, Target, Zap, Bell, User as UserIcon, Loader2, Lock } from "lucide-react"
+import { ShieldCheck, Target, Zap, Bell, User as UserIcon, Loader2 } from "lucide-react"
 import { doc } from "firebase/firestore"
 import { Button } from "@/components/ui/button"
 
@@ -23,17 +23,23 @@ export default function AdminLayout({
   const adminDocRef = useMemoFirebase(() => (db && user) ? doc(db, "saas_admins", user.uid) : null, [db, user?.uid]);
   const { data: adminRecord, isLoading: isAdminLoading } = useDoc(adminDocRef);
 
-  // Redirection sécurisée : on attend que le chargement soit fini
+  // Redirection sécurisée : on attend que TOUS les chargements soient finis
   React.useEffect(() => {
     if (!isUserLoading && !isAdminLoading) {
-      if (!user || !adminRecord) {
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+      // On ne redirige QUE si on est certain qu'il n'y a pas de record admin
+      if (!adminRecord) {
+        console.warn("[Admin Guard] Accès refusé, redirection...");
         router.push("/dashboard");
       }
     }
   }, [user, isUserLoading, isAdminLoading, adminRecord, router]);
 
-  // Écran de chargement haute sécurité
-  if (isUserLoading || isAdminLoading) {
+  // Écran de chargement haute sécurité pendant la validation
+  if (isUserLoading || isAdminLoading || (!adminRecord && user)) {
     return (
       <div className="h-screen flex flex-col items-center justify-center bg-[#0F172A] gap-6 overflow-hidden">
         <div className="relative">
@@ -42,7 +48,7 @@ export default function AdminLayout({
         </div>
         <div className="text-center space-y-2 animate-in fade-in duration-1000">
           <p className="text-sm font-black text-white uppercase tracking-[0.4em]">Master Node Authentication</p>
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Décryptage des jetons d'accréditation...</p>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Validation des accréditations en cours...</p>
         </div>
         <div className="absolute bottom-10 text-[8px] font-mono text-slate-700 uppercase tracking-widest">
           Secured by ComptaFisc-DZ Internal Engine v2.5
@@ -51,7 +57,7 @@ export default function AdminLayout({
     );
   }
   
-  // Si non autorisé, on affiche rien pendant que le useEffect redirige
+  // Si non autorisé (cas après redirect), on n'affiche rien
   if (!user || !adminRecord) {
     return null;
   }
