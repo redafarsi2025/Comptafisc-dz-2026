@@ -1,3 +1,7 @@
+/**
+ * @fileOverview Analyse Financière & Pilotage Stratégique (SEAD).
+ */
+
 "use client"
 
 import * as React from "react"
@@ -9,12 +13,11 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  AreaChart, Area
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from "recharts"
 import { 
   Activity, Landmark, Wallet, AlertTriangle, 
-  ShieldCheck, ArrowUpRight, Scale, Calculator, PieChart,
+  ShieldCheck, ArrowUpRight, Calculator, PieChart,
   BarChart3, HeartPulse, Zap, Info, Loader2, Lightbulb, Target, ArrowRight,
   TrendingDown, CheckCircle2, Sparkles, ScrollText, Building2, Layers
 } from "lucide-react"
@@ -219,7 +222,7 @@ export default function FinancialAnalysisPage() {
                            </div>
                         </div>
                         <div className="pt-4 mt-2 border-t border-white/10 text-center">
-                           <p className="text-[9px] font-bold text-emerald-400 italic">"Recommandation : Le leasing préserve votre trésorerie immédiate de {(simAmount - simResults.leasing.monthlyLease).toLocaleString()} DA."</p>
+                           <p className="text-[9px] font-bold text-emerald-400 italic">"Recommandation : Le leasing préserve votre trésorerie immédiate."</p>
                         </div>
                      </div>
                   </div>
