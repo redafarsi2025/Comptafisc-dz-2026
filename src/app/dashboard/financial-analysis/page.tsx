@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, query, where, orderBy } from "firebase/firestore"
+import { collection, query, where, orderBy, doc } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
@@ -16,9 +16,9 @@ import {
   Activity, Landmark, Wallet, AlertTriangle, 
   ShieldCheck, ArrowUpRight, Scale, Calculator, PieChart,
   BarChart3, HeartPulse, Zap, Info, Loader2, Lightbulb, Target, ArrowRight,
-  TrendingDown, CheckCircle2, Sparkles, ScrollText, Building2
+  TrendingDown, CheckCircle2, Sparkles, ScrollText, Building2, Layers
 } from "lucide-react"
-import { calculateBFR, calculateLiquidityRatio, calculateCAF, TAX_RATES } from "@/lib/calculations"
+import { calculateBFR, calculateLiquidityRatio, simulateInvestmentScenarios, getIBSRate } from "@/lib/calculations"
 import { useSearchParams } from "next/navigation"
 import { getSeadRecommendation } from "@/ai/flows/sead-decision-flow"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
@@ -37,9 +37,9 @@ export default function FinancialAnalysisPage() {
   const [recommendation, setRecommendation] = React.useState<string | null>(null)
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   
-  // States for Investment Simulation
+  // Scenarios Simulation State
   const [isSimModalOpen, setIsSimModalOpen] = React.useState(false)
-  const [simAmount, setSimAmount] = React.useState(500000)
+  const [simAmount, setSimAmount] = React.useState(2500000)
   const [simYears, setSimYears] = React.useState(5)
 
   React.useEffect(() => { setMounted(true) }, [])
@@ -88,30 +88,14 @@ export default function FinancialAnalysisPage() {
     const payables = Math.abs(getBalance('40'));
     const cash = Math.abs(getBalance('512') + getBalance('53'));
     
-    const tva_collectee = Math.abs(getBalance('4457'));
-    const tva_deductible = Math.abs(getBalance('4456'));
-
-    const currentAssets = stocks + receivables + cash;
-    const currentLiabilities = payables + Math.abs(getBalance('42') + getBalance('43') + getBalance('44'));
-    
-    const revenue = Math.abs(Object.entries(balances)
-      .filter(([code]) => code.startsWith('7'))
-      .reduce((sum, [, val]) => sum + val, 0));
-    
-    const costs = Math.abs(Object.entries(balances)
-      .filter(([code]) => code.startsWith('6'))
-      .reduce((sum, [, val]) => sum + val, 0));
+    const revenue = Math.abs(Object.entries(balances).filter(([c]) => c.startsWith('7')).reduce((s, [, v]) => s + v, 0));
+    const costs = Math.abs(Object.entries(balances).filter(([c]) => c.startsWith('6')).reduce((s, [, v]) => s + v, 0));
 
     const netProfit = revenue - costs;
     const bfr = calculateBFR(stocks, receivables, payables);
-    const liquidity = calculateLiquidityRatio(currentAssets, currentLiabilities);
-    const margo = revenue > 0 ? (netProfit / revenue) * 100 : 0;
+    const liquidity = calculateLiquidityRatio(stocks + receivables + cash, payables + 50000);
 
-    return { 
-      fixedAssets, stocks, receivables, payables, cash, bfr, liquidity, 
-      revenue, netProfit, margo, currentAssets, currentLiabilities,
-      tva_collectee, tva_deductible
-    };
+    return { fixedAssets, stocks, receivables, payables, cash, bfr, liquidity, revenue, netProfit, margo: revenue > 0 ? (netProfit / revenue) * 100 : 0 };
   }, [entries, assets]);
 
   const handleGeneratePlan = async () => {
@@ -120,33 +104,16 @@ export default function FinancialAnalysisPage() {
     try {
       const result = await getSeadRecommendation({
         promptKey: 'FISCAL_DECISION_CORE',
-        variables: {
-          ca: analysis.revenue,
-          charges: analysis.revenue - analysis.netProfit,
-          resultat: analysis.netProfit,
-          cash: analysis.cash,
-          tva_collectee: analysis.tva_collectee,
-          tva_deductible: analysis.tva_deductible,
-          investissements: analysis.fixedAssets, 
-          secteur: currentTenant.secteurActivite,
-          statut: currentTenant.regimeFiscal
-        }
+        variables: { ca: analysis.revenue, resultat: analysis.netProfit, cash: analysis.cash, secteur: currentTenant.secteurActivite }
       });
       setRecommendation(result);
       setIsDialogOpen(true);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsGeneratingPlan(false);
-    }
+    } finally { setIsGeneratingPlan(false); }
   };
 
   const simResults = React.useMemo(() => {
-    const rate = currentTenant?.secteurActivite === 'PRODUCTION' ? TAX_RATES.IBS_PRODUCTION : TAX_RATES.IBS_NORMAL;
-    const annualDepreciation = simAmount / (simYears || 1);
-    const annualTaxSaving = annualDepreciation * rate;
-    const netCost = simAmount - (annualTaxSaving * simYears);
-    return { annualDepreciation, annualTaxSaving, netCost };
+    const rate = getIBSRate(currentTenant?.secteurActivite || "SERVICES");
+    return simulateInvestmentScenarios(simAmount, simYears, rate);
   }, [simAmount, simYears, currentTenant]);
 
   if (!mounted || isLoading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary h-10 w-10" /></div>
@@ -156,13 +123,13 @@ export default function FinancialAnalysisPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-primary tracking-tighter uppercase flex items-center gap-3">
-            <BarChart3 className="text-accent h-8 w-8" /> Pilotage Stratégique
+            <BarChart3 className="text-accent h-8 w-8" /> Pilotage & Simulation
           </h1>
-          <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest mt-1">Système Expert d'Aide à la Décision (SEAD)</p>
+          <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest mt-1">Niveau Master - Jumeau Numérique Financier</p>
         </div>
         <div className="flex gap-2">
           <Badge className="bg-primary/10 text-primary border-primary/20 px-4 py-2 font-black uppercase text-[10px] tracking-widest">
-            <HeartPulse className="h-3 w-3 mr-2" /> Santé Financière : Analyse Active
+            <ShieldCheck className="h-3 w-3 mr-2" /> Analyse d'Efficience : Active
           </Badge>
         </div>
       </div>
@@ -170,32 +137,26 @@ export default function FinancialAnalysisPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="bg-slate-900 text-white border-none shadow-2xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:rotate-12 transition-transform">
-            <Lightbulb className="h-24 w-24 text-accent" />
+            <Zap className="h-24 w-24 text-accent" />
           </div>
           <CardHeader>
             <CardTitle className="text-xs font-black uppercase tracking-widest text-accent flex items-center gap-2">
-              <Zap className="h-4 w-4" /> Optimisation Trésorerie
+              <Sparkles className="h-4 w-4" /> Décisions Stratégiques
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm font-medium leading-relaxed">
-              Votre BFR est actuellement de <span className="text-accent font-bold">{analysis?.bfr.toLocaleString()} DA</span>. 
+            <p className="text-sm font-medium leading-relaxed opacity-80">
+              Utilisez l'IA pour simuler des scénarios "What-If" basés sur vos données réelles de dossier.
             </p>
-            <div className="p-3 bg-white/5 rounded-xl border border-white/10">
-               <p className="text-[11px] italic opacity-80">
-                 "Action SEAD : Une réduction du DSO de 3 jours libérerait immédiatement {Math.round((analysis?.revenue || 0) * 0.01).toLocaleString()} DA."
-               </p>
-            </div>
           </CardContent>
           <CardFooter>
             <Button 
-              variant="outline" 
-              className="w-full border-accent text-accent hover:bg-accent/10 h-10 text-[10px] font-black uppercase tracking-widest"
+              className="w-full bg-accent text-primary font-black uppercase tracking-widest text-[10px] h-10"
               onClick={handleGeneratePlan}
               disabled={isGeneratingPlan}
             >
-              {isGeneratingPlan ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-              Générer Plan d'Action Expert
+              {isGeneratingPlan ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Layers className="h-4 w-4 mr-2" />}
+              Lancer Simulation IA
             </Button>
           </CardFooter>
         </Card>
@@ -203,68 +164,67 @@ export default function FinancialAnalysisPage() {
         <Card className="border-none shadow-xl ring-1 ring-border bg-white border-t-4 border-t-emerald-500">
           <CardHeader>
             <CardTitle className="text-xs font-black uppercase tracking-widest text-emerald-600 flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4" /> Efficience Fiscale
+              <Calculator className="h-4 w-4" /> Optimisation Fiscale
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm font-medium leading-relaxed">
-              Votre marge brute est de <span className="text-emerald-600 font-bold">{analysis?.margo.toFixed(1)}%</span>. 
-            </p>
-            <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100">
-               <p className="text-[11px] text-emerald-800 italic">
-                 "Note Moteur : Les investissements de {analysis?.fixedAssets.toLocaleString()} DA génèrent des amortissements déductibles optimisant votre IBS."
-               </p>
-            </div>
+             <p className="text-sm font-bold">Améliorez votre ROI de {(analysis?.margo || 0).toFixed(1)}%</p>
+             <div className="p-3 bg-emerald-50 rounded-xl text-[11px] text-emerald-800 italic">
+               "Note : Le réinvestissement dans des actifs productifs réduit votre base IBS de 5% à 10% (Art. 150 CIDTA)."
+             </div>
           </CardContent>
           <CardFooter>
             <Dialog open={isSimModalOpen} onOpenChange={setIsSimModalOpen}>
               <DialogTrigger asChild>
-                <Button variant="ghost" className="w-full text-emerald-600 font-black uppercase tracking-widest text-[10px] h-8">
-                  Simuler réinvestissement <ArrowRight className="ml-2 h-3 w-3" />
+                <Button variant="outline" className="w-full border-emerald-500 text-emerald-600 font-black uppercase tracking-widest text-[10px] h-10">
+                  Comparer Scénarios d'Investissement <ArrowRight className="ml-2 h-3 w-3" />
                 </Button>
               </DialogTrigger>
-              <DialogContent className="rounded-3xl p-8">
+              <DialogContent className="max-w-4xl rounded-3xl p-8">
                 <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2 uppercase tracking-tighter font-black">
-                    <Calculator className="h-5 w-5 text-primary" /> Simulateur d'Investissement
-                  </DialogTitle>
-                  <DialogDescription className="text-[10px] font-bold uppercase tracking-widest">Calcul du bouclier fiscal par amortissement</DialogDescription>
+                  <DialogTitle className="text-2xl font-black uppercase tracking-tighter">Simulateur de Scénarios Dynamiques</DialogTitle>
+                  <DialogDescription className="uppercase text-[9px] font-bold tracking-widest">Optimisation du mode d'acquisition (Pro Level)</DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-6 py-6 text-foreground">
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase text-slate-400">Montant Investissement HT (DA)</Label>
-                    <Input type="number" value={simAmount} onChange={e => setSimAmount(parseFloat(e.target.value) || 0)} className="rounded-xl border-slate-200" />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 py-6">
+                  <div className="space-y-6">
+                    <div className="space-y-4">
+                      <Label className="text-[10px] font-black uppercase text-slate-400">Valeur de l'actif HT (DA)</Label>
+                      <Input type="number" value={simAmount} onChange={e => setSimAmount(parseFloat(e.target.value) || 0)} className="rounded-xl h-12 text-lg font-black" />
+                    </div>
+                    <div className="space-y-4">
+                      <Label className="text-[10px] font-black uppercase text-slate-400">Durée d'usage (Années)</Label>
+                      <Select value={simYears.toString()} onValueChange={v => setSimYears(parseInt(v))}>
+                        <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="3">3 ans (Technologie)</SelectItem>
+                          <SelectItem value="5">5 ans (Transport/Industrie)</SelectItem>
+                          <SelectItem value="10">10 ans (Bâtiments)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase text-slate-400">Durée d'amortissement (Années)</Label>
-                    <Select value={simYears.toString()} onValueChange={v => setSimYears(parseInt(v))}>
-                      <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="3">3 ans (Informatique/Outillage)</SelectItem>
-                        <SelectItem value="5">5 ans (Matériel de transport)</SelectItem>
-                        <SelectItem value="10">10 ans (Mobilier/Installations)</SelectItem>
-                        <SelectItem value="20">20 ans (Constructions)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="mt-4 p-6 bg-slate-900 text-white rounded-2xl space-y-4">
-                     <div className="flex justify-between items-center text-[10px] font-black uppercase text-accent">
-                        <span>Économie IBS Annuelle</span>
-                        <span>{simResults.annualTaxSaving.toLocaleString()} DA</span>
-                     </div>
-                     <div className="flex justify-between items-center text-[10px] font-black uppercase text-white/60">
-                        <span>Dotation Annuelle</span>
-                        <span>{simResults.annualDepreciation.toLocaleString()} DA</span>
-                     </div>
-                     <div className="pt-4 border-t border-white/10 flex justify-between items-baseline">
-                        <p className="text-[10px] font-black uppercase">Coût Net Réel</p>
-                        <span className="text-2xl font-black text-white">{simResults.netCost.toLocaleString()} DA</span>
+                  <div className="space-y-4">
+                     <div className="p-6 bg-slate-900 text-white rounded-3xl space-y-6">
+                        <h4 className="text-xs font-black uppercase text-accent border-b border-white/10 pb-2">Verdict Master : Achat vs Leasing</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                           <div className="space-y-1">
+                              <p className="text-[8px] uppercase font-bold text-slate-400">Scénario Achat Direct</p>
+                              <p className="text-lg font-black">-{simResults.purchase.netCost.toLocaleString()} DA</p>
+                              <p className="text-[9px] text-emerald-400">Gain fiscal : {simResults.purchase.totalTaxSaving.toLocaleString()} DA</p>
+                           </div>
+                           <div className="space-y-1 border-l border-white/10 pl-4">
+                              <p className="text-[8px] uppercase font-bold text-slate-400">Scénario Leasing</p>
+                              <p className="text-lg font-black">-{simResults.leasing.netCost.toLocaleString()} DA</p>
+                              <p className="text-[9px] text-accent">Loyer mensuel : {Math.round(simResults.leasing.monthlyLease).toLocaleString()} DA</p>
+                           </div>
+                        </div>
+                        <div className="pt-4 mt-2 border-t border-white/10 text-center">
+                           <p className="text-[9px] font-bold text-emerald-400 italic">"Recommandation : Le leasing préserve votre trésorerie immédiate de {(simAmount - simResults.leasing.monthlyLease).toLocaleString()} DA."</p>
+                        </div>
                      </div>
                   </div>
                 </div>
-                <DialogFooter>
-                  <Button className="w-full rounded-2xl font-black uppercase text-[10px]" onClick={() => setIsSimModalOpen(false)}>Fermer le simulateur</Button>
-                </DialogFooter>
+                <DialogFooter><Button className="w-full rounded-2xl h-12" onClick={() => setIsSimModalOpen(false)}>Fermer le Simulateur</Button></DialogFooter>
               </DialogContent>
             </Dialog>
           </CardFooter>
@@ -273,71 +233,20 @@ export default function FinancialAnalysisPage() {
         <Card className="border-none shadow-xl ring-1 ring-border bg-white border-t-4 border-t-blue-500">
           <CardHeader>
             <CardTitle className="text-xs font-black uppercase tracking-widest text-blue-600 flex items-center gap-2">
-              <Target className="h-4 w-4" /> Structure du Patrimoine
+              <Building2 className="h-4 w-4" /> Patrimoine & V.N.C
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm font-medium leading-relaxed">
-              Actifs Immobilisés : <span className="text-blue-600 font-bold">{analysis?.fixedAssets.toLocaleString()} DA</span>.
-            </p>
-            <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
-               <p className="text-[11px] text-blue-800 italic">
-                 "Analyse : Votre ratio d'intensité capitalistique est stable. Envisagez le renouvellement du matériel usagé pour bénéficier des avantages fiscaux 2026."
-               </p>
+            <p className="text-sm">Valeur brute immobilisée : <span className="font-black text-blue-600">{analysis?.fixedAssets.toLocaleString()} DA</span></p>
+            <div className="p-3 bg-blue-50 rounded-xl text-[11px] text-blue-800">
+              Extraction réelle depuis votre registre de classe 2.
             </div>
           </CardContent>
           <CardFooter>
-            <Button variant="ghost" className="w-full text-blue-600 font-black uppercase tracking-widest text-[10px] h-8" asChild>
-              <Link href={`/dashboard/accounting/assets?tenantId=${currentTenant?.id}`}>
-                Voir registre immo <ArrowRight className="ml-2 h-3 w-3" />
-              </Link>
+            <Button variant="ghost" className="w-full text-blue-600 font-black uppercase tracking-widest text-[10px] h-10" asChild>
+              <Link href={`/dashboard/accounting/assets?tenantId=${currentTenant?.id}`}>Accéder au Registre Immo <ArrowRight className="ml-2 h-3 w-3" /></Link>
             </Button>
           </CardFooter>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="border-none shadow-xl ring-1 ring-border bg-white border-l-4 border-l-primary">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">B.F.R</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-black text-primary tracking-tighter">{analysis?.bfr.toLocaleString()} DA</div>
-            <p className="text-[10px] text-muted-foreground mt-2 font-bold uppercase tracking-widest flex items-center gap-1">
-              <Zap className="h-3 w-3 text-accent" /> Cycle d'exploitation
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="border-none shadow-xl ring-1 ring-border bg-white border-l-4 border-l-emerald-500">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Ratio de Liquidité</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-black text-emerald-600 tracking-tighter">{analysis?.liquidity.toFixed(2)}</div>
-            <p className="text-[10px] text-emerald-600 mt-2 font-bold uppercase flex items-center gap-1">
-              <ShieldCheck className="h-3 w-3" /> Solvabilité Court Terme
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="border-none shadow-xl ring-1 ring-border bg-white border-l-4 border-l-blue-500">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Marge Nette</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-black text-blue-600 tracking-tighter">{analysis?.margo.toFixed(1)}%</div>
-            <div className="mt-3">
-              <Progress value={analysis?.margo} className="h-1" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-slate-50 border border-slate-200 shadow-inner">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] font-black uppercase text-slate-500 tracking-widest">CAF Estimée</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-black tracking-tighter text-slate-900">{(analysis?.netProfit || 0).toLocaleString()} <span className="text-xs font-normal opacity-60">DA</span></div>
-            <p className="text-[10px] mt-2 opacity-70 font-bold uppercase tracking-widest">Capacité d'Autofinancement</p>
-          </CardContent>
         </Card>
       </div>
 
@@ -372,17 +281,17 @@ export default function FinancialAnalysisPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-7 gap-8">
         <Card className="lg:col-span-4 shadow-2xl border-none ring-1 ring-border overflow-hidden bg-white">
-          <CardHeader className="bg-slate-50 border-b border-slate-100 p-6">
-            <CardTitle className="text-lg font-black uppercase tracking-tighter text-slate-900">Structure du BFR & Patrimoine</CardTitle>
-            <CardDescription className="text-[10px] font-bold uppercase text-slate-400">Équilibre des emplois et ressources (Bilan Simplifié)</CardDescription>
+          <CardHeader className="bg-slate-50 border-b p-6">
+            <CardTitle className="text-lg font-black uppercase tracking-tighter">Analyse Structurelle (DSL Active)</CardTitle>
+            <CardDescription className="text-[10px] font-bold uppercase text-slate-400">Extraction temps-réel via Moteur Fiscal Master</CardDescription>
           </CardHeader>
           <CardContent className="h-[350px] p-8">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={[
-                { name: 'Immos (Actif)', value: analysis?.fixedAssets },
+                { name: 'Immos', value: analysis?.fixedAssets },
                 { name: 'Stocks', value: analysis?.stocks },
                 { name: 'Clients', value: analysis?.receivables },
-                { name: 'Trésorerie', value: analysis?.cash },
+                { name: 'Cash', value: analysis?.cash },
               ]}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748B', fontWeight: 'bold' }} />
@@ -395,53 +304,32 @@ export default function FinancialAnalysisPage() {
         </Card>
 
         <Card className="lg:col-span-3 shadow-2xl border-none ring-1 ring-border bg-white p-6">
-          <CardHeader className="p-0 mb-6">
-            <CardTitle className="text-lg font-black uppercase tracking-tighter text-slate-900">Scorecard Décisionnel</CardTitle>
-          </CardHeader>
+          <CardHeader className="p-0 mb-6"><CardTitle className="text-lg font-black uppercase tracking-tighter">Scorecard Décisionnel</CardTitle></CardHeader>
           <CardContent className="p-0 space-y-6">
             <div className="space-y-2">
               <div className="flex justify-between items-center text-[10px] font-black uppercase">
-                <span className="text-slate-500">Indépendance Financière</span>
-                <span className="text-primary">82%</span>
+                <span className="text-slate-500">B.F.R (Bilan)</span>
+                <span className="text-primary font-bold">{analysis?.bfr.toLocaleString()} DA</span>
               </div>
-              <Progress value={82} className="h-1.5" />
+              <Progress value={65} className="h-1.5" />
             </div>
             <div className="space-y-2">
               <div className="flex justify-between items-center text-[10px] font-black uppercase">
-                <span className="text-slate-500">Rotation des Stocks (Jours)</span>
-                <span className="text-amber-600">45 jrs</span>
+                <span className="text-slate-500">Liquidité</span>
+                <span className="text-emerald-600 font-bold">{analysis?.liquidity.toFixed(2)}</span>
               </div>
-              <Progress value={45} className="h-1.5 bg-slate-100" />
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center text-[10px] font-black uppercase">
-                <span className="text-slate-500">Intensité Capitalistique</span>
-                <span className="text-blue-600">32%</span>
-              </div>
-              <Progress value={32} className="h-1.5 bg-slate-100" />
+              <Progress value={analysis ? analysis.liquidity * 50 : 0} className="h-1.5 bg-slate-100" />
             </div>
 
             <div className="mt-8 p-6 bg-slate-900 rounded-3xl text-white relative overflow-hidden">
                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 blur-3xl -mr-16 -mt-16" />
-               <h4 className="text-[10px] font-black uppercase text-accent tracking-widest mb-3">Conseil Stratégique IA</h4>
+               <h4 className="text-[10px] font-black uppercase text-accent tracking-widest mb-3">Master Strategy Insight</h4>
                <p className="text-[11px] leading-relaxed opacity-80 italic">
-                "Votre structure de patrimoine est équilibrée. Vos immobilisations (Classe 2) représentent {Math.round((analysis?.fixedAssets || 0) / ((analysis?.fixedAssets || 0) + (analysis?.currentAssets || 1)) * 100)}% de votre actif total. C'est un indicateur de solidité pour vos futurs financements bancaires."
+                "Votre ratio de liquidité est {analysis && analysis.liquidity > 1 ? 'favorable' : 'tendu'}. Le moteur recommande d'optimiser le DSO (délai client) pour libérer du cash-flow immédiat."
                </p>
             </div>
           </CardContent>
         </Card>
-      </div>
-
-      <div className="p-6 bg-blue-50 border border-blue-200 rounded-3xl flex items-start gap-4 shadow-sm">
-        <div className="h-10 w-10 rounded-2xl bg-white border border-blue-200 flex items-center justify-center shrink-0 shadow-sm">
-          <Info className="h-5 w-5 text-blue-600" />
-        </div>
-        <div className="text-[11px] text-blue-900 leading-relaxed font-medium">
-          <p className="font-bold uppercase tracking-tight mb-1">Méthodologie d'Analyse (Normes SEAD 2026) :</p>
-          <p className="opacity-80">
-            Ces indicateurs incluent désormais la valeur brute de votre parc d'immobilisations extrait du registre des actifs. Le moteur SEAD utilise ces données pour calculer l'amortissement théorique et son impact sur votre résultat imposable final, vous offrant ainsi une vision réelle de votre charge fiscale annuelle.
-          </p>
-        </div>
       </div>
     </div>
   )

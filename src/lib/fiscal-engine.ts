@@ -3,9 +3,9 @@
 import { Firestore, collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 
 /**
- * @fileOverview Moteur Fiscal Master (Noyau v2.8 - DSL Edition)
- * Implémentation d'un DSL déclaratif pour la fiscalité algérienne 2026.
- * Supporte : WHEN (conditions), THEN (actions conditionnelles), JUSTIFY (audit), PRIORITY.
+ * @fileOverview Moteur Fiscal Master (Noyau v3.0 - Pro DSL Edition)
+ * Implémentation d'un DSL déclaratif pour la fiscalité algérienne.
+ * Supporte les conditions complexes, les modèles sectoriels et l'audit trail.
  */
 
 export interface FiscalContext {
@@ -60,6 +60,7 @@ export async function resolveFiscalVariable(ctx: FiscalContext, code: string): P
 
 /**
  * Pipeline d'Exécution DSL : Évalue une suite de règles déclaratives.
+ * C'est le coeur "vivant" de l'intelligence de l'ERP.
  */
 export async function executeFiscalPipeline(ctx: FiscalContext, category?: string, inputData: any = {}): Promise<{ results: any, traces: RuleTrace[] }> {
   const { db, date } = ctx;
@@ -85,7 +86,7 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
       if (isMet) {
         const executedActions: string[] = [];
         
-        // 2. Exécution des actions THEN (Support du format conditionnel complexe)
+        // 2. Exécution des actions THEN conditionnelles
         if (Array.isArray(rule.then)) {
           for (const action of rule.then) {
             const subConditionMet = action.if ? evalDSLFormula(action.if, results) : true;
@@ -106,18 +107,18 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
           executedActions.push(`${rule.code} = ${val}`);
         }
 
-        // 3. Log de la trace d'audit
+        // 3. Log de la trace d'audit pour le "Digital Twin"
         traces.push({
           ruleCode: rule.code,
           ruleName: rule.name,
           conditionMet: true,
           actionsExecuted: executedActions,
-          justification: rule.justify || "Calcul automatique",
+          justification: rule.justify || "Calcul automatique par le moteur DSL.",
           timestamp: new Date().toISOString()
         });
       }
     } catch (e) {
-      console.error(`[Moteur DSL] Échec règle ${rule.code}:`, e);
+      console.error(`[Moteur DSL] Erreur sur règle ${rule.code}:`, e);
     }
   }
 
@@ -125,84 +126,20 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
 }
 
 /**
- * Évaluation d'une règle unique via le moteur DSL.
- */
-export async function evaluateFiscalRule(ctx: FiscalContext, ruleCode: string, inputData: any): Promise<number> {
-  const { db, date } = ctx;
-
-  const ruleQuery = query(
-    collection(db, 'fiscal_business_rules'),
-    where('code', '==', ruleCode),
-    where('effectiveStartDate', '<=', date),
-    orderBy('effectiveStartDate', 'desc'),
-    limit(1)
-  );
-
-  const snap = await getDocs(ruleQuery);
-  if (snap.empty) throw new Error(`Règle [${ruleCode}] introuvable.`);
-  
-  const rule = snap.docs[0].data();
-  const isMet = rule.when ? evalDSLFormula(rule.when, inputData) : true;
-  
-  if (!isMet) return 0;
-
-  if (rule.type === 'PROGRESSIVE_BRACKETS') {
-    return calculateProgressiveTax(rule, inputData.base || 0);
-  }
-  
-  if (rule.formula) {
-    return evalDSLFormula(rule.formula, inputData);
-  }
-
-  // Si règle à multiples actions, on retourne la valeur de la variable principale
-  const { results } = await executeFiscalPipeline(ctx, undefined, inputData);
-  return results[ruleCode] || 0;
-}
-
-function calculateProgressiveTax(rule: any, base: number): number {
-  const amount = Math.floor(base / 10) * 10;
-  let tax = 0;
-
-  if (rule.brackets) {
-    for (const b of rule.brackets) {
-      if (amount > b.min) {
-        const range = (b.max ? Math.min(amount, b.max) : amount) - b.min;
-        tax += range * (b.rate || 0);
-      }
-    }
-  }
-
-  if (rule.abatementFormula) {
-    const abatement = evalDSLFormula(rule.abatementFormula, { tax, base: amount });
-    tax = Math.max(0, tax - abatement);
-  }
-
-  return Math.max(0, Math.round(tax));
-}
-
-/**
- * Interpréteur d'expressions sécurisé.
- * Supporte les opérateurs logiques et arithmétiques standards, 
- * ainsi que IN et BETWEEN.
+ * Interpréteur d'expressions métier.
  */
 function evalDSLFormula(formula: string, params: Record<string, any>): any {
   try {
     let expression = formula
       .replace(/ABS\(/g, 'Math.abs(')
       .replace(/MAX\(/g, 'Math.max(')
-      .replace(/MIN\(/g, 'Math.min(')
-      .replace(/SUM\(/g, '((...args) => args.reduce((a,b)=>a+b,0))('); // Mock SUM
-
-    // Gestion de l'opérateur IN : "x IN ['a','b']" -> "['a','b'].includes(x)"
-    const inRegex = /(\w+)\s+IN\s+\[(.*?)\]/g;
-    expression = expression.replace(inRegex, (match, field, list) => `[${list}].includes(${field})`);
+      .replace(/MIN\(/g, 'Math.min(');
 
     const keys = Object.keys(params);
     const vals = Object.values(params);
     const func = new Function(...keys, `return ${expression}`);
     return func(...vals);
   } catch (e) {
-    console.error("[Moteur DSL] Logic Error in expression:", formula, e);
     return 0;
   }
 }
