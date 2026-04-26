@@ -13,12 +13,13 @@ import { Textarea } from "@/components/ui/textarea"
 import { 
   FileBadge, Save, ChevronLeft, Loader2, 
   Calculator, ShieldCheck, Landmark, AlertTriangle, 
-  CalendarDays, TrendingUp, CheckCircle2
+  CalendarDays, TrendingUp, CheckCircle2, Clock
 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { calculateRetenueGarantie, calculateTVA } from "@/lib/calculations"
+import { addYears, format } from "date-fns"
 
 export default function ManageBtpSituationPage() {
   const db = useFirestore()
@@ -38,7 +39,8 @@ export default function ManageBtpSituationPage() {
     certifiedAmount: 0,
     progress: 0,
     isSigned: false,
-    notes: ""
+    notes: "",
+    warrantyReleaseDate: format(addYears(new Date(), 1), 'yyyy-MM-dd')
   })
 
   React.useEffect(() => { setMounted(true) }, [])
@@ -65,7 +67,8 @@ export default function ManageBtpSituationPage() {
         certifiedAmount: existingSituation.certifiedAmount || 0,
         progress: existingSituation.progress || 0,
         isSigned: existingSituation.isSigned || false,
-        notes: existingSituation.notes || ""
+        notes: existingSituation.notes || "",
+        warrantyReleaseDate: existingSituation.warrantyReleaseDate || format(addYears(new Date(), 1), 'yyyy-MM-dd')
       });
     }
   }, [existingSituation]);
@@ -73,7 +76,7 @@ export default function ManageBtpSituationPage() {
   // Calculs dynamiques
   const totals = React.useMemo(() => {
     const ht = formData.certifiedAmount || 0;
-    const tva = calculateTVA(ht, 'TVA_19', 'BTP');
+    const tva = calculateTVA(ht, 'TVA_19', false);
     const retenue = calculateRetenueGarantie(ht, 'BTP');
     return {
       ht,
@@ -92,9 +95,6 @@ export default function ManageBtpSituationPage() {
 
     setIsSaving(true);
     const selectedProject = projects?.find(p => p.id === formData.projectId);
-    const tenantsQuery = query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
-    // Pour simplifier on récupère le tenant courant
-    const tenantDoc = await doc(db, "tenants", tenantId);
     
     const situationData = {
       ...formData,
@@ -141,14 +141,14 @@ export default function ManageBtpSituationPage() {
           createdByUserId: user.uid,
           tenantMembers: { [user.uid]: 'owner' },
           lines: [
-            { accountCode: "411", accountName: "Clients (Net à payer)", debit: totals.netAPayer, credit: 0 },
-            { accountCode: "4118", accountName: "Clients retenue de garantie", debit: totals.retenue, credit: 0 },
-            { accountCode: "701", accountName: "Travaux (BTP)", debit: 0, credit: totals.ht },
-            { accountCode: "4457", accountName: "TVA collectée", debit: 0, credit: totals.tva }
+            { accountCode: "411", accountName: "Clients (Net à payer)", debit: totals.netAPayer, credit: 0, projectId: formData.projectId },
+            { accountCode: "4118", accountName: "Clients retenue de garantie", debit: totals.retenue, credit: 0, projectId: formData.projectId },
+            { accountCode: "701", accountName: "Travaux (BTP)", debit: 0, credit: totals.ht, projectId: formData.projectId },
+            { accountCode: "4457", accountName: "TVA collectée", debit: 0, credit: totals.tva, projectId: formData.projectId }
           ]
         };
         await addDocumentNonBlocking(journalEntriesRef, entryData);
-        toast({ title: "Comptabilisation effectuée", description: "L'écriture de vente a été ajoutée au journal." });
+        toast({ title: "Comptabilisation effectuée", description: "L'écriture de vente analytique a été ajoutée au journal." });
       }
 
       router.push(`/dashboard/btp/situations?tenantId=${tenantId}`);
@@ -233,19 +233,13 @@ export default function ManageBtpSituationPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                   <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Statut Signature</Label>
-                   <Select 
-                    value={formData.isSigned ? "YES" : "NO"} 
-                    onValueChange={v => setFormData({...formData, isSigned: v === "YES"})}
-                  >
-                    <SelectTrigger className="h-11 rounded-xl bg-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="NO">En attente Visa</SelectItem>
-                      <SelectItem value="YES">Visé (Maitrise d'œuvre)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                   <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Libération Retenue Prévue</Label>
+                   <Input 
+                    type="date"
+                    value={formData.warrantyReleaseDate}
+                    onChange={e => setFormData({...formData, warrantyReleaseDate: e.target.value})}
+                    className="h-11 rounded-xl border-amber-200 bg-amber-50/20"
+                  />
                 </div>
               </div>
             </CardContent>
@@ -326,11 +320,11 @@ export default function ManageBtpSituationPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-amber-50 border border-amber-100 rounded-2xl p-6 relative overflow-hidden">
-             <AlertTriangle className="absolute -right-4 -bottom-4 h-20 w-20 opacity-10 text-amber-600" />
-             <h4 className="text-[10px] font-black text-amber-800 uppercase tracking-widest mb-2">Alerte Rétention</h4>
+          <Card className="bg-amber-50 border border-amber-200 rounded-2xl p-6 relative overflow-hidden">
+             <Clock className="absolute -right-4 -bottom-4 h-20 w-20 opacity-10 text-amber-600" />
+             <h4 className="text-[10px] font-black text-amber-800 uppercase tracking-widest mb-2">Suivi Trésorerie Retenue</h4>
              <p className="text-[11px] text-amber-700 leading-relaxed italic">
-              "La retenue de garantie est une créance immobilisée. Elle ne doit être facturée qu'après la réception définitive (souvent 12 mois après la livraison)."
+              "La libération des {totals.retenue.toLocaleString()} DA est prévue le **{format(new Date(formData.warrantyReleaseDate), 'dd/MM/yyyy')}**. Le système générera une alerte de lettrage du compte 4118 à cette date."
              </p>
           </Card>
 
@@ -338,8 +332,8 @@ export default function ManageBtpSituationPage() {
              <div className="flex items-start gap-3">
                 <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0" />
                 <div className="text-[10px] text-emerald-800 leading-relaxed font-medium">
-                  <p className="font-black uppercase tracking-tight mb-1">Impact Comptable :</p>
-                  <p>La validation génère automatiquement une écriture au crédit du compte 701 (Travaux) et au débit du compte 4118 (Retenues de garantie) si le statut est marqué "Visé".</p>
+                  <p className="font-black uppercase tracking-tight mb-1">Analytique Projet :</p>
+                  <p>La validation affectera ce revenu HT au centre de coût : **{selectedProject?.name || 'Inconnu'}**.</p>
                 </div>
              </div>
           </Card>

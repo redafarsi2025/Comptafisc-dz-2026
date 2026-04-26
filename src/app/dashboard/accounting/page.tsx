@@ -10,7 +10,7 @@ import { SCF_ACCOUNTS, JournalEntryLine, JournalType, ACCOUNTING_TEMPLATES, Jour
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select"
 import { 
   Plus, Trash2, CheckCircle, Calculator, Loader2, BookOpen, 
-  Search, PlusCircle, Zap, ShieldAlert, Sparkles, FileDown 
+  Search, PlusCircle, Zap, ShieldAlert, Sparkles, FileDown, Briefcase 
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useFirestore, useUser, addDocumentNonBlocking, useCollection, useMemoFirebase } from "@/firebase"
@@ -57,6 +57,13 @@ export default function AccountingJournal() {
 
   const currentTenantId = currentTenant?.id;
 
+  // Analytique : Charger les projets pour le BTP/Industrie
+  const projectsQuery = useMemoFirebase(() => {
+    if (!db || !currentTenantId) return null;
+    return collection(db, "tenants", currentTenantId, "projects");
+  }, [db, currentTenantId]);
+  const { data: projects } = useCollection(projectsQuery);
+
   const customAccountsQuery = useMemoFirebase(() => {
     if (!db || !currentTenantId || !user) return null;
     return query(collection(db, "tenants", currentTenantId, "accounts"));
@@ -81,9 +88,9 @@ export default function AccountingJournal() {
     return combined.sort((a, b) => a.code.localeCompare(b.code));
   }, [customAccounts]);
 
-  const [lines, setLines] = React.useState<JournalEntryLine[]>([
-    { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0 },
-    { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0 },
+  const [lines, setLines] = React.useState<any[]>([
+    { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0, projectId: "" },
+    { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0, projectId: "" },
   ])
 
   React.useEffect(() => {
@@ -117,14 +124,14 @@ export default function AccountingJournal() {
   const isBalanced = Math.abs(totals.debit - totals.credit) < 0.01 && totals.debit > 0
 
   const addLine = () => {
-    setLines([...lines, { accountCode: "", accountName: "Nouveau compte", debit: 0, credit: 0 }])
+    setLines([...lines, { accountCode: "", accountName: "Nouveau compte", debit: 0, credit: 0, projectId: "" }])
   }
 
   const removeLine = (index: number) => {
     setLines(lines.filter((_, i) => i !== index))
   }
 
-  const updateLine = (index: number, field: keyof JournalEntryLine, value: any) => {
+  const updateLine = (index: number, field: string, value: any) => {
     const newLines = [...lines]
     newLines[index] = { ...newLines[index], [field]: value }
     if (field === "accountCode") {
@@ -149,13 +156,15 @@ export default function AccountingJournal() {
       accountCode: tvaAccount, 
       accountName: allAccounts.find(a => a.code === tvaAccount)?.name || "TVA", 
       debit: isPurchase ? tva : 0, 
-      credit: isPurchase ? 0 : tva 
+      credit: isPurchase ? 0 : tva,
+      projectId: line.projectId
     });
     newLines.push({ 
       accountCode: counterAccount, 
       accountName: allAccounts.find(a => a.code === counterAccount)?.name || "Tiers", 
       debit: isPurchase ? 0 : amount + tva, 
-      credit: isPurchase ? amount + tva : 0 
+      credit: isPurchase ? amount + tva : 0,
+      projectId: line.projectId
     });
     
     setLines(newLines);
@@ -175,7 +184,8 @@ export default function AccountingJournal() {
         accountCode: l.accountCode,
         accountName: account?.name || "Compte",
         debit: 0,
-        credit: 0
+        credit: 0,
+        projectId: ""
       };
     });
     setLines(newLines);
@@ -202,7 +212,8 @@ export default function AccountingJournal() {
         accountCode: l.accountCode, 
         accountName: l.accountName, 
         debit: Number(l.debit) || 0, 
-        credit: Number(l.credit) || 0 
+        credit: Number(l.credit) || 0,
+        projectId: l.projectId || "" 
       }))
     }
 
@@ -213,8 +224,8 @@ export default function AccountingJournal() {
         description: `L'écriture a été ajoutée au journal ${journalType} avec succès.`,
       });
       setLines([
-        { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0 },
-        { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0 },
+        { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0, projectId: "" },
+        { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0, projectId: "" },
       ]);
       setDescription("");
       setReference("");
@@ -363,7 +374,13 @@ export default function AccountingJournal() {
             <Input placeholder="Filtrer les comptes..." value={searchAccount} onChange={(e) => setSearchAccount(e.target.value)} className="h-8 text-xs bg-muted/20 border-none" />
           </div>
           <Table>
-            <TableHeader><TableRow className="bg-muted/50"><TableHead>Compte PCE</TableHead><TableHead className="text-right">Débit</TableHead><TableHead className="text-right">Crédit</TableHead><TableHead className="w-[100px]"></TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow className="bg-muted/50">
+              <TableHead>Compte PCE</TableHead>
+              <TableHead className="text-right">Débit</TableHead>
+              <TableHead className="text-right">Crédit</TableHead>
+              <TableHead>Analytique (Projet)</TableHead>
+              <TableHead className="w-[100px]"></TableHead>
+            </TableRow></TableHeader>
             <TableBody>
               {lines.map((line, index) => (
                 <TableRow key={index} className="hover:bg-muted/10">
@@ -389,6 +406,19 @@ export default function AccountingJournal() {
                   </TableCell>
                   <TableCell><Input type="number" className="text-right font-mono" value={line.debit || ""} onChange={(e) => updateLine(index, "debit", e.target.value)} /></TableCell>
                   <TableCell><Input type="number" className="text-right font-mono" value={line.credit || ""} onChange={(e) => updateLine(index, "credit", e.target.value)} /></TableCell>
+                  <TableCell>
+                    <Select value={line.projectId} onValueChange={(val) => updateLine(index, "projectId", val)}>
+                      <SelectTrigger className="h-9 text-[10px] bg-white border-dashed">
+                        <SelectValue placeholder="Aucun projet" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Aucun projet</SelectItem>
+                        {projects?.map(p => (
+                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
                       {(line.accountCode.startsWith('6') || line.accountCode.startsWith('7')) && (
@@ -428,17 +458,16 @@ export default function AccountingJournal() {
 
       <div className="grid md:grid-cols-2 gap-6">
         <Card className="bg-primary/5 border-primary/20">
-          <CardHeader><CardTitle className="text-sm flex items-center gap-2 text-primary"><Sparkles className="h-4 w-4" /> Aide SCF Contextuelle</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm flex items-center gap-2 text-primary"><Sparkles className="h-4 w-4" /> Aide SCF Analytique</CardTitle></CardHeader>
           <CardContent className="text-xs text-muted-foreground italic leading-relaxed">
-            La saisie assistée applique automatiquement les principes du SCF. Les comptes de charges (Classe 6) doivent être compensés par des comptes de tiers (401) ou de trésorerie (512). 
-            La TVA (4456) est déductible pour les contribuables au régime réel.
+            La ventilation par projet permet de calculer votre marge analytique chantier par chantier. Les comptes de charges (Classe 6) affectés à un projet seront déduits du résultat spécifique de celui-ci.
           </CardContent>
         </Card>
-        <Card className="border-dashed flex items-center justify-center p-6">
-          <Button variant="outline" className="h-full w-full py-8 text-muted-foreground border-2 border-dashed flex flex-col gap-2">
-            <FileDown className="h-8 w-8" />
-            <span>Générer Export FEC Algérien (XML/CSV)</span>
-          </Button>
+        <Card className="border-dashed flex items-center justify-center p-6 border-l-4 border-l-accent bg-accent/5">
+          <div className="flex flex-col items-center gap-2">
+            <Briefcase className="h-8 w-8 text-accent" />
+            <span className="text-[10px] font-black uppercase text-accent">Analyse Analytique Active</span>
+          </div>
         </Card>
       </div>
     </div>

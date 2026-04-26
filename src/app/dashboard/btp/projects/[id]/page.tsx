@@ -1,8 +1,9 @@
+
 "use client"
 
 import * as React from "react"
-import { useFirestore, useUser, useDoc, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase"
-import { doc, arrayUnion } from "firebase/firestore"
+import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase"
+import { doc, arrayUnion, collection, query, where } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -12,7 +13,7 @@ import {
   MapPin, Users, TrendingUp, Calculator, 
   ShieldCheck, AlertTriangle, Clock, History,
   FileText, HardHat, Loader2, Edit3, CheckCircle2, Plus, 
-  Save, Trash2
+  Save, Trash2, PieChart, ArrowUpRight, ArrowDownRight, Wallet
 } from "lucide-react"
 import { useRouter, useSearchParams, useParams } from "next/navigation"
 import Link from "next/link"
@@ -25,7 +26,6 @@ import { toast } from "@/hooks/use-toast"
 export default function ProjectDetailPage() {
   const db = useFirestore()
   const { user } = useUser()
-  const router = useRouter()
   const { id } = useParams()
   const searchParams = useSearchParams()
   const tenantId = searchParams.get('tenantId')
@@ -45,6 +45,39 @@ export default function ProjectDetailPage() {
     (db && tenantId && id) ? doc(db, "tenants", tenantId, "projects", id as string) : null
   , [db, tenantId, id]);
   const { data: project, isLoading } = useDoc(projectRef);
+
+  // ANALYTIQUE : Charger toutes les écritures liées à ce projet
+  const analyticEntriesQuery = useMemoFirebase(() => {
+    if (!db || !tenantId || !id) return null;
+    return query(collection(db, "tenants", tenantId, "journal_entries"));
+  }, [db, tenantId, id]);
+  const { data: allEntries } = useCollection(analyticEntriesQuery);
+
+  const analyticMetrics = React.useMemo(() => {
+    if (!allEntries || !id) return { charges: 0, revenus: 0, marge: 0 };
+    let charges = 0;
+    let revenus = 0;
+
+    allEntries.forEach(entry => {
+      entry.lines.forEach((line: any) => {
+        if (line.projectId === id) {
+          if (line.accountCode.startsWith('6')) {
+            charges += (line.debit - line.credit);
+          }
+          if (line.accountCode.startsWith('7')) {
+            revenus += (line.credit - line.debit);
+          }
+        }
+      });
+    });
+
+    return { 
+      charges, 
+      revenus, 
+      marge: revenus - charges,
+      tauxMarge: revenus > 0 ? ((revenus - charges) / revenus) * 100 : 0
+    };
+  }, [allEntries, id]);
 
   const handleAddTimelineEvent = async () => {
     if (!db || !tenantId || !id || !newEvent.title) return;
@@ -82,8 +115,6 @@ export default function ProjectDetailPage() {
 
   const remainingBudget = (project.budget || 0) - (project.consumed || 0);
   const consumptionRate = project.budget > 0 ? (project.consumed / project.budget) * 100 : 0;
-
-  // Tri de la chronologie par date décroissante
   const sortedTimeline = [...(project.timeline || [])].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
@@ -132,16 +163,21 @@ export default function ProjectDetailPage() {
            <h2 className="text-3xl font-black">{project.budget?.toLocaleString()} DA</h2>
         </Card>
         <Card className="border-l-4 border-l-amber-500 shadow-sm bg-white p-6 flex flex-col justify-center">
-           <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Dépenses Consommées</p>
-           <h2 className="text-2xl font-black text-amber-600">{project.consumed?.toLocaleString()} DA</h2>
+           <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Dépenses Réelles (Journal)</p>
+           <h2 className="text-2xl font-black text-amber-600">{analyticMetrics.charges.toLocaleString()} DA</h2>
            <div className="mt-2 flex items-center justify-between text-[9px] font-black uppercase">
-              <span className="opacity-60">Taux conso.</span>
-              <span className={consumptionRate > 90 ? 'text-destructive' : 'text-amber-600'}>{consumptionRate.toFixed(1)}%</span>
+              <span className="opacity-60">Consommation Analytique</span>
+              <span className={analyticMetrics.charges > (project.budget || 0) ? 'text-destructive' : 'text-amber-600'}>
+                {project.budget > 0 ? ((analyticMetrics.charges / project.budget) * 100).toFixed(1) : 0}%
+              </span>
            </div>
         </Card>
         <Card className="border-l-4 border-l-emerald-500 shadow-sm bg-white p-6 flex flex-col justify-center">
-           <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Budget Restant</p>
-           <h2 className="text-2xl font-black text-emerald-600">{remainingBudget.toLocaleString()} DA</h2>
+           <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Marge Réelle Chantier</p>
+           <h2 className={`text-2xl font-black ${analyticMetrics.marge >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+             {analyticMetrics.marge.toLocaleString()} DA
+           </h2>
+           <p className="text-[9px] font-bold text-slate-400 mt-1">Rentabilité : {analyticMetrics.tauxMarge.toFixed(1)}%</p>
         </Card>
         <Card className="bg-primary text-white border-none shadow-xl p-6 flex flex-col justify-center">
            <p className="text-[10px] uppercase font-black opacity-70 mb-1">Avancement Physique</p>
@@ -152,6 +188,48 @@ export default function ProjectDetailPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
+          {/* ANALYSE ANALYTIQUE DÉTAILLÉE */}
+          <Card className="shadow-xl border-none ring-1 ring-border rounded-2xl overflow-hidden bg-white">
+            <CardHeader className="bg-primary/5 border-b border-primary/10">
+              <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                <PieChart className="h-4 w-4 text-primary" /> Ventilation Analytique SCF
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-8">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between border-b pb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center"><ArrowUpRight className="h-5 w-5 text-blue-600" /></div>
+                        <div><p className="text-xs font-black uppercase">Ventes (Situations)</p><p className="text-[10px] text-slate-400 font-bold">Produits Classe 7</p></div>
+                      </div>
+                      <span className="text-lg font-black text-blue-600">+{analyticMetrics.revenus.toLocaleString()} DA</span>
+                    </div>
+                    <div className="flex items-center justify-between border-b pb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-xl bg-red-50 flex items-center justify-center"><ArrowDownRight className="h-5 w-5 text-red-600" /></div>
+                        <div><p className="text-xs font-black uppercase">Charges Directes</p><p className="text-[10px] text-slate-400 font-bold">Achats Classe 6</p></div>
+                      </div>
+                      <span className="text-lg font-black text-red-600">-{analyticMetrics.charges.toLocaleString()} DA</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-2">
+                       <p className="text-sm font-black uppercase tracking-tighter">Résultat de Chantier HT</p>
+                       <Badge className={`h-8 px-4 text-sm font-black ${analyticMetrics.marge >= 0 ? 'bg-emerald-500' : 'bg-red-500'}`}>
+                         {analyticMetrics.marge.toLocaleString()} DA
+                       </Badge>
+                    </div>
+                  </div>
+                  <div className="bg-slate-900 rounded-3xl p-6 text-white relative overflow-hidden flex flex-col justify-center">
+                    <ShieldCheck className="absolute -right-4 -bottom-4 h-24 w-24 opacity-10 text-accent" />
+                    <h4 className="text-[10px] font-black text-accent uppercase tracking-widest mb-4">Note Master Analytique</h4>
+                    <p className="text-[11px] leading-relaxed italic opacity-80">
+                      "Votre marge est calculée par rapprochement des comptes de produits (701) et charges (60/61/62) tagués avec cet ID Projet. L'écart entre l'avancement physique ({project.progress}%) et la marge comptable ({analyticMetrics.tauxMarge.toFixed(1)}%) indique votre niveau d'efficience réelle."
+                    </p>
+                  </div>
+               </div>
+            </CardContent>
+          </Card>
+
           <Card className="shadow-xl border-none ring-1 ring-border rounded-2xl overflow-hidden bg-white">
             <CardHeader className="bg-slate-50 border-b border-slate-100 flex flex-row items-center justify-between">
               <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
@@ -226,41 +304,6 @@ export default function ProjectDetailPage() {
               </div>
             </CardContent>
           </Card>
-
-          <Card className="shadow-xl border-none ring-1 ring-border rounded-2xl overflow-hidden bg-white">
-            <CardHeader className="bg-slate-50 border-b border-slate-100">
-              <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                <FileText className="h-4 w-4 text-primary" /> Documents & PV Techniques
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-               <div className="divide-y">
-                  <div className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                     <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-lg bg-blue-50 flex items-center justify-center"><FileText className="h-4 w-4 text-blue-600" /></div>
-                        <div>
-                          <p className="text-xs font-bold">Marché_Signé_Final.pdf</p>
-                          <p className="text-[9px] text-muted-foreground uppercase">Marché Public • 4.2 MB</p>
-                        </div>
-                     </div>
-                     <Button variant="ghost" size="sm" className="h-8 text-[10px] font-bold">Télécharger</Button>
-                  </div>
-                  <div className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                     <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-lg bg-emerald-50 flex items-center justify-center"><ShieldCheck className="h-4 w-4 text-emerald-600" /></div>
-                        <div>
-                          <p className="text-xs font-bold">Assurance_Décennale.pdf</p>
-                          <p className="text-[9px] text-muted-foreground uppercase">Conformité • 1.1 MB</p>
-                        </div>
-                     </div>
-                     <Button variant="ghost" size="sm" className="h-8 text-[10px] font-bold">Télécharger</Button>
-                  </div>
-               </div>
-            </CardContent>
-            <CardFooter className="bg-slate-50 border-t p-3 flex justify-center">
-               <Button variant="ghost" className="text-[10px] font-black uppercase tracking-widest text-primary h-8"><Plus className="h-3 w-3 mr-2" /> Ajouter un document</Button>
-            </CardFooter>
-          </Card>
         </div>
 
         <div className="space-y-8">
@@ -313,7 +356,11 @@ export default function ProjectDetailPage() {
                <AlertTriangle className="h-4 w-4 text-amber-500" />
              </div>
              <p className="text-[11px] opacity-70 leading-relaxed">
-               L'avancement financier ({consumptionRate.toFixed(1)}%) dépasse l'avancement physique ({project.progress}%). Surveillance recommandée des approvisionnements sur site.
+               {analyticMetrics.charges > (project.budget || 0) ? (
+                 "Surconsommation budgétaire détectée par le Livre-Journal. Vérifiez vos factures d'achat et engagements."
+               ) : (
+                 "L'avancement physique (" + project.progress + "%) est cohérent avec le consommé comptable. Maîtrise saine."
+               )}
              </p>
           </div>
         </div>
