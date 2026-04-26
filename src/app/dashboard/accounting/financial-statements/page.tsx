@@ -70,17 +70,28 @@ export default function FinancialStatements() {
       capitauxPropres: { capital: 0, reserves: 0, report: 0, resultat: 0 },
       passifNonCourant: { emprunts: 0, provisions: 0 },
       passifCourant: { fournisseurs: 0, dettesFisc: 0, tresoPass: 0 },
-      tcr: { ca: 0, achats: 0, personnel: 0, impots: 0, dotations: 0, financierProd: 0, financierChg: 0 }
+      tcr: { ca: 0, achats: 0, personnel: 0, impots: 0, dotations: 0, financierProd: 0, financierChg: 0 },
+      tft: { acquisitions: 0, cessions: 0, nvxEmprunts: 0, remboursements: 0, augmentCapital: 0 }
     };
 
     Object.entries(totals).forEach(([code, b]) => {
       const solde = b.debit - b.credit;
-      const first2 = code.substring(0, 2);
-
+      
       // ACTIF
-      if (code.startsWith('20')) cats.actifNonCourant.incorp += solde;
-      else if (code.startsWith('21')) cats.actifNonCourant.corp += solde;
-      else if (code.startsWith('26') || code.startsWith('27')) cats.actifNonCourant.fin += solde;
+      if (code.startsWith('20')) {
+        cats.actifNonCourant.incorp += solde;
+        cats.tft.acquisitions += b.debit;
+        cats.tft.cessions += b.credit;
+      }
+      else if (code.startsWith('21')) {
+        cats.actifNonCourant.corp += solde;
+        cats.tft.acquisitions += b.debit;
+        cats.tft.cessions += b.credit;
+      }
+      else if (code.startsWith('26') || code.startsWith('27')) {
+        cats.actifNonCourant.fin += solde;
+        cats.tft.acquisitions += b.debit;
+      }
       else if (code.startsWith('3')) cats.actifCourant.stocks += solde;
       else if (code.startsWith('41')) cats.actifCourant.clients += solde;
       else if (code.startsWith('5')) {
@@ -88,10 +99,17 @@ export default function FinancialStatements() {
         else cats.passifCourant.tresoPass += Math.abs(solde);
       }
       // PASSIF
-      else if (code.startsWith('101')) cats.capitauxPropres.capital += Math.abs(solde);
+      else if (code.startsWith('101')) {
+        cats.capitauxPropres.capital += Math.abs(solde);
+        cats.tft.augmentCapital += b.credit;
+      }
       else if (code.startsWith('106')) cats.capitauxPropres.reserves += Math.abs(solde);
       else if (code.startsWith('11')) cats.capitauxPropres.report += Math.abs(solde);
-      else if (code.startsWith('16')) cats.passifNonCourant.emprunts += Math.abs(solde);
+      else if (code.startsWith('16')) {
+        cats.passifNonCourant.emprunts += Math.abs(solde);
+        cats.tft.nvxEmprunts += b.credit;
+        cats.tft.remboursements += b.debit;
+      }
       else if (code.startsWith('40')) cats.passifCourant.fournisseurs += Math.abs(solde);
       else if (code.startsWith('44')) cats.passifCourant.dettesFisc += Math.abs(solde);
       // TCR
@@ -111,20 +129,29 @@ export default function FinancialStatements() {
   }, [entries]);
 
   const totals = React.useMemo(() => {
-    if (!financialData) return { actif: 0, passif: 0, resExp: 0, resFin: 0, resNet: 0 };
+    if (!financialData) return { actif: 0, passif: 0, resExp: 0, resFin: 0, resNet: 0, fluxInv: 0, fluxFin: 0, fluxExp: 0 };
     const d = financialData;
     const totalActif = Object.values(d.actifNonCourant).reduce((a, b) => a + b, 0) + Object.values(d.actifCourant).reduce((a, b) => a + b, 0);
     const totalPassif = Object.values(d.capitauxPropres).reduce((a, b) => a + b, 0) + Object.values(d.passifNonCourant).reduce((a, b) => a + b, 0) + Object.values(d.passifCourant).reduce((a, b) => a + b, 0);
     
     const resExp = d.tcr.ca - (d.tcr.achats + d.tcr.personnel + d.tcr.impots + d.tcr.dotations);
     const resFin = d.tcr.financierProd - d.tcr.financierChg;
+    const resNet = resExp + resFin;
+
+    // TFT Calculs
+    const fluxExp = resNet + (d.tcr.dotations || 0); // Simplifié : Net + Amortissements
+    const fluxInv = d.tft.cessions - d.tft.acquisitions;
+    const fluxFin = d.tft.augmentCapital + d.tft.nvxEmprunts - d.tft.remboursements;
     
     return {
       actif: totalActif,
       passif: totalPassif,
       resExp,
       resFin,
-      resNet: resExp + resFin
+      resNet,
+      fluxExp,
+      fluxInv,
+      fluxFin
     };
   }, [financialData]);
 
@@ -322,28 +349,46 @@ export default function FinancialStatements() {
            <Card className="border-none shadow-2xl ring-1 ring-border rounded-3xl overflow-hidden bg-white">
              <CardHeader className="bg-blue-600 text-white p-8">
                <CardTitle className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3"><ArrowRightLeft className="h-8 w-8" /> Tableau des Flux de Trésorerie (TFT)</CardTitle>
-               <CardDescription className="text-white/70">Méthode indirecte : Analyse de la variation des liquidités</CardDescription>
+               <CardDescription className="text-white/70">Méthode indirecte : Analyse réelle des flux de Classe 2 et Classe 5</CardDescription>
              </CardHeader>
              <CardContent className="p-8 space-y-10">
                 <div className="grid md:grid-cols-3 gap-8">
                    <div className="p-6 rounded-3xl bg-emerald-50 border border-emerald-100">
                      <p className="text-[10px] font-black uppercase text-emerald-800 tracking-widest mb-2">Flux d'Exploitation</p>
-                     <h3 className="text-xl font-black text-emerald-600">+{formatVal(totals.resNet + (financialData?.tcr.dotations || 0))} DA</h3>
+                     <h3 className="text-xl font-black text-emerald-600">+{formatVal(totals.fluxExp)} DA</h3>
+                     <p className="text-[9px] text-emerald-700 mt-1 italic">Net + Dotations</p>
                    </div>
-                   <div className="p-6 rounded-3xl bg-blue-50 border border-blue-100">
-                     <p className="text-[10px] font-black uppercase text-blue-800 tracking-widest mb-2">Flux d'Investissement</p>
-                     <h3 className="text-xl font-black text-blue-600">-0,00 DA</h3>
+                   <div className="p-6 rounded-3xl bg-amber-50 border border-amber-100">
+                     <p className="text-[10px] font-black uppercase text-amber-800 tracking-widest mb-2">Flux d'Investissement</p>
+                     <h3 className={`text-xl font-black ${totals.fluxInv >= 0 ? 'text-blue-600' : 'text-amber-600'}`}>
+                       {totals.fluxInv >= 0 ? '+' : ''}{formatVal(totals.fluxInv)} DA
+                     </h3>
+                     <p className="text-[9px] text-amber-700 mt-1 italic">Cessions - Acquisitions (Cl. 2)</p>
                    </div>
                    <div className="p-6 rounded-3xl bg-slate-900 text-white">
-                     <p className="text-[10px] font-black uppercase text-accent tracking-widest mb-2">Variation de Trésorerie</p>
-                     <h3 className="text-xl font-black text-white">{formatVal(financialData?.actifCourant.dispo || 0)} DA</h3>
+                     <p className="text-[10px] font-black uppercase text-accent tracking-widest mb-2">Flux de Financement</p>
+                     <h3 className="text-xl font-black text-white">{totals.fluxFin >= 0 ? '+' : ''}{formatVal(totals.fluxFin)} DA</h3>
+                     <p className="text-[9px] text-white/50 mt-1 italic">Capital + Emprunts (Cl. 1)</p>
                    </div>
                 </div>
+
+                <div className="p-8 border-t-2 border-dashed border-slate-100 flex flex-col md:flex-row justify-between items-center gap-6">
+                   <div className="flex flex-col">
+                      <span className="text-[10px] font-black uppercase text-slate-400">Variation Totale de Trésorerie</span>
+                      <span className="text-4xl font-black text-primary">{formatVal(totals.fluxExp + totals.fluxInv + totals.fluxFin)} DA</span>
+                   </div>
+                   <div className="h-20 w-px bg-slate-100 hidden md:block" />
+                   <div className="flex flex-col text-right">
+                      <span className="text-[10px] font-black uppercase text-slate-400">Solde Trésorerie Final (Cl. 5)</span>
+                      <span className="text-4xl font-black text-emerald-600">{formatVal(financialData?.actifCourant.dispo || 0)} DA</span>
+                   </div>
+                </div>
+
                 <div className="p-6 bg-slate-50 border border-slate-200 rounded-3xl flex items-start gap-4">
                    <Info className="h-6 w-6 text-blue-600 mt-1" />
                    <p className="text-xs leading-relaxed text-slate-600 italic">
-                    Le TFT présente les entrées et sorties de fonds au cours de l'exercice. 
-                    Il explique comment le résultat comptable se traduit en "Cash" réel, en tenant compte des dotations (charges non décaissées) et de la variation du BFR.
+                    Le flux d'investissement est calculé en analysant les mouvements de débit (Acquisitions) et de crédit (Cessions) sur vos comptes d'immobilisations (Classe 2). 
+                    Une valeur négative indique un effort d'investissement pour la croissance future de l'entité.
                    </p>
                 </div>
              </CardContent>
@@ -359,7 +404,7 @@ export default function FinancialStatements() {
                 <Table>
                   <TableHeader><TableRow className="bg-slate-50"><TableHead className="pl-8">Rubrique</TableHead><TableHead className="text-right">Solde au 01/01</TableHead><TableHead className="text-right">Variation (+)</TableHead><TableHead className="text-right pr-8">Solde au 31/12</TableHead></TableRow></TableHeader>
                   <TableBody>
-                    <TableRow><TableCell className="pl-8 text-xs font-bold">Capital Social</TableCell><TableCell className="text-right font-mono text-xs">{formatVal(financialData?.capitauxPropres.capital || 0)}</TableCell><TableCell className="text-right">-</TableCell><TableCell className="text-right pr-8 font-mono text-xs">{formatVal(financialData?.capitauxPropres.capital || 0)}</TableCell></TableRow>
+                    <TableRow><TableCell className="pl-8 text-xs font-bold">Capital Social</TableCell><TableCell className="text-right font-mono text-xs">{formatVal(financialData?.capitauxPropres.capital || 0)}</TableCell><TableCell className="text-right font-mono text-xs">+{formatVal(financialData?.tft.augmentCapital || 0)}</TableCell><TableCell className="text-right pr-8 font-mono text-xs">{formatVal(financialData?.capitauxPropres.capital || 0)}</TableCell></TableRow>
                     <TableRow><TableCell className="pl-8 text-xs font-bold">Réserves</TableCell><TableCell className="text-right font-mono text-xs">{formatVal(financialData?.capitauxPropres.reserves || 0)}</TableCell><TableCell className="text-right">-</TableCell><TableCell className="text-right pr-8 font-mono text-xs">{formatVal(financialData?.capitauxPropres.reserves || 0)}</TableCell></TableRow>
                     <TableRow><TableCell className="pl-8 text-xs font-bold">Résultat de l'exercice</TableCell><TableCell className="text-right font-mono text-xs">0,00</TableCell><TableCell className="text-right font-mono text-xs text-emerald-600">+{formatVal(totals.resNet)}</TableCell><TableCell className="text-right pr-8 font-mono text-xs font-black text-primary">{formatVal(totals.resNet)}</TableCell></TableRow>
                   </TableBody>
