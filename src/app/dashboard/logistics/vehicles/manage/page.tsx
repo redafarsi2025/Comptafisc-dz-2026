@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -20,6 +19,8 @@ import {
 import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "@/hooks/use-toast"
 import Link from "next/link"
+import { cn } from "@/lib/utils"
+import { WILAYAS } from "@/lib/wilaya-data"
 
 export default function ManageVehiclePage() {
   const db = useFirestore()
