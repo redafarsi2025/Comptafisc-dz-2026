@@ -190,6 +190,56 @@ export function calculateFuelEfficiency(liters: number, currentOdo: number, prev
   return (liters / distance) * 100;
 }
 
+/**
+ * Simule des scénarios d'investissement (Achat direct vs Leasing).
+ */
+export function simulateInvestmentScenarios(amount: number, years: number, taxRate: number) {
+  // Scénario Achat Direct
+  const annualDepreciation = amount / years;
+  const totalTaxSaving = annualDepreciation * taxRate * years;
+  const netCostPurchase = amount - totalTaxSaving;
+
+  // Scénario Leasing (Simplifié pour la démo)
+  const interestRate = 0.08; // 8% fictif
+  const totalInterest = amount * interestRate * years;
+  const totalLeaseAmount = amount + totalInterest;
+  const monthlyLease = totalLeaseAmount / (years * 12);
+  const totalLeaseTaxSaving = totalLeaseAmount * taxRate; // Loyers 100% déductibles
+  const netCostLeasing = totalLeaseAmount - totalLeaseTaxSaving;
+
+  return {
+    purchase: {
+      netCost: netCostPurchase,
+      totalTaxSaving
+    },
+    leasing: {
+      netCost: netCostLeasing,
+      monthlyLease
+    }
+  };
+}
+
+/**
+ * Calcule les métriques RH pour le simulateur.
+ */
+export function calculateRHMetrics({ brut, primes, avantages }: { brut: number, primes: number, avantages: number }) {
+  const salairePoste = brut + primes;
+  const cnasSalariale = salairePoste * PAYROLL_CONSTANTS.CNAS_EMPLOYEE;
+  const imposable = salairePoste - cnasSalariale;
+  const irg = calculateIRG(imposable);
+  const net = (imposable - irg) + avantages;
+  
+  const cnasPatronale = salairePoste * PAYROLL_CONSTANTS.CNAS_EMPLOYER;
+  const cost = salairePoste + cnasPatronale + avantages;
+
+  return {
+    net,
+    cost,
+    irg,
+    ratio: cost > 0 ? (net / cost) * 100 : 0
+  };
+}
+
 export const TAX_RATES = {
   IFU_THRESHOLD: 8000000,
   IFU_AUTO_THRESHOLD: 5000000,
