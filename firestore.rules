@@ -25,6 +25,11 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // --- System Configuration (Billing, Engine Params, etc.) ---
+    match /system_config/{configId} {
+      allow read, write: if isAdmin();
+    }
+
     // --- DGI Publications & Templates ---
     match /dgi_publications/{pubId} {
       allow read: if isSignedIn();
