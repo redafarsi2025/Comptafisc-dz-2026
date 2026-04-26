@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, query, where, limit } from "firebase/firestore"
 import { 
-  TrendingUp, ArrowUpRight, BadgeCheck, 
+  TrendingUp, TrendingDown, ArrowUpRight, BadgeCheck, 
   CheckCircle2, Activity, Sparkles, Landmark, History, ShieldCheck, Zap, Loader2,
   ChevronRight, PlayCircle, Lightbulb, Target, ArrowRight, Pickaxe, Factory, ShoppingCart, Briefcase,
   Camera, Package
@@ -104,16 +104,16 @@ export default function DashboardOverview() {
 
     entries.forEach(entry => {
       entry.lines.forEach((line: any) => {
-        // Revenus
+        // Revenus (700, 701, 706 etc.)
         if (line.accountCode.startsWith('7')) {
           caHT += line.credit - line.debit;
           transactions.add(entry.id);
         }
-        // Charges (inclut 60 Achats et 63 Paie)
+        // Charges (Classe 6)
         if (line.accountCode.startsWith('6')) {
           chargesHT += line.debit - line.credit;
         }
-        // TVA
+        // TVA Collectée (4457)
         if (line.accountCode === '4457') {
           tvaCollectee += line.credit - line.debit;
         }
@@ -172,8 +172,8 @@ export default function DashboardOverview() {
                   <h4 className="font-bold text-sm">Nouveau Chantier</h4>
                   <p className="text-[10px] opacity-70">Ouvrir un nouveau dossier de projet</p>
                 </div>
-              </CardContent>
-            </Link>
+              </Link>
+            </CardContent>
           </Card>
         )}
         <Card className="bg-slate-900 text-white border-none shadow-lg hover:scale-[1.02] transition-transform cursor-pointer" asChild>
@@ -183,6 +183,17 @@ export default function DashboardOverview() {
               <div>
                 <h4 className="font-bold text-sm">Scan Facture IA</h4>
                 <p className="text-[10px] opacity-70">Capture intelligente OCR Gemini</p>
+              </div>
+            </CardContent>
+          </Link>
+        </Card>
+        <Card className="border-none shadow-lg hover:scale-[1.02] transition-transform cursor-pointer bg-white" asChild>
+          <Link href={`/dashboard/inventory/stock?tenantId=${currentTenant?.id}`}>
+            <CardContent className="p-6 flex items-center gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center"><Package className="h-6 w-6 text-primary" /></div>
+              <div>
+                <h4 className="font-bold text-sm">Gestion de Stock</h4>
+                <p className="text-[10px] opacity-70">Contrôler l'état des références</p>
               </div>
             </CardContent>
           </Link>
@@ -241,7 +252,7 @@ export default function DashboardOverview() {
             <CardTitle className="flex items-center gap-2 text-lg">
               <Activity className="h-5 w-5 text-primary" /> Analyse des Flux (HT)
             </CardTitle>
-            <CardDescription>Évolution des produits et charges (Paie incluse).</CardDescription>
+            <CardDescription>Évolution des produits et charges sur l'exercice en cours.</CardDescription>
           </CardHeader>
           <CardContent className="h-[350px] pt-6">
             <ResponsiveContainer width="100%" height="100%">
