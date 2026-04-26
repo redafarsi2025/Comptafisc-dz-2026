@@ -1,8 +1,9 @@
+
 "use client"
 
 import * as React from "react"
-import { useFirestore, useUser, useDoc, useMemoFirebase } from "@/firebase"
-import { doc } from "firebase/firestore"
+import { useFirestore, useUser, useDoc, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase"
+import { doc, arrayUnion } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -11,10 +12,16 @@ import {
   Pickaxe, ChevronLeft, CalendarDays, 
   MapPin, Users, TrendingUp, Calculator, 
   ShieldCheck, AlertTriangle, Clock, History,
-  FileText, HardHat, Loader2, Edit3, CheckCircle2, Plus
+  FileText, HardHat, Loader2, Edit3, CheckCircle2, Plus, 
+  Save, Trash2
 } from "lucide-react"
 import { useRouter, useSearchParams, useParams } from "next/navigation"
 import Link from "next/link"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { toast } from "@/hooks/use-toast"
 
 export default function ProjectDetailPage() {
   const db = useFirestore()
@@ -24,6 +31,14 @@ export default function ProjectDetailPage() {
   const searchParams = useSearchParams()
   const tenantId = searchParams.get('tenantId')
   const [mounted, setMounted] = React.useState(false)
+  const [isEventDialogOpen, setIsEventDialogOpen] = React.useState(false)
+  const [isAddingEvent, setIsAddingEvent] = React.useState(false)
+  
+  const [newEvent, setNewEvent] = React.useState({
+    title: "",
+    date: new Date().toISOString().split('T')[0],
+    description: ""
+  })
 
   React.useEffect(() => { setMounted(true) }, [])
 
@@ -31,6 +46,34 @@ export default function ProjectDetailPage() {
     (db && tenantId && id) ? doc(db, "tenants", tenantId, "projects", id as string) : null
   , [db, tenantId, id]);
   const { data: project, isLoading } = useDoc(projectRef);
+
+  const handleAddTimelineEvent = async () => {
+    if (!db || !tenantId || !id || !newEvent.title) return;
+    setIsAddingEvent(true);
+    
+    try {
+      const eventWithMeta = {
+        ...newEvent,
+        id: `ev_${Date.now()}`,
+        createdAt: new Date().toISOString(),
+        createdBy: user?.uid
+      };
+
+      await updateDocumentNonBlocking(doc(db, "tenants", tenantId, "projects", id as string), {
+        timeline: arrayUnion(eventWithMeta),
+        updatedAt: new Date().toISOString()
+      });
+
+      toast({ title: "Jalon ajouté", description: `L'étape "${newEvent.title}" a été ajoutée à la chronologie.` });
+      setIsEventDialogOpen(false);
+      setNewEvent({ title: "", date: new Date().toISOString().split('T')[0], description: "" });
+    } catch (e) {
+      console.error(e);
+      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'ajouter l'événement." });
+    } finally {
+      setIsAddingEvent(false);
+    }
+  };
 
   if (!mounted || isLoading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary h-10 w-10" /></div>
   if (!project) return <div className="p-20 text-center space-y-4">
@@ -40,6 +83,9 @@ export default function ProjectDetailPage() {
 
   const remainingBudget = (project.budget || 0) - (project.consumed || 0);
   const consumptionRate = project.budget > 0 ? (project.consumed / project.budget) * 100 : 0;
+
+  // Tri de la chronologie par date décroissante
+  const sortedTimeline = [...(project.timeline || [])].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
     <div className="space-y-8 pb-20">
@@ -106,37 +152,85 @@ export default function ProjectDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
           <Card className="shadow-xl border-none ring-1 ring-border rounded-2xl overflow-hidden bg-white">
-            <CardHeader className="bg-slate-50 border-b border-slate-100">
+            <CardHeader className="bg-slate-50 border-b border-slate-100 flex flex-row items-center justify-between">
               <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
                 <History className="h-4 w-4 text-primary" /> Chronologie du Chantier
               </CardTitle>
+              <Dialog open={isEventDialogOpen} onOpenChange={setIsEventDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline" className="h-8 text-[10px] font-black uppercase tracking-widest border-primary/20 text-primary hover:bg-primary/5">
+                    <Plus className="h-3 w-3 mr-1" /> Ajouter un Jalon
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Nouvelle Étape du Chantier</DialogTitle>
+                    <DialogDescription>Ajoutez un jalon marquant l'avancement physique ou administratif.</DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label>Titre de l'étape</Label>
+                      <Input 
+                        placeholder="Ex: Coulage dalle R+1" 
+                        value={newEvent.title}
+                        onChange={e => setNewEvent({...newEvent, title: e.target.value})}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>Date</Label>
+                      <Input 
+                        type="date" 
+                        value={newEvent.date}
+                        onChange={e => setNewEvent({...newEvent, date: e.target.value})}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>Description (Optionnelle)</Label>
+                      <Textarea 
+                        placeholder="Détails techniques ou remarques..." 
+                        value={newEvent.description}
+                        onChange={e => setNewEvent({...newEvent, description: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button onClick={handleAddTimelineEvent} disabled={isAddingEvent || !newEvent.title} className="w-full">
+                      {isAddingEvent ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                      Enregistrer le Jalon
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </CardHeader>
             <CardContent className="pt-6">
               <div className="relative space-y-8 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
-                <div className="relative flex items-center justify-between md:justify-start md:odd:flex-row-reverse group">
-                  <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-100 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
-                    <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                  </div>
-                  <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-slate-100 bg-slate-50/50">
-                    <div className="flex items-center justify-between space-x-2 mb-1">
-                      <div className="font-bold text-slate-900 text-xs">Ouverture du chantier</div>
-                      <time className="font-mono text-[9px] text-primary">{project.startDate}</time>
+                {sortedTimeline.length > 0 ? sortedTimeline.map((ev, idx) => (
+                  <div key={ev.id || idx} className="relative flex items-center justify-between md:justify-start md:odd:flex-row-reverse group">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-100 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      {idx === 0 ? <Clock className="h-5 w-5 text-blue-500" /> : <CheckCircle2 className="h-5 w-5 text-emerald-500" />}
                     </div>
-                    <div className="text-[11px] text-slate-500 italic">Installation de la base de vie et clôture périmétrale.</div>
-                  </div>
-                </div>
-                <div className="relative flex items-center justify-between md:justify-start md:odd:flex-row-reverse group">
-                  <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-100 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
-                    <Clock className="h-5 w-5 text-blue-500" />
-                  </div>
-                  <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-slate-100 bg-white">
-                    <div className="flex items-center justify-between space-x-2 mb-1">
-                      <div className="font-bold text-slate-900 text-xs">Dernière Mise à jour</div>
-                      <time className="font-mono text-[9px] text-primary">{new Date(project.updatedAt).toLocaleDateString()}</time>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-slate-100 bg-white group-hover:shadow-md transition-shadow">
+                      <div className="flex items-center justify-between space-x-2 mb-1">
+                        <div className="font-bold text-slate-900 text-xs">{ev.title}</div>
+                        <time className="font-mono text-[9px] text-primary">{ev.date}</time>
+                      </div>
+                      <div className="text-[11px] text-slate-500 italic">{ev.description || "Aucun détail saisi."}</div>
                     </div>
-                    <div className="text-[11px] text-slate-500 italic">Avancement des travaux de gros-œuvre à {project.progress}%.</div>
                   </div>
-                </div>
+                )) : (
+                  <div className="relative flex items-center justify-between md:justify-start md:odd:flex-row-reverse group">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-100 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-slate-100 bg-slate-50/50">
+                      <div className="flex items-center justify-between space-x-2 mb-1">
+                        <div className="font-bold text-slate-900 text-xs">Ouverture du chantier</div>
+                        <time className="font-mono text-[9px] text-primary">{project.startDate}</time>
+                      </div>
+                      <div className="text-[11px] text-slate-500 italic">Initialisation du dossier technique et base de vie.</div>
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
