@@ -35,7 +35,6 @@ export default function AccountingJournal() {
   const [searchAccount, setSearchAccount] = React.useState("")
   const [duplicateWarning, setDuplicateWarning] = React.useState<string | null>(null)
 
-  // New account state
   const [isAccountDialogOpen, setIsAccountDialogOpen] = React.useState(false)
   const [newAccountData, setNewAccountData] = React.useState({ code: "", name: "" })
 
@@ -58,12 +57,9 @@ export default function AccountingJournal() {
 
   const currentTenantId = currentTenant?.id;
 
-  // Fetch custom accounts
   const customAccountsQuery = useMemoFirebase(() => {
     if (!db || !currentTenantId || !user) return null;
-    return query(
-      collection(db, "tenants", currentTenantId, "accounts")
-    );
+    return query(collection(db, "tenants", currentTenantId, "accounts"));
   }, [db, currentTenantId, user?.uid]);
   const { data: customAccounts } = useCollection(customAccountsQuery);
 
@@ -90,7 +86,6 @@ export default function AccountingJournal() {
     { accountCode: "", accountName: "Sélectionnez un compte", debit: 0, credit: 0 },
   ])
 
-  // Duplicate Check
   React.useEffect(() => {
     const checkDuplicate = async () => {
       if (!db || !currentTenantId || !reference || reference.length < 3) {
@@ -139,7 +134,6 @@ export default function AccountingJournal() {
     setLines(newLines)
   }
 
-  // Auto-TVA Suggestion
   const handleAutoTva = (index: number) => {
     const line = lines[index];
     const amount = Number(line.debit) || Number(line.credit);

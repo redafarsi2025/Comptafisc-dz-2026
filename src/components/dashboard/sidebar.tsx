@@ -89,7 +89,6 @@ import { collection, query, where, doc } from "firebase/firestore"
 import { signOut } from "firebase/auth"
 import { toast } from "@/hooks/use-toast"
 
-// Navigation configurations
 const pilotageNav = [
   { name: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard },
 ]
@@ -135,12 +134,6 @@ const aiNav = [
   { name: "Assistant Fiscal IA", href: "/dashboard/assistant", icon: MessageSquareMore },
   { name: "Capture OCR (Gemini)", href: "/dashboard/ocr", icon: Camera },
   { name: "DGI Watch (Veille)", href: "/dashboard/cabinet/dgi-watch", icon: Eye },
-]
-
-const cabinetNav = [
-  { name: "Dashboard Cabinet", href: "/dashboard/cabinet", icon: Layers },
-  { name: "Collaboration Hub", href: "/dashboard/cabinet/collaboration", icon: MessagesSquare },
-  { name: "G50 Groupées (Bulk)", href: "/dashboard/cabinet/bulk-g50", icon: Repeat },
 ]
 
 export function DashboardSidebar() {
@@ -242,7 +235,7 @@ export function DashboardSidebar() {
           const href = currentTenant ? `${item.href}?tenantId=${currentTenant.id}` : item.href
           return (
             <SidebarMenuItem key={item.name}>
-              <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name} className="hover:bg-sidebar-accent group">
+              <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name}>
                 <Link href={href}>
                   <item.icon className={pathname === item.href ? "text-primary" : "text-sidebar-foreground/60 group-hover:text-primary transition-colors"} />
                   <span className="font-medium">{item.name}</span>
@@ -360,10 +353,6 @@ export function DashboardSidebar() {
         <NavGroup label="RH & Paie" items={payrollNav} />
         <NavGroup label="Fiscalité & Sociaux" items={fiscalNav} />
         <NavGroup label="Innovation & Veille" items={aiNav} />
-        
-        {currentTenant?.plan === 'CABINET' && (
-          <NavGroup label="Expert Cabinet" items={cabinetNav} />
-        )}
 
         <SidebarGroup>
           <SidebarGroupLabel className="text-sidebar-foreground/40 uppercase tracking-[0.15em] text-[9px] font-black mt-2">Support & Config</SidebarGroupLabel>

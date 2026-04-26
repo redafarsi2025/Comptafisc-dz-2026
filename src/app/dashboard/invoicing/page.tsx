@@ -29,7 +29,6 @@ export default function InvoicingPage() {
   const [paymentMethod, setPaymentMethod] = React.useState("Virement")
   const [items, setItems] = React.useState([{ description: "", quantity: 1, unitPrice: 0 }])
   const [isSubmitting, setIsSubmitting] = React.useState(false)
-  const [shouldSign, setShouldSign] = React.useState(true)
 
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -44,7 +43,6 @@ export default function InvoicingPage() {
   }, [tenants, tenantIdFromUrl]);
 
   const isIFU = currentTenant?.regimeFiscal === "IFU";
-  const isCabinet = currentTenant?.plan === "CABINET";
 
   const clientsQuery = useMemoFirebase(() => {
     if (!db || !currentTenant) return null;
