@@ -156,14 +156,12 @@ export function DashboardSidebar() {
     }
   }, [user, isUserLoading, auth]);
 
-  // Fetch Tenants where user is a member
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, "tenants"), where(`members.${user.uid}`, "!=", null));
   }, [db, user]);
   const { data: tenants, isLoading: isTenantsLoading } = useCollection(tenantsQuery);
 
-  // Check if user is SaaS Admin
   const adminDocRef = useMemoFirebase(() => (db && user) ? doc(db, "saas_admins", user.uid) : null, [db, user]);
   const { data: adminRecord } = useDoc(adminDocRef);
   const isSaaSAdmin = !!adminRecord;
@@ -196,7 +194,9 @@ export function DashboardSidebar() {
     setIsCreating(true);
 
     const tenantData = {
-      ...newTenantData,
+      raisonSociale: newTenantData.raisonSociale,
+      formeJuridique: newTenantData.formeJuridique,
+      regimeFiscal: newTenantData.regimeFiscal,
       createdAt: new Date().toISOString(),
       createdByUserId: user.uid,
       members: { [user.uid]: 'owner' },
@@ -290,18 +290,20 @@ export function DashboardSidebar() {
                       <PlusCircle className="h-4 w-4" /> Nouveau Dossier
                     </DropdownMenuItem>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent onPointerDownOutside={(e) => e.preventDefault()}>
                     <DialogHeader>
                       <DialogTitle>Créer un nouveau dossier</DialogTitle>
                       <DialogDescription>Configurez les paramètres de base de l'entreprise.</DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                       <div className="grid gap-2">
-                        <Label>Raison Sociale</Label>
+                        <Label htmlFor="raisonSociale">Raison Sociale</Label>
                         <Input 
+                          id="raisonSociale"
                           placeholder="Ex: SARL Ma Nouvelle Entreprise" 
                           value={newTenantData.raisonSociale}
                           onChange={e => setNewTenantData({...newTenantData, raisonSociale: e.target.value})}
+                          autoFocus
                         />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
