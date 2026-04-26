@@ -28,7 +28,7 @@ import {
   TrendingUp, ArrowUpRight, BadgeCheck, 
   CheckCircle2, Activity, Sparkles, Landmark, History, ShieldCheck, Zap, Loader2,
   ChevronRight, PlayCircle, Lightbulb, Target, ArrowRight, Pickaxe, Factory, ShoppingCart, Briefcase,
-  Camera
+  Camera, Package
 } from "lucide-react"
 import { getIBSRate } from "@/lib/calculations"
 import { useSearchParams, useRouter } from "next/navigation"
@@ -142,7 +142,6 @@ export default function DashboardOverview() {
         </div>
       </div>
 
-      {/* SECTOR SPECIFIC QUICK ACTIONS */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {secteur === 'BTP' && (
           <Card className="bg-primary text-white border-none shadow-lg hover:scale-[1.02] transition-transform cursor-pointer" asChild>
@@ -163,7 +162,7 @@ export default function DashboardOverview() {
               <CardContent className="p-6 flex items-center gap-4">
                 <div className="h-12 w-12 rounded-2xl bg-white/20 flex items-center justify-center"><Factory className="h-6 w-6 text-white" /></div>
                 <div>
-                  <h4 className="font-bold text-sm">Lancer un O.F..</h4>
+                  <h4 className="font-bold text-sm">Lancer un O.F.</h4>
                   <p className="text-[10px] opacity-70">Initialiser un ordre de fabrication</p>
                 </div>
               </CardContent>
