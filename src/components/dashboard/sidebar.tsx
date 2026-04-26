@@ -163,7 +163,7 @@ export function DashboardSidebar() {
   }, [db, user]);
   const { data: tenants, isLoading: isTenantsLoading } = useCollection(tenantsQuery);
 
-  // Check if user is SaaS Admin to show the admin console link
+  // Check if user is SaaS Admin
   const adminDocRef = useMemoFirebase(() => (db && user) ? doc(db, "saas_admins", user.uid) : null, [db, user]);
   const { data: adminRecord } = useDoc(adminDocRef);
   const isSaaSAdmin = !!adminRecord;
@@ -245,15 +245,7 @@ export function DashboardSidebar() {
     </SidebarGroup>
   )
 
-  if (!mounted) {
-    return (
-      <Sidebar variant="sidebar" collapsible="icon" className="border-r border-sidebar-border/50">
-        <SidebarHeader className="bg-sidebar p-4" />
-        <SidebarContent className="px-2" />
-        <SidebarFooter className="border-t border-sidebar-border/50 p-4" />
-      </Sidebar>
-    )
-  }
+  if (!mounted) return null;
 
   return (
     <Sidebar variant="sidebar" collapsible="icon" className="border-r border-sidebar-border/50">
@@ -377,7 +369,7 @@ export function DashboardSidebar() {
                   <Settings />
                   <span>Paramètres Dossier</span>
                 </Link>
-              </SidebarMenuItem>
+              </SidebarMenuButton>
             </SidebarMenuItem>
             
             {isSaaSAdmin && (

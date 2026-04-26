@@ -121,7 +121,7 @@ export default function DeclarationsPage() {
             </CardContent>
           </Card>
         ) : (
-          <>
+          <React.Fragment>
             <Card className="border-l-4 border-l-primary shadow-sm">
               <CardHeader className="pb-2">
                 <CardTitle className="text-xs font-bold uppercase text-muted-foreground">TVA Collectée</CardTitle>
@@ -142,7 +142,7 @@ export default function DeclarationsPage() {
                 </div>
               </CardContent>
             </Card>
-          </>
+          </React.Fragment>
         )}
         <Card className="border-l-4 border-l-blue-500 shadow-sm">
           <CardHeader className="pb-2">
@@ -181,7 +181,7 @@ export default function DeclarationsPage() {
                 </TableHeader>
                 <TableBody>
                   {isIFU ? (
-                    <>
+                    <React.Fragment>
                       <TableRow>
                         <TableCell className="font-bold">Série G n°12 bis</TableCell>
                         <TableCell className="text-amber-600 font-bold">01 Mars 2026</TableCell>
@@ -200,7 +200,7 @@ export default function DeclarationsPage() {
                         <TableCell>IRG Salariés (Retenue à la source)</TableCell>
                         <TableCell className="text-right"><Button size="sm" variant="outline" asChild><Link href={`/dashboard/declarations/g50ter?tenantId=${currentTenant?.id}`}>Générer</Link></Button></TableCell>
                       </TableRow>
-                    </>
+                    </React.Fragment>
                   ) : (
                     <TableRow>
                       <TableCell className="font-bold">Série G n°50</TableCell>

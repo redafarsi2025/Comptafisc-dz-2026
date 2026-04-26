@@ -196,7 +196,7 @@ export default function AccountingJournal() {
     
     const entryData = {
       tenantId: currentTenantId,
-      tenantMembers: currentTenant.members, // Denormalize members for list security
+      tenantMembers: currentTenant.members,
       entryDate: new Date(entryDate).toISOString(),
       description,
       documentReference: reference,
