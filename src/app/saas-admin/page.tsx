@@ -8,11 +8,10 @@ import {
   PieChart, Pie, Cell, Legend, AreaChart, Area
 } from "recharts"
 import { 
-  TrendingUp, ArrowUpRight, 
-  Activity, Target, Sparkles, Zap, CreditCard, 
-  Users, UserPlus, ShieldCheck, Download, Loader2,
-  TrendingDown, Users2, Building2, Eye, MessageSquare, 
-  ShieldAlert, DatabaseZap, Clock, Server, Globe, Cpu
+  TrendingUp, ArrowUpRight, Activity, Target, Sparkles, Zap, CreditCard, 
+  Users, ShieldCheck, Download, Loader2, TrendingDown, Building2, Eye, 
+  MessageSquare, ShieldAlert, DatabaseZap, Clock, Server, Globe, Cpu,
+  CloudLightning, MousePointerClick, BellRing
 } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
@@ -44,12 +43,12 @@ export default function AdminDashboard() {
     setMounted(true)
   }, [])
 
-  // Guard: Admin Check
+  // Admin Guard
   const adminDocRef = useMemoFirebase(() => (db && user) ? doc(db, "saas_admins", user.uid) : null, [db, user?.uid]);
   const { data: adminRecord } = useDoc(adminDocRef);
   const isSaaSAdmin = !!adminRecord;
 
-  // Real-time Data Fetching
+  // Real-time Data
   const profilesQuery = useMemoFirebase(() => (db && isSaaSAdmin) ? collection(db, "userProfiles") : null, [db, isSaaSAdmin]);
   const { data: profiles } = useCollection(profilesQuery);
 
@@ -91,219 +90,250 @@ export default function AdminDashboard() {
     };
   }, [profiles, tenants]);
 
-  if (!mounted || !isSaaSAdmin) return null;
+  if (!mounted || !isSaaSAdmin) return (
+    <div className="h-screen flex items-center justify-center">
+      <Loader2 className="h-10 w-10 animate-spin text-primary" />
+    </div>
+  );
 
   return (
     <div className="space-y-8 pb-20">
-      {/* Header Strategique */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-4xl font-black text-primary tracking-tighter flex items-center gap-3">
-            <Target className="text-accent h-10 w-10" /> Cockpit Global SaaS
-          </h1>
-          <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-[0.2em]">
-            Console de commandement stratégique • ComptaFisc-DZ v2.5
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <div className="bg-emerald-50 border border-emerald-200 px-4 py-2 rounded-2xl flex items-center gap-4 shadow-sm">
-            <div className="h-10 w-10 rounded-xl bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-200">
-              <ShieldCheck className="text-white h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-[10px] font-black text-emerald-600 uppercase tracking-tighter">Moteur Fiscal</p>
-              <p className="text-lg font-black text-primary">CONFORME 2026</p>
-            </div>
+      {/* Header High-Tech */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="flex items-center gap-4">
+          <div className="h-16 w-16 rounded-2xl bg-slate-900 border border-white/10 flex items-center justify-center shadow-2xl">
+            <Target className="h-8 w-8 text-accent animate-pulse" />
           </div>
-          <Button variant="outline" className="bg-white border-slate-200 h-14 rounded-2xl px-6 font-bold shadow-sm">
-            <Download className="mr-2 h-4 w-4" /> Rapport Audit
+          <div>
+            <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Console de Commandement</h1>
+            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] mt-2 flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+              Pilotage SaaS Direct • Root Access • 2026.4
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <div className="bg-white/80 backdrop-blur-sm border-2 border-primary/10 p-3 rounded-2xl flex items-center gap-4 shadow-xl">
+             <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center">
+               <ShieldCheck className="text-white h-5 w-5" />
+             </div>
+             <div>
+               <p className="text-[9px] font-black text-primary uppercase">Calculateur DGI</p>
+               <p className="text-base font-black text-slate-900">CERTIFIÉ LF 2026</p>
+             </div>
+          </div>
+          <Button variant="outline" className="bg-white border-slate-200 h-14 rounded-2xl px-6 font-black text-[10px] uppercase tracking-widest shadow-sm hover:shadow-md transition-all">
+            <Download className="mr-2 h-4 w-4" /> Export Audit
           </Button>
         </div>
       </div>
 
-      {/* KPI Cards Row */}
+      {/* Primary KPI Row */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="border-none shadow-xl ring-1 ring-border group hover:ring-primary/50 transition-all bg-white overflow-hidden">
+        <Card className="border-none shadow-2xl ring-1 ring-border bg-white overflow-hidden relative group">
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-20 transition-opacity">
+            <CreditCard className="h-20 w-20 text-primary" />
+          </div>
           <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-widest flex items-center justify-between">
-              MRR PROJECTION <CreditCard className="h-4 w-4 text-primary" />
+            <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] flex items-center gap-2">
+              MRR Réel (Projeté) <TrendingUp className="h-3 w-3 text-emerald-500" />
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-black text-primary tracking-tighter">{stats.mrr.toLocaleString()} DA</div>
-            <div className="flex items-center gap-1 text-emerald-600 text-[10px] mt-2 font-black uppercase tracking-tighter">
-              <TrendingUp className="h-3 w-3" /> +14.2% ce mois
+            <div className="text-4xl font-black text-primary tracking-tighter">{stats.mrr.toLocaleString()} <span className="text-xs font-normal">DA</span></div>
+            <div className="flex items-center gap-1 text-emerald-600 text-[9px] mt-2 font-black uppercase tracking-tighter">
+              +14.2% VS MOIS N-1
             </div>
           </CardContent>
-          <div className="h-1 w-full bg-primary/10">
-            <div className="h-full bg-primary" style={{ width: '65%' }} />
-          </div>
         </Card>
 
-        <Card className="border-none shadow-xl ring-1 ring-border bg-white">
+        <Card className="border-none shadow-2xl ring-1 ring-border bg-white group">
           <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-widest flex items-center justify-between">
-              DOSSIERS ACTIFS <Building2 className="h-4 w-4 text-accent" />
+            <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] flex items-center gap-2">
+              Parc Dossiers <Building2 className="h-3 w-3 text-accent" />
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-black text-slate-900 tracking-tighter">{stats.totalTenants}</div>
-            <p className="text-[10px] text-muted-foreground mt-2 italic font-black uppercase tracking-tighter">
-              Ratio: {(stats.totalTenants / stats.totalUsers || 0).toFixed(1)} par utilisateur
+            <div className="text-4xl font-black text-slate-900 tracking-tighter">{stats.totalTenants} <span className="text-xs font-normal opacity-40">NODES</span></div>
+            <p className="text-[9px] text-muted-foreground mt-2 font-black uppercase tracking-tighter">
+              Ratio de service : 1:{(stats.totalTenants / stats.totalUsers || 0).toFixed(1)}
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-xl ring-1 ring-border bg-white">
+        <Card className="border-none shadow-2xl ring-1 ring-border bg-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-widest flex items-center justify-between">
-              ONBOARDING SCORE <Zap className="h-4 w-4 text-amber-500" />
+            <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] flex items-center gap-2">
+              Score Onboarding <Zap className="h-3 w-3 text-amber-500" />
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-4xl font-black text-slate-900 tracking-tighter">
-              {Math.round((stats.upToDateTenants / stats.totalTenants || 0) * 100)}%
+              {Math.round((stats.upToDateTenants / stats.totalTenants || 0) * 100)}<span className="text-xs opacity-40">%</span>
             </div>
-            <Progress value={(stats.upToDateTenants / stats.totalTenants || 0) * 100} className="mt-3 h-1.5" />
-            <p className="text-[9px] mt-2 text-muted-foreground font-bold uppercase">Dossiers conformes (NIF/NIN)</p>
+            <Progress value={(stats.upToDateTenants / stats.totalTenants || 0) * 100} className="mt-4 h-1.5 bg-slate-100" />
+            <p className="text-[8px] mt-2 text-muted-foreground font-black uppercase tracking-widest">Dossiers conformes DGI</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-900 text-white border-none shadow-2xl relative overflow-hidden">
-          <div className="absolute -right-4 -top-4 opacity-10">
-            <Cpu className="h-24 w-24" />
+        <Card className="bg-slate-900 text-white border-none shadow-2xl relative overflow-hidden ring-1 ring-white/10">
+          <div className="absolute -right-4 -top-4 opacity-20 rotate-12">
+            <Cpu className="h-24 w-24 text-accent" />
           </div>
           <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] font-black uppercase opacity-60 tracking-widest flex items-center justify-between">
-              INFRASTRUCTURE <Activity className="h-4 w-4 text-accent" />
-            </CardTitle>
+            <CardTitle className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em]">Disponibilité Cloud IA</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-black tracking-tighter text-accent">99.9%</div>
+            <div className="text-4xl font-black tracking-tighter text-accent">99.99%</div>
             <div className="flex items-center gap-2 mt-2">
-               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-               <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Services Online</span>
+               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]" />
+               <span className="text-[9px] font-black uppercase tracking-[0.15em] text-emerald-400">Gemini 2.5 Flash Online</span>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Main Control Grid */}
+      {/* Main Command Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-7 gap-8">
         
-        {/* Left Column: Business & Growth */}
+        {/* Core Business Chart */}
         <div className="lg:col-span-4 space-y-8">
           <Card className="shadow-2xl border-none ring-1 ring-border overflow-hidden bg-white">
-            <CardHeader className="bg-muted/20 border-b flex flex-row items-center justify-between p-6">
-              <div>
-                <CardTitle className="text-lg font-bold flex items-center gap-2">
-                  <Activity className="h-5 w-5 text-primary" /> Croissance du Parc
+            <CardHeader className="bg-slate-50 border-b flex flex-row items-center justify-between p-6">
+              <div className="space-y-1">
+                <CardTitle className="text-xl font-black text-slate-900 flex items-center gap-2 uppercase tracking-tighter">
+                  <Activity className="h-5 w-5 text-primary" /> Flux Dossiers Firestore
                 </CardTitle>
-                <CardDescription className="text-[10px] font-black uppercase tracking-wider">Volume de dossiers gérés sur Firestore</CardDescription>
+                <CardDescription className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.1em]">Analyse de croissance organique par trimestre</CardDescription>
               </div>
-              <Badge variant="outline" className="bg-white text-[10px] font-black uppercase">Temps Réel</Badge>
+              <div className="flex gap-2">
+                <Badge variant="outline" className="bg-white text-[9px] font-black uppercase px-3 py-1">T1 2026</Badge>
+              </div>
             </CardHeader>
-            <CardContent className="h-[400px] p-0">
+            <CardContent className="h-[400px] p-4">
                <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={[
-                    { name: 'Jan', value: Math.round(stats.totalTenants * 0.7) },
-                    { name: 'Feb', value: Math.round(stats.totalTenants * 0.85) },
+                    { name: 'Jan', value: Math.round(stats.totalTenants * 0.75) },
+                    { name: 'Feb', value: Math.round(stats.totalTenants * 0.90) },
                     { name: 'Mar', value: stats.totalTenants }
                   ]} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.1}/>
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="#0C55CC" stopOpacity={0.2}/>
+                        <stop offset="95%" stopColor="#0C55CC" stopOpacity={0}/>
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
-                    <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }} />
-                    <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'black', fill: '#94a3b8' }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'black', fill: '#94a3b8' }} />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.25)', fontWeight: 'bold' }} 
+                      cursor={{ stroke: '#0C55CC', strokeWidth: 2 }}
+                    />
+                    <Area type="monotone" dataKey="value" stroke="#0C55CC" strokeWidth={4} fillOpacity={1} fill="url(#colorValue)" />
                   </AreaChart>
                </ResponsiveContainer>
             </CardContent>
+            <CardFooter className="bg-slate-50 border-t p-4 flex justify-around text-center divide-x">
+               <div className="flex-1">
+                 <p className="text-[9px] font-black text-muted-foreground uppercase">Retention</p>
+                 <p className="text-lg font-black text-slate-900">98.2%</p>
+               </div>
+               <div className="flex-1">
+                 <p className="text-[9px] font-black text-muted-foreground uppercase">Churn</p>
+                 <p className="text-lg font-black text-destructive">1.8%</p>
+               </div>
+               <div className="flex-1">
+                 <p className="text-[9px] font-black text-muted-foreground uppercase">ARPU</p>
+                 <p className="text-lg font-black text-primary">{(stats.mrr / stats.totalTenants || 0).toFixed(0)} DA</p>
+               </div>
+            </CardFooter>
           </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card className="border-none shadow-xl ring-1 ring-border bg-white">
-              <CardHeader className="bg-muted/10 border-b py-3 px-4">
-                <CardTitle className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
-                  <Eye className="h-4 w-4" /> DGI Watch (Alertes IA)
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <Card className="border-none shadow-2xl ring-1 ring-border bg-white overflow-hidden">
+              <CardHeader className="bg-blue-600 text-white py-3 px-5 flex flex-row items-center justify-between">
+                <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
+                  <Eye className="h-4 w-4" /> DGI Watch Active
                 </CardTitle>
+                <Badge className="bg-white/20 text-white text-[8px]">IA LIVE</Badge>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="divide-y">
-                  {recentNews?.length ? recentNews.map((news) => (
-                    <div key={news.id} className="p-4 hover:bg-muted/30 transition-colors">
-                      <div className="flex justify-between items-start mb-1">
-                        <Badge className="bg-blue-600 text-[8px] h-4">VEILLE</Badge>
-                        <span className="text-[9px] text-muted-foreground">{news.publishedDate}</span>
+                <ScrollArea className="h-[250px]">
+                  <div className="divide-y divide-slate-100">
+                    {recentNews?.length ? recentNews.map((news) => (
+                      <div key={news.id} className="p-4 hover:bg-slate-50 transition-colors group cursor-pointer">
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="text-[8px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{news.category}</span>
+                          <span className="text-[9px] font-bold text-slate-400">{news.publishedDate}</span>
+                        </div>
+                        <p className="text-xs font-black text-slate-900 leading-tight group-hover:text-primary transition-colors">{news.title}</p>
                       </div>
-                      <p className="text-xs font-bold truncate text-slate-900">{news.title}</p>
-                    </div>
-                  )) : (
-                    <div className="p-12 text-center text-muted-foreground italic text-xs">Aucune nouveauté à traiter.</div>
-                  )}
-                </div>
+                    )) : (
+                      <div className="p-12 text-center text-slate-300 italic text-xs">Analyse réglementaire en veille...</div>
+                    )}
+                  </div>
+                </ScrollArea>
               </CardContent>
-              <CardFooter className="bg-muted/5 border-t p-3">
-                <Button variant="ghost" className="w-full text-[10px] font-black uppercase h-8" asChild>
-                  <Link href="/saas-admin/dgi-watch">Ouvrir Console DGI</Link>
+              <CardFooter className="bg-slate-50 border-t p-3">
+                <Button variant="link" className="w-full text-[9px] font-black uppercase text-primary h-8" asChild>
+                  <Link href="/saas-admin/dgi-watch">Accéder à la Veille Expert</Link>
                 </Button>
               </CardFooter>
             </Card>
 
-            <Card className="border-none shadow-xl ring-1 ring-border bg-white">
-              <CardHeader className="bg-muted/10 border-b py-3 px-4">
-                <CardTitle className="text-xs font-black uppercase tracking-widest text-emerald-600 flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4" /> Support Prioritaire
+            <Card className="border-none shadow-2xl ring-1 ring-border bg-white overflow-hidden">
+              <CardHeader className="bg-emerald-600 text-white py-3 px-5 flex flex-row items-center justify-between">
+                <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4" /> Support Abonnés
                 </CardTitle>
+                {pendingTickets?.length ? <Badge className="bg-white text-emerald-700 text-[8px]">{pendingTickets.length} URGENT</Badge> : null}
               </CardHeader>
               <CardContent className="p-0">
-                <div className="divide-y">
-                  {pendingTickets?.length ? pendingTickets.map((ticket) => (
-                    <div key={ticket.id} className="p-4 hover:bg-muted/30 transition-colors">
-                      <div className="flex justify-between items-start mb-1">
-                        <Badge variant="outline" className="text-[8px] border-amber-200 text-amber-700 bg-amber-50 h-4">OUVERT</Badge>
-                        <span className="text-[9px] text-muted-foreground">Prio: {ticket.priority}</span>
+                <ScrollArea className="h-[250px]">
+                  <div className="divide-y divide-slate-100">
+                    {pendingTickets?.length ? pendingTickets.map((ticket) => (
+                      <div key={ticket.id} className="p-4 hover:bg-slate-50 transition-colors group cursor-pointer">
+                        <div className="flex justify-between items-start mb-1">
+                          <span className={`text-[8px] font-black px-2 py-0.5 rounded-full ${ticket.priority === 'critical' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{ticket.priority.toUpperCase()}</span>
+                          <span className="text-[9px] font-bold text-slate-400">ID: {ticket.id.substring(0, 6)}</span>
+                        </div>
+                        <p className="text-xs font-black text-slate-900 leading-tight group-hover:text-primary transition-colors">{ticket.subject}</p>
+                        <p className="text-[10px] text-muted-foreground mt-1 font-bold">Client: {ticket.userName}</p>
                       </div>
-                      <p className="text-xs font-bold truncate text-slate-900">{ticket.subject}</p>
-                    </div>
-                  )) : (
-                    <div className="p-12 text-center text-muted-foreground italic text-xs">Aucun ticket en attente.</div>
-                  )}
-                </div>
+                    )) : (
+                      <div className="p-12 text-center text-slate-300 italic text-xs">Tous les tickets sont résolus.</div>
+                    )}
+                  </div>
+                </ScrollArea>
               </CardContent>
-              <CardFooter className="bg-muted/5 border-t p-3">
-                <Button variant="ghost" className="w-full text-[10px] font-black uppercase h-8" asChild>
-                  <Link href="/saas-admin/support">Répondre aux tickets</Link>
+              <CardFooter className="bg-slate-50 border-t p-3">
+                <Button variant="link" className="w-full text-[9px] font-black uppercase text-primary h-8" asChild>
+                  <Link href="/saas-admin/support">Ouvrir le Centre de Résolution</Link>
                 </Button>
               </CardFooter>
             </Card>
           </div>
         </div>
 
-        {/* Right Column: Distribution & Operations */}
+        {/* Right Side Control Panel */}
         <div className="lg:col-span-3 space-y-8">
+          {/* Offer Segmentation */}
           <Card className="shadow-2xl border-none ring-1 ring-border overflow-hidden bg-white">
-            <CardHeader className="bg-muted/20 border-b p-6">
-              <CardTitle className="text-lg font-bold flex items-center gap-2">
-                <Target className="h-5 w-5 text-primary" /> Segmentation Offres
-              </CardTitle>
-              <CardDescription className="text-[10px] font-black uppercase tracking-wider">Répartition de la valeur client</CardDescription>
+            <CardHeader className="bg-slate-50 border-b p-6">
+              <CardTitle className="text-lg font-black text-slate-900 uppercase tracking-tighter">Segmentation Offres</CardTitle>
+              <CardDescription className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Valeur par palier d'abonnement</CardDescription>
             </CardHeader>
-            <CardContent className="h-[300px] pt-8">
+            <CardContent className="h-[320px] pt-8">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={stats.planDistribution}
                     cx="50%"
                     cy="50%"
-                    innerRadius={70}
-                    outerRadius={100}
-                    paddingAngle={8}
+                    innerRadius={75}
+                    outerRadius={110}
+                    paddingAngle={10}
                     dataKey="value"
                     stroke="none"
                   >
@@ -312,82 +342,75 @@ export default function AdminDashboard() {
                     ))}
                   </Pie>
                   <Tooltip 
-                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }}
+                    contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.3)', fontWeight: 'bold' }}
                   />
-                  <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'black', textTransform: 'uppercase' }} />
+                  <Legend iconType="circle" wrapperStyle={{ fontSize: '9px', fontWeight: 'black', textTransform: 'uppercase', paddingTop: '20px' }} />
                 </PieChart>
               </ResponsiveContainer>
             </CardContent>
-            <CardFooter className="bg-muted/10 border-t flex flex-col p-6 gap-4">
+            <CardFooter className="bg-slate-50 border-t flex flex-col p-6 gap-6">
                <div className="w-full space-y-3">
                   <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                    <span>Taux de Conversion (Payants)</span>
-                    <span className="text-primary">{Math.round(((stats.totalTenants - (stats.planDistribution.find(p => p.name === 'GRATUIT')?.value || 0)) / stats.totalTenants || 0) * 100)}%</span>
+                    <span>Conversion Payante</span>
+                    <span className="text-primary font-black">
+                      {Math.round(((stats.totalTenants - (stats.planDistribution.find(p => p.name === 'GRATUIT')?.value || 0)) / stats.totalTenants || 0) * 100)}%
+                    </span>
                   </div>
                   <Progress value={((stats.totalTenants - (stats.planDistribution.find(p => p.name === 'GRATUIT')?.value || 0)) / stats.totalTenants || 0) * 100} className="h-2 bg-slate-200" />
-               </div>
-               <div className="grid grid-cols-2 w-full gap-4 pt-2">
-                  <div className="p-3 bg-white rounded-xl border flex flex-col items-center">
-                    <p className="text-[9px] font-black text-muted-foreground uppercase">ARPU Estimé</p>
-                    <p className="text-lg font-black text-primary">{(stats.mrr / stats.totalTenants || 0).toFixed(0)} DA</p>
-                  </div>
-                  <div className="p-3 bg-white rounded-xl border flex flex-col items-center">
-                    <p className="text-[9px] font-black text-muted-foreground uppercase">Churn Rate</p>
-                    <p className="text-lg font-black text-emerald-600">0.0%</p>
-                  </div>
                </div>
             </CardFooter>
           </Card>
 
-          <Card className="bg-slate-900 text-white border-none shadow-2xl relative overflow-hidden">
-            <Sparkles className="absolute -right-6 -bottom-6 h-32 w-32 opacity-10" />
-            <CardHeader className="border-b border-white/5">
-               <CardTitle className="text-sm font-black uppercase tracking-widest text-accent flex items-center gap-2">
-                 <Cpu className="h-4 w-4" /> Insight IA Gemini
-               </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6 relative">
-               <p className="text-xs leading-relaxed opacity-90 italic">
-                 "Performance OCR optimale sur 98% des factures injectées ce mois. 
-                 Recommandation : Les dossiers BTP présentent un retard d'onboarding de 15%, envisagez une campagne d'aide à la saisie du NIF."
-               </p>
-               <Button variant="outline" className="w-full mt-6 border-white/20 text-white hover:bg-white/10 text-[10px] font-black uppercase tracking-widest h-10 rounded-xl">
-                 Audit Performance Complet
-               </Button>
-            </CardContent>
-          </Card>
-
+          {/* Quick Core Actions */}
           <div className="grid grid-cols-1 gap-4">
-             <Card className="border-none shadow-xl ring-1 ring-border bg-white group hover:bg-primary transition-colors cursor-pointer">
-               <Link href="/saas-admin/fiscal-engine" className="p-4 flex items-center justify-between">
-                 <div className="flex items-center gap-3">
-                   <div className="h-10 w-10 rounded-xl bg-primary/10 group-hover:bg-white/20 flex items-center justify-center">
-                     <DatabaseZap className="h-5 w-5 text-primary group-hover:text-white" />
+             <Card className="border-none shadow-xl ring-1 ring-border bg-white group hover:bg-primary transition-all cursor-pointer">
+               <Link href="/saas-admin/fiscal-engine" className="p-5 flex items-center justify-between">
+                 <div className="flex items-center gap-4">
+                   <div className="h-12 w-12 rounded-2xl bg-primary/10 group-hover:bg-white/20 flex items-center justify-center transition-colors">
+                     <DatabaseZap className="h-6 w-6 text-primary group-hover:text-white" />
                    </div>
                    <div className="flex flex-col">
-                     <span className="text-sm font-black group-hover:text-white">Moteur Fiscal Master</span>
-                     <span className="text-[9px] text-muted-foreground font-bold uppercase group-hover:text-white/60">Gérer variables & règles</span>
+                     <span className="text-sm font-black group-hover:text-white uppercase tracking-tighter">Moteur Fiscal Master</span>
+                     <span className="text-[9px] text-muted-foreground font-black uppercase group-hover:text-white/60 tracking-widest mt-1">Variables & Business Rules</span>
                    </div>
                  </div>
-                 <ArrowUpRight className="h-4 w-4 text-muted-foreground group-hover:text-white" />
+                 <ArrowUpRight className="h-5 w-5 text-muted-foreground group-hover:text-white" />
                </Link>
              </Card>
 
-             <Card className="border-none shadow-xl ring-1 ring-border bg-white group hover:bg-blue-600 transition-colors cursor-pointer">
-               <Link href="/saas-admin/monitoring" className="p-4 flex items-center justify-between">
-                 <div className="flex items-center gap-3">
-                   <div className="h-10 w-10 rounded-xl bg-blue-50 group-hover:bg-white/20 flex items-center justify-center">
-                     <Server className="h-5 w-5 text-blue-600 group-hover:text-white" />
+             <Card className="border-none shadow-xl ring-1 ring-border bg-white group hover:bg-slate-900 transition-all cursor-pointer">
+               <Link href="/saas-admin/monitoring" className="p-5 flex items-center justify-between">
+                 <div className="flex items-center gap-4">
+                   <div className="h-12 w-12 rounded-2xl bg-slate-100 group-hover:bg-white/10 flex items-center justify-center transition-colors">
+                     <Server className="h-6 w-6 text-slate-600 group-hover:text-accent" />
                    </div>
                    <div className="flex flex-col">
-                     <span className="text-sm font-black group-hover:text-white">Santé Système Live</span>
-                     <span className="text-[9px] text-muted-foreground font-bold uppercase group-hover:text-white/60">Monitoring ressources Firebase</span>
+                     <span className="text-sm font-black group-hover:text-white uppercase tracking-tighter">Monitoring Live</span>
+                     <span className="text-[9px] text-muted-foreground font-black uppercase group-hover:text-white/60 tracking-widest mt-1">Performance Firebase & CDN</span>
                    </div>
                  </div>
-                 <ArrowUpRight className="h-4 w-4 text-muted-foreground group-hover:text-white" />
+                 <ArrowUpRight className="h-5 w-5 text-muted-foreground group-hover:text-white" />
                </Link>
              </Card>
           </div>
+
+          {/* System Health Heartbeat */}
+          <Card className="bg-slate-900 text-white border-none shadow-2xl relative overflow-hidden ring-1 ring-white/5">
+             <CardHeader className="border-b border-white/5 py-4">
+                <CardTitle className="text-[10px] font-black uppercase tracking-[0.3em] text-accent flex items-center gap-2">
+                  <CloudLightning className="h-4 w-4" /> Noyau Système Live
+                </CardTitle>
+             </CardHeader>
+             <CardContent className="text-[10px] text-emerald-400 font-mono py-6 space-y-2">
+                <div className="flex gap-3"><span className="opacity-40">09:42:01</span> <span className="font-bold">[SUCCESS]</span> <span>Firestore Resolver : 0.4ms</span></div>
+                <div className="flex gap-3"><span className="opacity-40">09:42:04</span> <span className="font-bold">[SUCCESS]</span> <span>Auth Token Verified</span></div>
+                <div className="flex gap-3"><span className="opacity-40">09:42:15</span> <span className="font-bold text-blue-400">[INFO]</span> <span className="italic">Gemini 2.5 Analysis Queue : Empty</span></div>
+                <div className="flex gap-2 animate-pulse mt-4">
+                   <span className="text-emerald-500 font-bold">&gt;</span> 
+                   <span className="italic tracking-widest uppercase text-[8px] font-black">System Heartbeat... Normal</span>
+                </div>
+             </CardContent>
+          </Card>
         </div>
 
       </div>

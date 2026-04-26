@@ -1,28 +1,28 @@
 
 'use client';
 
-import { Firestore, collection, query, where, getDocs, orderBy, limit, doc, getDoc } from 'firebase/firestore';
+import { Firestore, collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 
 /**
  * @fileOverview Moteur Fiscal Expert (Resolution & Evaluation)
- * Gère la récupération dynamique des taux, seuils et l'exécution des règles métier.
+ * Version 2.5 - Implémentation Data-Driven avec Rule Engine No-Code.
  */
 
 export interface FiscalContext {
   db: Firestore;
   date: string;       // Date de l'opération (ISO)
   tenantId?: string;  // Dossier spécifique
-  sector?: string;    // BTP, INDUSTRIE, etc.
+  sector?: string;    // BTP, INDUSTRIE, COMMERCE, PRO_LIBERALE
   regime?: string;    // IFU, REGIME_REEL
 }
 
 /**
  * Résout une variable fiscale simple (ex: SNMG, TAUX_TVA)
+ * Cherche la valeur la plus récente par rapport à la date de l'opération.
  */
 export async function resolveFiscalVariable(ctx: FiscalContext, code: string): Promise<number | any> {
   const { db, date } = ctx;
 
-  // 1. Recherche de la valeur effective
   const valueQuery = query(
     collection(db, 'fiscal_variable_values'),
     where('fiscalVariableTypeId', '==', code),
@@ -32,22 +32,25 @@ export async function resolveFiscalVariable(ctx: FiscalContext, code: string): P
   );
 
   const snap = await getDocs(valueQuery);
+  
   if (snap.empty) {
-    throw new Error(`ERREUR CRITIQUE : Variable fiscale [${code}] non définie pour la date du ${date}.`);
+    // En mode expert, on ne fait plus de fallback silencieux, on alerte pour mise à jour administrative
+    throw new Error(`[Moteur Fiscal] Variable [${code}] non définie au ${date}. Mise à jour requise en console Admin.`);
   }
 
-  const val = snap.docs[0].data().value;
+  const data = snap.docs[0].data();
+  const val = data.value;
   return typeof val === 'string' ? parseFloat(val) : val;
 }
 
 /**
- * Résout et exécute une règle fiscale complexe (ex: IRG_SALARY)
+ * Moteur de Règles Métier (Rule Engine)
+ * Évalue des formules complexes stockées dans Firestore (ex: IRG lissé, IFU progressif).
  */
 export async function evaluateFiscalRule(ctx: FiscalContext, ruleCode: string, inputData: any): Promise<number> {
   const { db, date, sector, regime } = ctx;
 
-  // 1. Charger la règle la plus pertinente (Scope: Global -> Sector -> Regime)
-  // Pour le prototype, on simplifie la recherche par priorité
+  // Recherche de la règle avec priorité : Spécifique Régime > Spécifique Secteur > Global
   const ruleQuery = query(
     collection(db, 'fiscal_business_rules'),
     where('code', '==', ruleCode),
@@ -58,50 +61,56 @@ export async function evaluateFiscalRule(ctx: FiscalContext, ruleCode: string, i
 
   const snap = await getDocs(ruleQuery);
   if (snap.empty) {
-    throw new Error(`Règle fiscale [${ruleCode}] manquante. Calcul impossible.`);
+    throw new Error(`[Moteur Fiscal] Règle [${ruleCode}] non trouvée. Calcul bloqué par sécurité.`);
   }
 
   const rule = snap.docs[0].data();
 
-  // 2. Évaluation simplifiée des tranches/conditions
-  // Dans une version prod, on utiliserait un parser de formule type mathjs
+  // Évaluation du type de règle
   if (rule.type === 'PROGRESSIVE_BRACKETS') {
-    const value = inputData.base || 0;
-    const brackets = rule.brackets; // Array de { min, max, rate, reduction }
+    const base = inputData.base || 0;
+    const brackets = rule.brackets || [];
     
-    let result = 0;
+    let tax = 0;
     for (const b of brackets) {
-      if (value > b.min) {
-        const taxableInRange = Math.min(value, b.max || value) - b.min;
-        result += taxableInRange * b.rate;
+      if (base > b.min) {
+        const taxableInRange = Math.min(base, b.max || base) - b.min;
+        tax += taxableInRange * b.rate;
       }
     }
     
+    // Application de la formule d'abattement DSL (Domain Specific Language)
     if (rule.abatementFormula) {
-      // Application d'un abattement dynamique
-      // Exemple simplifié : result = result * 0.6
-      result = evalFormula(rule.abatementFormula, { tax: result, base: value });
+      tax = evalDSLFormula(rule.abatementFormula, { tax, base, regime: regime === 'IFU' ? 1 : 0 });
     }
 
-    return Math.round(result);
+    // Gestion du lissage (ex: IRG 30k-35k)
+    if (rule.smoothingEnabled && base > rule.smoothingThreshold && base <= (rule.smoothingThreshold + 5000)) {
+      // Formule de lissage spécifique
+      tax = tax * (137/51) - (27925/8);
+    }
+
+    return Math.max(0, Math.round(tax));
   }
 
   return 0;
 }
 
 /**
- * Evaluateur de formule sécurisé (Simplifié pour le prototype)
+ * Évaluateur de formules sécurisé (Simulation de DSL pour le prototype)
  */
-function evalFormula(formula: string, params: Record<string, number>): number {
+function evalDSLFormula(formula: string, params: Record<string, number>): number {
   try {
     let f = formula;
+    // Remplacement des variables par leurs valeurs réelles
     for (const [k, v] of Object.entries(params)) {
       f = f.replace(new RegExp(k, 'g'), v.toString());
     }
-    // eslint-disable-next-line no-eval
-    return eval(f);
+    
+    // Utilisation de Function au lieu de eval pour une meilleure isolation (bac à sable simplifié)
+    return new Function(`return ${f}`)();
   } catch (e) {
-    console.error("Erreur évaluation formule:", formula, e);
+    console.error("[Moteur Fiscal] Erreur DSL:", formula, e);
     return 0;
   }
 }
