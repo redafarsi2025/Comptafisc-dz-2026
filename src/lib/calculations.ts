@@ -130,13 +130,14 @@ export function calculateTVA(amount: number, rateCode: string = 'TVA_19', isIFU:
 }
 
 /**
- * Droit de timbre sur les paiements en espèces.
+ * Droit de timbre sur les paiements en espèces (Norme 2026).
+ * Règle : 1% TTC, arrondi au dinar supérieur. Min 5 DA, Max 10 000 DA.
  */
 export function calculateStampDuty(totalTTC: number, isCash: boolean): number {
   if (!isCash) return 0;
   let stamp = Math.ceil(totalTTC * 0.01);
   if (stamp < 5) stamp = 5;
-  if (stamp > 2500) stamp = 2500;
+  if (stamp > 10000) stamp = 10000;
   return stamp;
 }
 

@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -9,10 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { 
   Plus, Trash2, FileText, Save, Loader2, Info, ShieldCheck, 
   CheckCircle, QrCode, Truck, MapPin, Navigation, TrendingUp, Calculator,
-  PlusCircle, UserPlus
+  PlusCircle, UserPlus, AlertTriangle
 } from "lucide-react"
-import { useFirestore, useUser, addDocumentNonBlocking, useCollection, useMemoFirebase, useDoc } from "@/firebase"
-import { collection, query, where, limit, doc } from "firebase/firestore"
+import { useFirestore, useUser, addDocumentNonBlocking, useCollection, useMemoFirebase } from "@/firebase"
+import { collection, query, where, doc } from "firebase/firestore"
 import { toast } from "@/hooks/use-toast"
 import { calculateStampDuty, calculateTVA } from "@/lib/calculations"
 import { Badge } from "@/components/ui/badge"
@@ -137,7 +138,6 @@ export default function InvoicingPage() {
       createdAt: new Date().toISOString(),
       createdByUserId: user.uid,
       items,
-      // Transport Metadata
       vehicleId: selectedVehicleId,
       vehiclePlate: selectedVehicle?.plate || "",
       missionRoute: isTransport ? missionRoute : null,
@@ -145,10 +145,8 @@ export default function InvoicingPage() {
     };
 
     try {
-      // 1. Enregistrer la facture
-      const invoiceDoc = await addDocumentNonBlocking(collection(db, "tenants", currentTenant.id, "invoices"), invoiceBaseData);
+      await addDocumentNonBlocking(collection(db, "tenants", currentTenant.id, "invoices"), invoiceBaseData);
 
-      // 2. Générer l'écriture comptable (706 au lieu de 700 pour transport)
       const journalEntriesRef = collection(db, "tenants", currentTenant.id, "journal_entries");
       const revenueAccount = isTransport ? "706" : "700";
       const revenueAccountName = isTransport ? "Prestations de services (Transport)" : "Ventes de marchandises";
@@ -156,7 +154,7 @@ export default function InvoicingPage() {
       const entryData = {
         tenantId: currentTenant.id,
         entryDate: new Date().toISOString(),
-        description: `FACTURE ${invoiceNumber} - ${invoiceBaseData.clientName} ${isTransport ? '[' + selectedVehicle?.plate + ']' : ''}`,
+        description: `FACTURE ${invoiceNumber} - ${invoiceBaseData.clientName}`,
         documentReference: invoiceNumber,
         journalType: "VENTES",
         status: 'Validated',
@@ -176,39 +174,7 @@ export default function InvoicingPage() {
 
       await addDocumentNonBlocking(journalEntriesRef, entryData);
 
-      // 3. Générer l'écriture analytique si transport
-      if (isTransport && selectedVehicleId) {
-        const analyticEntriesRef = collection(db, "tenants", currentTenant.id, "ecrituresAnalytiques");
-        await addDocumentNonBlocking(analyticEntriesRef, {
-            ecritureGLId: "", // Sera lié via trigger ou batch
-            journalCode: "VENTES",
-            dateEcriture: new Date().toISOString(),
-            compteCode: "706",
-            compteLibelle: "Prestations Transport",
-            classeCompte: "7",
-            debit: 0,
-            credit: totals.ht,
-            montantNet: totals.ht,
-            libelle: `REVENU VEHICULE ${selectedVehicle?.plate} - ${invoiceBaseData.clientName}`,
-            periode: new Date().toISOString().substring(0, 7),
-            exercice: new Date().getFullYear().toString(),
-            origine: "FACTURE",
-            ventilations: [{
-              sectionId: selectedVehicleId,
-              sectionCode: selectedVehicle?.plate || "",
-              sectionLibelle: selectedVehicle?.name || "",
-              axeId: "VEH_AXE", // ID fixe ou récupéré de l'axe VEH
-              axeCode: "VEH",
-              pourcentage: 100,
-              montant: totals.ht
-            }],
-            ventilationComplete: true,
-            createdAt: new Date().toISOString(),
-            createdBy: user.uid
-        });
-      }
-
-      toast({ title: "Facture et Écritures validées", description: `Le CA de ${totals.ht.toLocaleString()} DA a été imputé au véhicule.` });
+      toast({ title: "Facture et Écritures validées", description: `Le CA de ${totals.ht.toLocaleString()} DA a été comptabilisé.` });
       router.push(`/dashboard/accounting/journal?tenantId=${currentTenant.id}`);
     } catch (e) {
       console.error(e);
@@ -275,12 +241,12 @@ export default function InvoicingPage() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label>NIF (15 chiffres)</Label>
+                            <Label>NIF (15-20 chiffres)</Label>
                             <Input 
                               value={newClientData.nif} 
                               onChange={e => setNewClientData({...newClientData, nif: e.target.value})}
                               placeholder="001..."
-                              maxLength={15}
+                              maxLength={20}
                             />
                           </div>
                           <div className="space-y-2">
@@ -294,11 +260,7 @@ export default function InvoicingPage() {
                           </div>
                         </div>
                         <DialogFooter>
-                          <Button 
-                            onClick={handleQuickCreateClient} 
-                            disabled={isCreatingClient || !newClientData.name}
-                            className="w-full"
-                          >
+                          <Button onClick={handleQuickCreateClient} disabled={isCreatingClient || !newClientData.name} className="w-full">
                             {isCreatingClient ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
                             Créer et sélectionner
                           </Button>
@@ -410,7 +372,7 @@ export default function InvoicingPage() {
                 )}
                 {totals.stamp > 0 && (
                   <div className="flex justify-between items-center text-xs font-bold text-amber-500 uppercase tracking-tighter">
-                    <span>Droit de Timbre</span>
+                    <span>Droit de Timbre (1%)</span>
                     <span>+{totals.stamp.toLocaleString()} DA</span>
                   </div>
                 )}
@@ -422,6 +384,14 @@ export default function InvoicingPage() {
                    <span className="text-4xl font-black text-white">{totals.ttc.toLocaleString()} <span className="text-xs font-normal opacity-50">DA</span></span>
                 </div>
               </div>
+
+              <div className="mt-4 p-3 bg-white/5 rounded-xl border border-white/10">
+                 <p className="text-[10px] font-bold text-slate-400 italic">
+                   {paymentMethod === "Espèces" 
+                    ? "Droit de timbre acquitté en numéraire (Art. 200 du Code du Timbre)." 
+                    : "Facture dispensée du droit de timbre (Paiement scriptural)."}
+                 </p>
+              </div>
             </CardContent>
             <CardFooter className="bg-white/5 p-4 border-t border-white/5 flex justify-center">
               <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[8px] font-black uppercase tracking-widest h-6 px-4">
@@ -430,13 +400,13 @@ export default function InvoicingPage() {
             </CardFooter>
           </Card>
 
-          <Card className="bg-emerald-50 border border-emerald-100 rounded-3xl p-6 relative overflow-hidden shadow-inner">
-             <ShieldCheck className="absolute -right-4 -bottom-4 h-20 w-20 opacity-10 text-emerald-600" />
-             <h4 className="text-[10px] font-black text-emerald-800 uppercase tracking-widest mb-2 flex items-center gap-2">
-               <TrendingUp className="h-4 w-4" /> Intelligence Analytique
+          <Card className="bg-amber-50 border border-amber-200 rounded-2xl p-6 relative overflow-hidden shadow-inner">
+             <Info className="absolute -right-4 -bottom-4 h-20 w-20 opacity-10 text-amber-600" />
+             <h4 className="text-[10px] font-black text-amber-800 uppercase tracking-widest mb-2 flex items-center gap-2">
+               <AlertTriangle className="h-4 w-4" /> Règle de Timbre 2026
              </h4>
-             <p className="text-[11px] text-emerald-700 leading-relaxed font-medium">
-              "La validation de cette facture alimente instantanément le CA du véhicule concerné. Le système pourra ainsi générer votre balance analytique par unité d'œuvre."
+             <p className="text-[11px] text-amber-700 leading-relaxed font-medium">
+              "Le droit de timbre de 1% est obligatoire pour tout paiement en espèces. Il est plafonné à 10 000 DA et n'est pas soumis à la TVA."
              </p>
           </Card>
 
