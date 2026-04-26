@@ -7,6 +7,7 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Vérifie si l'utilisateur est présent dans la collection technique des admins
     function isAdmin() {
       return isSignedIn() && exists(/databases/$(database)/documents/saas_admins/$(request.auth.uid));
     }
@@ -24,7 +25,7 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // --- DGI Publications & Templates (Global Read) ---
+    // --- DGI Publications & Templates ---
     match /dgi_publications/{pubId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
@@ -49,6 +50,11 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
+    
+    match /fiscal_business_rules/{ruleId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
 
     // --- Plans ---
     match /plans/{planId} {
@@ -56,23 +62,22 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // --- SaaS Admin Records ---
+    // --- SaaS Admin Records (ACCÈS CRITIQUE) ---
     match /saas_admins/{userId} {
-      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      // Un utilisateur doit pouvoir lire son propre statut sans récursion
+      allow read: if isSignedIn() && request.auth.uid == userId;
       allow create: if isSignedIn(); 
       allow update, delete: if isAdmin();
     }
 
     // --- Tenant Multi-Tenancy Rules ---
     match /tenants/{tenantId} {
-      // Allow list and get if member or admin. For list, a filter on members must be used in the query.
       allow get: if isSignedIn() && (isAdmin() || (resource != null && request.auth.uid in resource.data.members));
       allow list: if isSignedIn() && (isAdmin() || request.auth.uid in resource.data.members);
       allow create: if isSignedIn();
       allow update: if isSignedIn() && (isAdmin() || request.auth.uid in resource.data.members);
       allow delete: if isAdmin();
 
-      // Rule for all subcollections (Journal, Invoices, Employees, Assets, etc.)
       match /{allSubcollections=**} {
         allow read, write: if isSignedIn() && (
           isAdmin() || 

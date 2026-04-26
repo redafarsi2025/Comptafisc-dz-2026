@@ -6,9 +6,10 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { AdminSidebar } from "@/components/admin/sidebar"
 import { useUser, useFirestore, useMemoFirebase, useDoc } from "@/firebase"
 import { useRouter } from "next/navigation"
-import { ShieldCheck, Target, Zap, Bell, User as UserIcon, Loader2 } from "lucide-react"
+import { ShieldCheck, Target, Zap, Bell, User as UserIcon, Lock, ArrowLeft } from "lucide-react"
 import { doc } from "firebase/firestore"
 import { Button } from "@/components/ui/button"
+import Link from "next/link"
 
 export default function AdminLayout({
   children,
@@ -19,47 +20,48 @@ export default function AdminLayout({
   const db = useFirestore()
   const router = useRouter()
 
-  // Vérification stricte du statut Admin dans Firestore
   const adminDocRef = useMemoFirebase(() => (db && user) ? doc(db, "saas_admins", user.uid) : null, [db, user?.uid]);
-  const { data: adminRecord, isLoading: isAdminLoading } = useDoc(adminDocRef);
+  const { data: adminRecord, isLoading: isAdminLoading, error: adminError } = useDoc(adminDocRef);
 
-  // Redirection sécurisée : on attend que TOUS les chargements soient finis
-  React.useEffect(() => {
-    if (!isUserLoading && !isAdminLoading) {
-      if (!user) {
-        router.push("/login");
-        return;
-      }
-      // On ne redirige QUE si on est certain qu'il n'y a pas de record admin
-      if (!adminRecord) {
-        console.warn("[Admin Guard] Accès refusé, redirection...");
-        router.push("/dashboard");
-      }
-    }
-  }, [user, isUserLoading, isAdminLoading, adminRecord, router]);
-
-  // Écran de chargement haute sécurité pendant la validation
-  if (isUserLoading || isAdminLoading || (!adminRecord && user)) {
+  // État de chargement haute sécurité
+  if (isUserLoading || isAdminLoading) {
     return (
       <div className="h-screen flex flex-col items-center justify-center bg-[#0F172A] gap-6 overflow-hidden">
         <div className="relative">
           <div className="h-32 w-32 rounded-full border-4 border-accent/10 border-t-accent animate-spin" />
           <ShieldCheck className="absolute inset-0 m-auto h-12 w-12 text-accent animate-pulse" />
         </div>
-        <div className="text-center space-y-2 animate-in fade-in duration-1000">
+        <div className="text-center space-y-2">
           <p className="text-sm font-black text-white uppercase tracking-[0.4em]">Master Node Authentication</p>
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Validation des accréditations en cours...</p>
-        </div>
-        <div className="absolute bottom-10 text-[8px] font-mono text-slate-700 uppercase tracking-widest">
-          Secured by ComptaFisc-DZ Internal Engine v2.5
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Validation du certificat root...</p>
         </div>
       </div>
     );
   }
   
-  // Si non autorisé (cas après redirect), on n'affiche rien
+  // Si l'utilisateur n'est pas Admin (Définitif)
   if (!user || !adminRecord) {
-    return null;
+    return (
+      <div className="h-screen flex flex-col items-center justify-center bg-slate-50 p-6">
+        <div className="max-w-md w-full text-center space-y-6 bg-white p-12 rounded-3xl shadow-2xl border border-red-100">
+           <div className="h-20 w-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+             <Lock className="h-10 w-10" />
+           </div>
+           <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Accès Restreint</h1>
+           <p className="text-sm text-muted-foreground leading-relaxed">
+             Votre compte ne dispose pas des accréditations SuperAdmin nécessaires pour accéder au noyau SaaS ComptaFisc-DZ.
+           </p>
+           <div className="pt-4 flex flex-col gap-3">
+             <Button className="w-full bg-primary" asChild>
+                <Link href="/dashboard"><ArrowLeft className="mr-2 h-4 w-4" /> Retour au Dashboard</Link>
+             </Button>
+             <Button variant="outline" className="w-full" asChild>
+                <Link href="/dashboard/profile">Vérifier mon profil</Link>
+             </Button>
+           </div>
+        </div>
+      </div>
+    );
   }
 
   return (

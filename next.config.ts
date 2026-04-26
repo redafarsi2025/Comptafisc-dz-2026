@@ -14,6 +14,7 @@ const nextConfig: NextConfig = {
     allowedDevOrigins: [
       '6000-firebase-studio-1773819444911.cluster-ikslh4rdsnbqsvu5nw3v4dqjj2.cloudworkstations.dev',
       '*.cloudworkstations.dev',
+      '*.googleusercontent.com',
       'localhost:9002',
       '0.0.0.0:9002'
     ]
