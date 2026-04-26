@@ -55,6 +55,7 @@ export default function ProfilePage() {
     setIsPromoting(true)
 
     try {
+      // Création immédiate du flag Admin dans Firestore
       await setDocumentNonBlocking(doc(db, "saas_admins", user.uid), {
         id: user.uid,
         email: user.email,
@@ -64,10 +65,14 @@ export default function ProfilePage() {
 
       toast({ 
         title: "Accréditation Root Activée", 
-        description: "Vous disposez maintenant des droits SuperAdmin." 
+        description: "Droits SuperAdmin validés. Redirection vers le cockpit...",
       });
       
       setAdminKey("");
+      // Petit délai pour laisser Firestore propager
+      setTimeout(() => {
+        router.push("/saas-admin");
+      }, 1500);
     } catch (e) {
       console.error(e)
     } finally {
