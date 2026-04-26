@@ -93,11 +93,11 @@ export default function NewPurchaseOrder() {
       totalHT: totals.ht,
       totalTVA: totals.tva,
       totalTTC: totals.ttc,
-      status: "VALIDATED", // Par défaut validé pour ce prototype
+      status: "VALIDATED",
       tenantId,
       createdAt: new Date().toISOString(),
       createdByUserId: user.uid,
-      tenantMembers: { [user.uid]: 'owner' } // Simplifié pour le prototype
+      tenantMembers: { [user.uid]: 'owner' }
     };
 
     try {

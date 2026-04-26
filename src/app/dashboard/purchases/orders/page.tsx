@@ -30,7 +30,7 @@ export default function PurchaseOrdersManagement() {
 
   const ordersQuery = useMemoFirebase(() => {
     if (!db || !tenantId) return null;
-    return query(collection(db, "tenants", tenantId, "purchase_orders"), orderBy("date", "desc"));
+    return query(collection(db, "tenants", tenantId, "purchase_orders"), orderBy("createdAt", "desc"));
   }, [db, tenantId]);
   const { data: orders, isLoading } = useCollection(ordersQuery);
 
@@ -157,4 +157,3 @@ export default function PurchaseOrdersManagement() {
     </div>
   )
 }
-
