@@ -1,63 +1,62 @@
 
 {
   "entities": {
-    "FiscalLaw": {
-      "title": "FiscalLaw",
+    "Asset": {
+      "title": "Asset",
       "type": "object",
-      "description": "Représente une loi de finances ou réglementation fiscale.",
+      "description": "Fiche immobilisation experte conforme SCF.",
       "properties": {
         "id": { "type": "string" },
-        "name": { "type": "string" },
-        "description": { "type": "string" },
-        "effectiveStartDate": { "type": "string", "format": "date-time" },
-        "publicationDate": { "type": "string", "format": "date-time" }
+        "code": { "type": "string", "description": "Code unique immo" },
+        "designation": { "type": "string" },
+        "category": { "type": "string", "enum": ["204", "211", "213", "215", "2182", "2183", "2184"] },
+        "serialNumber": { "type": "string" },
+        "acquisitionDate": { "type": "string", "format": "date" },
+        "serviceDate": { "type": "string", "format": "date", "description": "Date de mise en service" },
+        "acquisitionValue": { "type": "number" },
+        "residualValue": { "type": "number", "default": 0 },
+        "amortizationRate": { "type": "number" },
+        "amortizationType": { "type": "string", "enum": ["LINEAR", "DEGRESSIVE"], "default": "LINEAR" },
+        "physicalStatus": { "type": "string", "enum": ["GOOD", "USED", "HS", "REFORM"] },
+        "physicalLocation": { "type": "string" },
+        "assignedEmployee": { "type": "string" },
+        "tenantId": { "type": "string" }
       }
     },
-    "DgiTemplate": {
-      "title": "DgiTemplate",
+    "Product": {
+      "title": "Product",
       "type": "object",
-      "description": "Template de formulaire officiel DGI avec mapping IA et fond de document.",
+      "description": "Article de stock avec valorisation CMUP.",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string", "enum": ["MC", "MP", "PF", "EM"] },
+        "unit": { "type": "string" },
+        "theoreticalStock": { "type": "number" },
+        "cmup": { "type": "number", "description": "Coût Moyen Unitaire Pondéré" },
+        "minStock": { "type": "number" }
+      }
+    },
+    "InventorySession": {
+      "title": "InventorySession",
+      "type": "object",
+      "description": "Session d'inventaire avec workflow C1/C2/C3.",
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },
-        "type": { "type": "string", "enum": ["G50", "G12", "G4", "ANNEXE"] },
-        "status": { "type": "string", "enum": ["Draft", "Published"] },
-        "pages": {
+        "type": { "type": "string", "enum": ["ANNUAL", "ROTATING", "AUDIT"] },
+        "status": { "type": "string", "enum": ["DRAFT", "IN_PROGRESS", "RECONCILIATION", "CLOSED"] },
+        "warehouse": { "type": "string" },
+        "counts": {
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
-              "backgroundImage": { "type": "string", "description": "Contenu du document en Base64" },
-              "fields": { "type": "array" }
-            }
-          }
-        }
-      }
-    },
-    "SupportTicket": {
-      "title": "SupportTicket",
-      "type": "object",
-      "description": "Ticket de support client pour assistance technique ou fiscale.",
-      "properties": {
-        "id": { "type": "string" },
-        "userId": { "type": "string" },
-        "userName": { "type": "string" },
-        "userEmail": { "type": "string" },
-        "subject": { "type": "string" },
-        "status": { "type": "string", "enum": ["open", "pending", "closed"] },
-        "priority": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "updatedAt": { "type": "string", "format": "date-time" },
-        "messages": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "senderId": { "type": "string" },
-              "senderName": { "type": "string" },
-              "text": { "type": "string" },
-              "timestamp": { "type": "string", "format": "date-time" },
-              "isAdmin": { "type": "boolean" }
+              "productId": { "type": "string" },
+              "c1": { "type": "number" },
+              "c2": { "type": "number" },
+              "c3": { "type": "number" }
             }
           }
         }
@@ -68,21 +67,12 @@
     "providers": ["password", "anonymous"]
   },
   "firestore": {
-    "/fiscal_laws/{lawId}": {
-      "schema": "#/backend/entities/FiscalLaw",
-      "description": "Lois de finances globales."
-    },
-    "/dgi_templates/{templateId}": {
-      "schema": "#/backend/entities/DgiTemplate",
-      "description": "Templates de formulaires stockés en base."
-    },
-    "/support_tickets/{ticketId}": {
-      "schema": "#/backend/entities/SupportTicket",
-      "description": "Tickets de support centralisés."
-    },
-    "/tenants/{tenantId}": {
-      "schema": "object",
-      "description": "Dossiers clients."
-    }
+    "/fiscal_laws/{lawId}": { "schema": "object", "description": "Lois de finances" },
+    "/dgi_templates/{templateId}": { "schema": "object", "description": "Templates formulaires" },
+    "/support_tickets/{ticketId}": { "schema": "object", "description": "Tickets support" },
+    "/tenants/{tenantId}": { "schema": "object", "description": "Dossiers clients" },
+    "/tenants/{tenantId}/assets/{assetId}": { "schema": "#/backend/entities/Asset", "description": "Registre des immobilisations" },
+    "/tenants/{tenantId}/products/{productId}": { "schema": "#/backend/entities/Product", "description": "Catalogue articles" },
+    "/tenants/{tenantId}/inventory_sessions/{sessionId}": { "schema": "#/backend/entities/InventorySession", "description": "Sessions d'inventaire" }
   }
 }

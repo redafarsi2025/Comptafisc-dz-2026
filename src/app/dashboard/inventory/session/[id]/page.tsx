@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { 
   ClipboardCheck, Loader2, ShieldCheck, CheckCircle2, 
   AlertTriangle, Calculator, FileText, ChevronLeft,
-  Save, Zap, Users, ShieldAlert, Eye, EyeOff
+  Save, Zap, Users, ShieldAlert, Eye, EyeOff, Scale
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
@@ -44,7 +44,6 @@ export default function InventorySessionDetail() {
   , [db, tenantId]);
   const { data: products, isLoading: isProductsLoading } = useCollection(productsQuery);
 
-  // State local pour les 3 comptages
   const [counts, setCounts] = React.useState<Record<string, { c1: number; c2: number; c3?: number }>>({})
 
   React.useEffect(() => {
@@ -73,18 +72,17 @@ export default function InventorySessionDetail() {
       productId: pid,
       c1: val.c1,
       c2: val.c2,
-      c3: val.c3,
-      countedAt: new Date().toISOString(),
-      countedBy: user?.uid
+      c3: val.c3 || 0,
+      countedAt: new Date().toISOString()
     }));
 
     try {
-      await updateDocumentNonBlocking(doc(db, tenantId ? `tenants/${tenantId}/inventory_sessions` : "", id as string), {
+      updateDocumentNonBlocking(doc(db, "tenants", tenantId, "inventory_sessions", id as string), {
         counts: countsList,
         updatedAt: new Date().toISOString(),
         status: session.status === "DRAFT" ? "IN_PROGRESS" : session.status
       });
-      toast({ title: "Comptages sauvegardés", description: "Les données C1/C2/C3 ont été mises à jour." });
+      toast({ title: "Données sauvegardées", description: "Comptages C1/C2 synchronisés." });
     } finally {
       setIsProcessing(false);
     }
@@ -94,39 +92,36 @@ export default function InventorySessionDetail() {
     if (!db || !tenantId || !id || !products) return;
     setIsProcessing(true);
     try {
-      // Calculer les quantités finales et mettre à jour le stock
       const finalCountsList = products.map(p => {
-        const val = counts[p.id] || { c1: 0, c2: 0 };
-        // Logique 3 comptages : Si C1 == C2 on prend C1, sinon on prend C3
+        const val = counts[p.id] || { c1: 0, c2: 0, c3: 0 };
         const finalQty = (val.c1 === val.c2) ? val.c1 : (val.c3 ?? val.c1);
         return { productId: p.id, finalQty };
       });
 
-      await updateDocumentNonBlocking(doc(db, "tenants", tenantId, "inventory_sessions", id as string), {
+      updateDocumentNonBlocking(doc(db, "tenants", tenantId, "inventory_sessions", id as string), {
         status: "CLOSED",
         closedAt: new Date().toISOString(),
         finalResults: finalCountsList
       });
 
-      // MAJ catalogue
       for (const res of finalCountsList) {
-        await updateDocumentNonBlocking(doc(db, "tenants", tenantId, "products", res.productId), {
+        updateDocumentNonBlocking(doc(db, "tenants", tenantId, "products", res.productId), {
           theoreticalStock: res.finalQty,
           lastInventoryDate: new Date().toISOString()
         });
       }
 
-      toast({ title: "Inventaire Clôturé", description: "Stock réel mis à jour selon la méthode des 3 comptages." });
+      toast({ title: "Inventaire Clôturé", description: "Stock réel mis à jour via protocole C1/C2/C3." });
       router.push(`/dashboard/inventory?tenantId=${tenantId}`);
     } finally {
       setIsProcessing(false);
     }
   }
 
-  if (isSessionLoading || isProductsLoading) return <div className="p-20 text-center"><Loader2 className="animate-spin h-10 w-10 mx-auto" /></div>
+  if (isSessionLoading || isProductsLoading) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>
   if (!session) return <div className="p-20 text-center">Session non trouvée.</div>
 
-  const progress = Math.round((Object.keys(counts).length / (products?.length || 1)) * 100);
+  const progress = products ? Math.round((Object.keys(counts).length / (products.length || 1)) * 100) : 0;
 
   return (
     <div className="space-y-6 pb-20">
@@ -135,21 +130,21 @@ export default function InventorySessionDetail() {
           <Button variant="ghost" size="icon" asChild><Link href={`/dashboard/inventory?tenantId=${tenantId}`}><ChevronLeft className="h-5 w-5" /></Link></Button>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-primary">{session.name}</h1>
-              <Badge variant="outline" className="bg-primary/5">{session.status}</Badge>
+              <h1 className="text-2xl font-black text-primary">{session.name}</h1>
+              <Badge className="bg-primary/10 text-primary border-primary/20">{session.status}</Badge>
             </div>
-            <p className="text-muted-foreground text-[10px] uppercase font-bold tracking-widest">{session.warehouse} • Méthode SCF 3-Comptages</p>
+            <p className="text-muted-foreground text-[10px] uppercase font-bold tracking-widest">{session.warehouse} • Protocole 3-Comptages</p>
           </div>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => setShowTheoretical(!showTheoretical)}>
             {showTheoretical ? <EyeOff className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
-            {showTheoretical ? "Masquer Théorique" : "Afficher Théorique"}
+            {showTheoretical ? "Masquer Théorique" : "Aperçu Théorique"}
           </Button>
           {session.status !== 'CLOSED' && (
             <>
               <Button variant="outline" size="sm" onClick={handleSaveProgress} disabled={isProcessing}>
-                <Save className="mr-2 h-4 w-4" /> Sauvegarder
+                <Save className="mr-2 h-4 w-4" /> Sauvegarder C1/C2
               </Button>
               <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={handleCloseSession} disabled={isProcessing}>
                 <ShieldCheck className="mr-2 h-4 w-4" /> Clôturer & Valider
@@ -161,22 +156,22 @@ export default function InventorySessionDetail() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="md:col-span-1 shadow-sm border-t-4 border-t-primary">
-          <CardHeader className="pb-2"><CardTitle className="text-[10px] uppercase font-bold text-muted-foreground">Progression</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-[10px] uppercase font-bold text-muted-foreground">Progression Saisie</CardTitle></CardHeader>
           <CardContent>
             <div className="text-2xl font-black">{progress}%</div>
             <Progress value={progress} className="h-1.5 mt-2" />
           </CardContent>
         </Card>
         <Card className="md:col-span-3 bg-slate-900 text-white border-none shadow-xl flex items-center p-6 gap-6 relative overflow-hidden">
-          <Zap className="absolute -right-4 -top-4 h-24 w-24 opacity-10" />
+          <Scale className="absolute -right-4 -top-4 h-24 w-24 opacity-10" />
           <div className="h-12 w-12 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
             <Users className="h-6 w-6 text-accent" />
           </div>
           <div>
-            <h4 className="font-bold text-sm">Protocole de Double Comptage</h4>
+            <h4 className="font-bold text-sm">Audit à l'aveugle activé</h4>
             <p className="text-[11px] opacity-70 leading-relaxed max-w-xl">
-              Si Comptage 1 ≠ Comptage 2, le champ Comptage 3 (Arbitrage) devient obligatoire. 
-              L'inventaire à l'aveugle est activé : masquez le stock théorique aux équipes terrain.
+              Conformément à la procédure d'audit SCF, les équipes A et B ne voient pas le stock théorique. 
+              En cas d'écart (C1 ≠ C2), le champ **C3 (Arbitrage)** est requis pour la validation finale.
             </p>
           </div>
         </Card>
@@ -184,7 +179,7 @@ export default function InventorySessionDetail() {
 
       <Card className="shadow-lg border-t-4 border-t-primary overflow-hidden">
         <CardHeader className="bg-muted/20 border-b">
-          <CardTitle className="text-lg">Feuille de Saisie C1 / C2 / C3</CardTitle>
+          <CardTitle className="text-lg">Feuille de Saisie Comparative</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -200,7 +195,7 @@ export default function InventorySessionDetail() {
             </TableHeader>
             <TableBody>
               {products?.map((p) => {
-                const val = counts[p.id] || { c1: 0, c2: 0 };
+                const val = counts[p.id] || { c1: 0, c2: 0, c3: 0 };
                 const hasMismatch = val.c1 !== val.c2;
                 return (
                   <TableRow key={p.id} className="hover:bg-muted/5 group">
@@ -211,7 +206,7 @@ export default function InventorySessionDetail() {
                       </div>
                     </TableCell>
                     {showTheoretical && <TableCell className="text-right font-mono text-xs opacity-60">{p.theoreticalStock}</TableCell>}
-                    <TableCell className="bg-blue-50/20">
+                    <TableCell className="bg-blue-50/10">
                       <Input 
                         type="number" 
                         className="h-8 text-center font-bold text-sm bg-white" 
@@ -220,7 +215,7 @@ export default function InventorySessionDetail() {
                         disabled={session.status === 'CLOSED'}
                       />
                     </TableCell>
-                    <TableCell className="bg-emerald-50/20">
+                    <TableCell className="bg-emerald-50/10">
                       <Input 
                         type="number" 
                         className="h-8 text-center font-bold text-sm bg-white" 
@@ -229,10 +224,10 @@ export default function InventorySessionDetail() {
                         disabled={session.status === 'CLOSED'}
                       />
                     </TableCell>
-                    <TableCell className="bg-amber-50/20">
+                    <TableCell className="bg-amber-50/10">
                       <Input 
                         type="number" 
-                        className={`h-8 text-center font-bold text-sm bg-white ${hasMismatch ? 'border-amber-500' : 'opacity-30'}`} 
+                        className={`h-8 text-center font-bold text-sm bg-white ${hasMismatch ? 'border-amber-500 shadow-sm shadow-amber-200' : 'opacity-30'}`} 
                         value={val.c3 || ""} 
                         onChange={e => handleUpdateCount(p.id, 'c3', e.target.value)}
                         disabled={!hasMismatch || session.status === 'CLOSED'}
@@ -240,13 +235,9 @@ export default function InventorySessionDetail() {
                     </TableCell>
                     <TableCell className="text-center">
                       {!hasMismatch ? (
-                        <div className="flex items-center justify-center gap-1 text-emerald-600 font-bold text-[9px]">
-                          <CheckCircle2 className="h-3 w-3" /> OK
-                        </div>
+                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 text-[8px]">C1 = C2 OK</Badge>
                       ) : (
-                        <div className="flex items-center justify-center gap-1 text-amber-600 font-bold text-[9px] animate-pulse">
-                          <ShieldAlert className="h-3 w-3" /> ÉCART C1/C2
-                        </div>
+                        <Badge variant="outline" className="bg-amber-50 text-amber-700 text-[8px] animate-pulse">ÉCART C1/C2</Badge>
                       )}
                     </TableCell>
                   </TableRow>
@@ -260,10 +251,10 @@ export default function InventorySessionDetail() {
       <div className="p-6 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-4">
         <AlertTriangle className="h-6 w-6 text-amber-600 shrink-0" />
         <div className="text-xs text-amber-900 leading-relaxed">
-          <p className="font-bold underline uppercase">Règle de Validation Algérie :</p>
+          <p className="font-bold underline uppercase">Règle de Clôture SCF :</p>
           <p>
-            En cas de divergence entre l'équipe A et l'équipe B, un troisième comptage contradictoire est requis (C3). 
-            La valeur du C3 prévaudra pour l'ajustement comptable final dans le compte 603 (Variation de stock).
+            La clôture de l'inventaire fige les quantités et met à jour automatiquement le catalogue. 
+            Les écarts identifiés lors du rapprochement doivent faire l'objet d'un procès-verbal (PV) d'inventaire signé par les membres de la commission et annexé à la liasse G4.
           </p>
         </div>
       </div>

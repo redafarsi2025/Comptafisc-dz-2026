@@ -21,10 +21,10 @@ import { useSearchParams } from "next/navigation"
 import { toast } from "@/hooks/use-toast"
 
 const CATEGORIES = [
-  { id: 'MP', name: 'Matières Premières (31)' },
-  { id: 'PF', name: 'Produits Finis (35)' },
-  { id: 'MC', name: 'Marchandises (30)' },
-  { id: 'EM', name: 'Emballages (32)' },
+  { id: 'MC', name: 'Marchandises (30)', code: '30' },
+  { id: 'MP', name: 'Matières Premières (31)', code: '31' },
+  { id: 'PF', name: 'Produits Finis (35)', code: '35' },
+  { id: 'EM', name: 'Emballages (32)', code: '32' },
 ]
 
 export default function StockManagement() {
@@ -44,7 +44,7 @@ export default function StockManagement() {
     unit: "Unité",
     minStock: 5,
     theoreticalStock: 0,
-    cmup: 0 // Coût Moyen Unitaire Pondéré
+    cmup: 0 
   })
 
   React.useEffect(() => {
@@ -72,7 +72,6 @@ export default function StockManagement() {
   const handleAddProduct = async () => {
     if (!db || !currentTenant || !newProduct.name || !newProduct.code) return;
     setIsSaving(true);
-
     try {
       await addDocumentNonBlocking(collection(db, "tenants", currentTenant.id, "products"), {
         ...newProduct,
@@ -82,8 +81,6 @@ export default function StockManagement() {
       toast({ title: "Produit ajouté", description: `${newProduct.name} a été intégré au catalogue.` });
       setIsCreateOpen(false);
       setNewProduct({ code: "", name: "", category: "MC", unit: "Unité", minStock: 5, theoreticalStock: 0, cmup: 0 });
-    } catch (e) {
-      console.error(e);
     } finally {
       setIsSaving(false);
     }
@@ -178,9 +175,6 @@ export default function StockManagement() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-          <Button variant="outline" className="border-accent text-accent">
-            <TrendingUp className="mr-2 h-4 w-4" /> Mouvements
-          </Button>
         </div>
       </div>
 
@@ -205,8 +199,8 @@ export default function StockManagement() {
         </Card>
         <Card className="border-l-4 border-l-amber-500 shadow-sm">
           <CardContent className="pt-6">
-            <p className="text-[10px] uppercase font-bold text-muted-foreground">Rotation (Moyenne)</p>
-            <h2 className="text-2xl font-black text-amber-600">12.5j</h2>
+            <p className="text-[10px] uppercase font-bold text-muted-foreground">Méthode SCF</p>
+            <h2 className="text-2xl font-black text-amber-600">CMUP</h2>
           </CardContent>
         </Card>
       </div>
@@ -234,10 +228,10 @@ export default function StockManagement() {
             <TableHeader className="bg-muted/50">
               <TableRow>
                 <TableHead>Produit / Code</TableHead>
-                <TableHead>Catégorie (SCF)</TableHead>
+                <TableHead>Compte SCF</TableHead>
                 <TableHead className="text-right">Stock Actuel</TableHead>
                 <TableHead className="text-right">CMUP (DA)</TableHead>
-                <TableHead className="text-right font-bold">Valeur Inventaire</TableHead>
+                <TableHead className="text-right font-black">Valeur Inventaire</TableHead>
                 <TableHead className="text-center">Statut</TableHead>
               </TableRow>
             </TableHeader>
@@ -260,14 +254,14 @@ export default function StockManagement() {
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-[9px] uppercase font-bold">
-                          {CATEGORIES.find(c => c.id === p.category)?.name.split(' (')[0]}
+                          {CATEGORIES.find(c => c.id === p.category)?.code}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right font-mono font-bold">
                         {p.theoreticalStock} <span className="text-[9px] text-muted-foreground font-normal">{p.unit}</span>
                       </TableCell>
                       <TableCell className="text-right font-mono text-xs">{p.cmup.toLocaleString()}</TableCell>
-                      <TableCell className="text-right font-mono font-bold text-primary">{val.toLocaleString()}</TableCell>
+                      <TableCell className="text-right font-mono font-black text-primary">{val.toLocaleString()}</TableCell>
                       <TableCell className="text-center">
                         {isLow ? (
                           <div className="flex items-center justify-center gap-1 text-destructive font-bold text-[9px]">
@@ -297,23 +291,15 @@ export default function StockManagement() {
         </CardContent>
       </Card>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-4">
-          <ShieldCheck className="h-6 w-6 text-emerald-600 shrink-0" />
-          <div className="text-xs text-emerald-900 space-y-2">
-            <p className="font-bold">Moteur de Valorisation SCF</p>
-            <p>
-              Le système utilise la méthode du <strong>Coût Moyen Unitaire Pondéré (CMUP)</strong> par défaut, conformément aux recommandations du SCF pour les inventaires permanents. 
-              Toutes les entrées (Achats) et sorties (Ventes) recalculent dynamiquement le coût de revient pour une liasse fiscale G4 précise.
-            </p>
-          </div>
+      <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-4">
+        <ShieldCheck className="h-6 w-6 text-emerald-600 shrink-0" />
+        <div className="text-xs text-emerald-900 space-y-2">
+          <p className="font-bold">Moteur de Valorisation SCF</p>
+          <p>
+            Le système utilise la méthode du <strong>Coût Moyen Unitaire Pondéré (CMUP)</strong> par défaut, conformément aux recommandations du SCF pour les inventaires permanents. 
+            Toute variation de stock à la clôture doit être enregistrée dans le compte 603.
+          </p>
         </div>
-        <Card className="bg-primary/5 border-primary/20">
-          <CardHeader><CardTitle className="text-sm">Aide à la clôture</CardTitle></CardHeader>
-          <CardContent className="text-xs text-muted-foreground italic">
-            "Le stock de fin d'exercice doit être validé par un PV d'inventaire physique avant le 31 Mars de l'année N+1. L'écart entre stock physique et théorique génère une écriture automatique en compte 603 (Variation de stock)."
-          </CardContent>
-        </Card>
       </div>
     </div>
   )
