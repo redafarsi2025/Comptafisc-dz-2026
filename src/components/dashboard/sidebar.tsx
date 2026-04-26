@@ -366,12 +366,12 @@ export function DashboardSidebar() {
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname === "/dashboard/support"} tooltip="Assistance">
                 <Link href={currentTenant ? `/dashboard/support?tenantId=${currentTenant.id}` : "/dashboard/support"}><LifeBuoy /><span>Assistance & Support</span></Link>
-              </SidebarMenuItem>
+              </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname === "/dashboard/settings"} tooltip="Paramètres">
                 <Link href={currentTenant ? `/dashboard/settings?tenantId=${currentTenant.id}` : "/dashboard/settings"}><Settings /><span>Paramètres Dossier</span></Link>
-              </SidebarMenuItem>
+              </SidebarMenuButton>
             </SidebarMenuItem>
             
             {isSaaSAdmin && (
