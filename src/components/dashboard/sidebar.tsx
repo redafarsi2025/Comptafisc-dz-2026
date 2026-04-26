@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -87,6 +86,7 @@ import { collection, query, where, doc } from "firebase/firestore"
 import { signOut } from "firebase/auth"
 import { toast } from "@/hooks/use-toast"
 import { Locale, TRANSLATIONS } from "@/lib/translations"
+import { cn } from "@/lib/utils"
 
 export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
   const pathname = usePathname()
@@ -113,6 +113,7 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
   }, [user, isUserLoading, auth]);
 
   const t = TRANSLATIONS[locale];
+  const isRtl = locale === 'ar';
 
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -166,7 +167,7 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
       setDocumentNonBlocking(newTenantRef, tenantData, { merge: true });
       setIsCreateDialogOpen(false);
       handleTenantSelect(tenantId);
-      toast({ title: t.new_dossier, description: `${newTenantData.raisonSociale} ok.` });
+      toast({ title: t.Common.new_dossier, description: `${newTenantData.raisonSociale} ok.` });
     } catch (e) {
       console.error(e);
     } finally {
@@ -189,8 +190,12 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
               <SidebarMenuItem key={item.name}>
                 <SidebarMenuButton asChild isActive={active} tooltip={item.name}>
                   <Link href={href}>
-                    <item.icon className={active ? "text-primary" : "text-sidebar-foreground/60 group-hover:text-primary transition-colors"} />
-                    <span className="font-medium">{item.name}</span>
+                    <item.icon className={cn(
+                      "transition-colors", 
+                      active ? "text-primary" : "text-sidebar-foreground/60 group-hover:text-primary",
+                      isRtl && "rotate-0" // Add specific flipping logic if needed
+                    )} />
+                    <span className="font-bold text-xs uppercase tracking-tight">{item.name}</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -205,95 +210,95 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
 
   const secteur = currentTenant?.secteurActivite || "COMMERCE";
 
-  // Navigation Items translated
+  // Navigation Items
   const pilotageNav = [
-    { name: t.dashboard, href: "/dashboard", icon: LayoutDashboard },
-    { name: t.analytics, href: "/dashboard/financial-analysis", icon: BarChart3 },
+    { name: t.Navigation.dashboard, href: "/dashboard", icon: LayoutDashboard },
+    { name: t.Navigation.analytics, href: "/dashboard/financial-analysis", icon: BarChart3 },
   ]
   const relationsNav = [
-    { name: t.contacts, href: "/dashboard/contacts", icon: Users },
-    { name: t.crm, href: "/dashboard/crm", icon: Target },
+    { name: t.Navigation.contacts, href: "/dashboard/contacts", icon: Users },
+    { name: t.Navigation.crm, href: "/dashboard/crm", icon: Target },
   ]
   const salesNav = [
-    { name: t.invoicing, href: "/dashboard/invoicing", icon: FilePlus },
-    { name: t.sales_hub, href: "/dashboard/sales", icon: CircleDollarSign },
-    { name: t.orders, href: "/dashboard/sales/orders", icon: FileSearch },
-    { name: t.delivery, href: "/dashboard/sales/delivery", icon: Truck },
-    { name: t.invoices, href: "/dashboard/sales/invoices", icon: Receipt },
+    { name: t.Navigation.invoicing, href: "/dashboard/invoicing", icon: FilePlus },
+    { name: t.Navigation.sales_hub, href: "/dashboard/sales", icon: CircleDollarSign },
+    { name: t.Navigation.orders, href: "/dashboard/sales/orders", icon: FileSearch },
+    { name: t.Navigation.delivery, href: "/dashboard/sales/delivery", icon: Truck },
+    { name: t.Navigation.invoices, href: "/dashboard/sales/invoices", icon: Receipt },
   ]
   const logisticsNav = [
-    { name: t.logistics, href: "/dashboard/logistics", icon: Truck },
-    { name: t.fuel, href: "/dashboard/logistics/fuel", icon: Fuel },
-    { name: t.maintenance, href: "/dashboard/logistics/maintenance", icon: Wrench },
+    { name: t.Navigation.logistics, href: "/dashboard/logistics", icon: Truck },
+    { name: t.Navigation.fuel, href: "/dashboard/logistics/fuel", icon: Fuel },
+    { name: t.Navigation.maintenance, href: "/dashboard/logistics/maintenance", icon: Wrench },
   ]
   const btpNav = [
-    { name: t.projects, href: "/dashboard/btp/projects", icon: Pickaxe },
-    { name: t.situations, href: "/dashboard/btp/situations", icon: FileBadge },
+    { name: t.Navigation.projects, href: "/dashboard/btp/projects", icon: Pickaxe },
+    { name: t.Navigation.situations, href: "/dashboard/btp/situations", icon: FileBadge },
   ]
   const industryNav = [
-    { name: t.production, href: "/dashboard/industry/production", icon: Factory },
-    { name: t.recipes, href: "/dashboard/industry/recipes", icon: FileText },
+    { name: t.Navigation.production, href: "/dashboard/industry/production", icon: Factory },
+    { name: t.Navigation.recipes, href: "/dashboard/industry/recipes", icon: FileText },
   ]
   const healthNav = [
-    { name: t.health_lots, href: "/dashboard/health/lots", icon: FlaskConical },
+    { name: t.Navigation.health_lots, href: "/dashboard/health/lots", icon: FlaskConical },
   ]
   const inventoryNav = [
-    { name: t.inventory_stock, href: "/dashboard/inventory/stock", icon: Boxes },
-    { name: t.inventory_sessions, href: "/dashboard/inventory", icon: ClipboardCheck },
-    { name: t.assets, href: "/dashboard/accounting/assets", icon: Package },
+    { name: t.Navigation.inventory_stock, href: "/dashboard/inventory/stock", icon: Boxes },
+    { name: t.Navigation.inventory_sessions, href: "/dashboard/inventory", icon: ClipboardCheck },
+    { name: t.Navigation.assets, href: "/dashboard/accounting/assets", icon: Package },
   ]
   const purchaseNav = [
-    { name: t.purchase_hub, href: "/dashboard/purchases", icon: ShoppingCart },
-    { name: t.purchase_requests, href: "/dashboard/purchases/requests", icon: FilePlus2 },
-    { name: t.invoices, href: "/dashboard/purchases/invoices", icon: Receipt },
+    { name: t.Navigation.purchase_hub, href: "/dashboard/purchases", icon: ShoppingCart },
+    { name: t.Navigation.purchase_requests, href: "/dashboard/purchases/requests", icon: FilePlus2 },
+    { name: t.Navigation.invoices, href: "/dashboard/purchases/invoices", icon: Receipt },
   ]
   const accountingNav = [
-    { name: t.journal, href: "/dashboard/accounting", icon: BookText },
-    { name: t.ledger, href: "/dashboard/accounting/ledger", icon: Library },
-    { name: t.financial_statements, href: "/dashboard/accounting/financial-statements", icon: FileBarChart },
+    { name: t.Navigation.journal, href: "/dashboard/accounting", icon: BookText },
+    { name: t.Navigation.ledger, href: "/dashboard/accounting/ledger", icon: Library },
+    { name: t.Navigation.financial_statements, href: "/dashboard/accounting/financial-statements", icon: FileBarChart },
   ]
   const analyticNav = [
-    { name: t.analytic_reporting, href: "/dashboard/accounting/analytic/reporting", icon: PieChart },
-    { name: t.analytic_settings, href: "/dashboard/accounting/analytic/settings", icon: Layers },
+    { name: t.Navigation.analytic_reporting, href: "/dashboard/accounting/analytic/reporting", icon: PieChart },
+    { name: t.Navigation.analytic_settings, href: "/dashboard/accounting/analytic/settings", icon: Layers },
   ]
   const payrollNav = [
-    { name: t.payroll_register, href: "/dashboard/payroll", icon: Users },
-    { name: t.payroll_compliance, href: "/dashboard/payroll/compliance", icon: ShieldCheck },
-    { name: t.payroll_ledger, href: "/dashboard/payroll/ledger", icon: BookOpen },
+    { name: t.Navigation.payroll_register, href: "/dashboard/payroll", icon: Users },
+    { name: t.Navigation.payroll_compliance, href: "/dashboard/payroll/compliance", icon: ShieldCheck },
+    { name: t.Navigation.payroll_ledger, href: "/dashboard/payroll/ledger", icon: BookOpen },
   ]
   const fiscalNav = [
-    { name: t.declarations, href: "/dashboard/declarations", icon: FileText },
-    { name: t.etat104, href: "/dashboard/declarations/etat104", icon: TableProperties },
-    { name: t.liasse_g4, href: "/dashboard/declarations/g4", icon: FileText },
+    { name: t.Navigation.declarations, href: "/dashboard/declarations", icon: FileText },
+    { name: t.Navigation.etat104, href: "/dashboard/declarations/etat104", icon: TableProperties },
+    { name: t.Navigation.liasse_g4, href: "/dashboard/declarations/g4", icon: FileText },
   ]
 
   return (
     <>
-    <Sidebar variant="sidebar" collapsible="icon" className="border-r border-sidebar-border/50">
+    <Sidebar variant="sidebar" collapsible="icon" className="border-r border-e border-sidebar-border/50">
       <SidebarHeader className="bg-sidebar p-4">
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton size="lg" className="hover:bg-sidebar-accent transition-all duration-200 border border-transparent hover:border-sidebar-border">
-                  <div className="flex aspect-square size-9 items-center justify-center rounded-xl bg-primary text-white shadow-lg shadow-primary/20">
+                  <div className="flex aspect-square size-9 items-center justify-center rounded-xl bg-primary text-white shadow-lg shadow-primary/20 shrink-0">
                     <Building2 className="size-5" />
                   </div>
-                  <div className={`flex flex-col gap-0.5 leading-none ${locale === 'ar' ? 'mr-2' : 'ml-2'}`}>
-                    <span className="font-bold text-sm text-sidebar-foreground truncate w-32 uppercase tracking-tighter">
-                      {isTenantsLoading ? "..." : (currentTenant?.raisonSociale || "Sélectionnez un dossier")}
+                  <div className={`flex flex-col gap-0.5 leading-none ${isRtl ? 'me-2' : 'ms-2'}`}>
+                    <span className="font-black text-sm text-sidebar-foreground truncate w-32 uppercase tracking-tighter">
+                      {isTenantsLoading ? "..." : (currentTenant?.raisonSociale || "---")}
                     </span>
                     <div className="flex items-center gap-1">
                       <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                      <span className="text-[10px] font-bold text-sidebar-foreground/50 uppercase">
+                      <span className="text-[9px] font-black text-sidebar-foreground/50 uppercase tracking-widest">
                         {secteur}
                       </span>
                     </div>
                   </div>
-                  <ChevronDown className={`${locale === 'ar' ? 'mr-auto' : 'ml-auto'} size-4 text-sidebar-foreground/30`} />
+                  <ChevronDown className={`${isRtl ? 'me-auto' : 'ms-auto'} size-4 text-sidebar-foreground/30`} />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align={locale === 'ar' ? "end" : "start"} className="w-72 p-2 shadow-2xl rounded-xl">
+              <DropdownMenuContent align={isRtl ? "end" : "start"} className="w-72 p-2 shadow-2xl rounded-xl">
                 {tenants?.map((t) => (
                   <DropdownMenuItem key={t.id} onClick={() => handleTenantSelect(t.id)} className="cursor-pointer rounded-lg mb-1">
                     <div className="flex flex-col">
@@ -304,7 +309,7 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
                 ))}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setIsCreateDialogOpen(true); }} className="cursor-pointer font-bold text-primary text-xs flex items-center gap-2">
-                  <PlusCircle className="h-4 w-4" /> {t.new_dossier}
+                  <PlusCircle className="h-4 w-4" /> {t.Common.new_dossier}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -313,37 +318,37 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
       </SidebarHeader>
 
       <SidebarContent className="px-2">
-        <NavGroup label={locale === 'ar' ? "التوجيه والقرار" : "Pilotage & Décision"} items={pilotageNav} />
-        <NavGroup label={locale === 'ar' ? "العلاقات" : "Relations & CRM"} items={relationsNav} />
+        <NavGroup label={isRtl ? "التوجيه والقرار" : t.Navigation.global_ops} items={pilotageNav} />
+        <NavGroup label={isRtl ? "العلاقات" : "Relations & CRM"} items={relationsNav} />
         
-        <NavGroup label={locale === 'ar' ? "المبيعات" : "Ventes & Clients"} items={salesNav} visible={secteur === "COMMERCE" || secteur === "INDUSTRIE" || secteur === "TRANSPORT"} />
-        <NavGroup label={locale === 'ar' ? "اللوجستيك" : "Gestion Flotte"} items={logisticsNav} visible={secteur === "TRANSPORT"} />
-        <NavGroup label={locale === 'ar' ? "الأشغال" : "Gestion Chantiers"} items={btpNav} visible={secteur === "BTP"} />
-        <NavGroup label={locale === 'ar' ? "التصنيع" : "Production"} items={industryNav} visible={secteur === "INDUSTRIE"} />
-        <NavGroup label={locale === 'ar' ? "الصحة" : "Gestion Santé"} items={healthNav} visible={secteur === "SANTE"} />
+        <NavGroup label={isRtl ? "المبيعات" : "Ventes & Clients"} items={salesNav} visible={secteur === "COMMERCE" || secteur === "INDUSTRIE" || secteur === "TRANSPORT"} />
+        <NavGroup label={isRtl ? "اللوجستيك" : "Gestion Flotte"} items={logisticsNav} visible={secteur === "TRANSPORT"} />
+        <NavGroup label={isRtl ? "الأشغال" : "Gestion Chantiers"} items={btpNav} visible={secteur === "BTP"} />
+        <NavGroup label={isRtl ? "التصنيع" : "Production"} items={industryNav} visible={secteur === "INDUSTRIE"} />
+        <NavGroup label={isRtl ? "الصحة" : "Gestion Santé"} items={healthNav} visible={secteur === "SANTE"} />
 
-        <NavGroup label={locale === 'ar' ? "المخزون" : "Stocks & Patrimoine"} items={inventoryNav} visible={secteur !== "SERVICES" && secteur !== "PRO_LIBERALE"} />
+        <NavGroup label={isRtl ? "المخزون" : "Stocks & Patrimoine"} items={inventoryNav} visible={secteur !== "SERVICES" && secteur !== "PRO_LIBERALE"} />
 
-        <NavGroup label={locale === 'ar' ? "المشتريات" : "Achats & Dépenses"} items={purchaseNav} visible={secteur !== "PRO_LIBERALE"} />
-        <NavGroup label={locale === 'ar' ? "المحاسبة" : "Comptabilité SCF"} items={accountingNav} />
-        <NavGroup label={locale === 'ar' ? "التحليل" : "Comptabilité Analytique"} items={analyticNav} />
-        <NavGroup label={locale === 'ar' ? "الموارد البشرية" : "RH & Paie"} items={payrollNav} />
-        <NavGroup label={locale === 'ar' ? "الضرائب" : "Fiscalité & Sociaux"} items={fiscalNav} />
+        <NavGroup label={isRtl ? "المشتريات" : "Achats & Dépenses"} items={purchaseNav} visible={secteur !== "PRO_LIBERALE"} />
+        <NavGroup label={isRtl ? "المحاسبة" : "Comptabilité SCF"} items={accountingNav} />
+        <NavGroup label={isRtl ? "التحليل" : "Comptabilité Analytique"} items={analyticNav} />
+        <NavGroup label={isRtl ? "الموارد البشرية" : "RH & Paie"} items={payrollNav} />
+        <NavGroup label={isRtl ? "الضرائب" : "Fiscalité & Sociaux"} items={fiscalNav} />
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/40 uppercase tracking-[0.15em] text-[9px] font-black mt-2">{locale === 'ar' ? "الدعم والإعدادات" : "Support & Config"}</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-sidebar-foreground/40 uppercase tracking-[0.15em] text-[9px] font-black mt-2">{t.Navigation.config_section}</SidebarGroupLabel>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname === "/dashboard/support"} tooltip={t.support}>
+              <SidebarMenuButton asChild isActive={pathname === "/dashboard/support"} tooltip={t.Navigation.support}>
                 <Link href={currentTenant ? `/dashboard/support?tenantId=${currentTenant.id}` : "/dashboard/support"}>
-                  <LifeBuoy /><span>{t.support}</span>
+                  <LifeBuoy /><span>{t.Navigation.support}</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname === "/dashboard/settings"} tooltip={t.settings}>
+              <SidebarMenuButton asChild isActive={pathname === "/dashboard/settings"} tooltip={t.Navigation.settings}>
                 <Link href={currentTenant ? `/dashboard/settings?tenantId=${currentTenant.id}` : "/dashboard/settings"}>
-                  <Settings /><span>{t.settings}</span>
+                  <Settings /><span>{t.Navigation.settings}</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -361,21 +366,21 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
                     <AvatarImage src={`https://picsum.photos/seed/${user?.uid || 'user'}/40/40`} />
                     <AvatarFallback className="rounded-xl bg-primary text-white font-bold">DZ</AvatarFallback>
                   </Avatar>
-                  <div className={`flex flex-col gap-0.5 text-left text-sm leading-tight ${locale === 'ar' ? 'mr-2' : 'ml-2'}`}>
+                  <div className={`flex flex-col gap-0.5 text-left text-sm leading-tight ${isRtl ? 'me-2' : 'ms-2'}`}>
                     <span className="font-bold text-sidebar-foreground truncate w-32">
                       {user?.displayName || user?.email?.split('@')[0] || "Mon Compte"}
                     </span>
-                    <span className="text-[10px] font-bold text-sidebar-foreground/40 uppercase tracking-tighter">{locale === 'ar' ? "خبير محاسب" : "Expert-Comptable"}</span>
+                    <span className="text-[10px] font-bold text-sidebar-foreground/40 uppercase tracking-tighter">{isRtl ? "خبير محاسب" : "Expert-Comptable"}</span>
                   </div>
-                  <ChevronDown className={`${locale === 'ar' ? 'mr-auto' : 'ml-auto'} size-4 text-sidebar-foreground/30`} />
+                  <ChevronDown className={`${isRtl ? 'me-auto' : 'ms-auto'} size-4 text-sidebar-foreground/30`} />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
-              <DropdownMenuContent side="top" align={locale === 'ar' ? "start" : "end"} className="w-64 p-2 shadow-2xl rounded-xl">
+              <DropdownMenuContent side="top" align={isRtl ? "start" : "end"} className="w-64 p-2 shadow-2xl rounded-xl">
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard/profile" className="flex items-center gap-2 cursor-pointer font-medium text-sm py-2"><UserIcon className="h-4 w-4" /> {t.profile}</Link>
+                  <Link href="/dashboard/profile" className="flex items-center gap-2 cursor-pointer font-medium text-sm py-2"><UserIcon className="h-4 w-4" /> {t.Common.profile}</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 cursor-pointer text-destructive font-bold text-sm py-2"><LogOut className="h-4 w-4" /> {t.logout}</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 cursor-pointer text-destructive font-bold text-sm py-2"><LogOut className="h-4 w-4" /> {t.Common.logout}</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>
@@ -384,21 +389,21 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
     </Sidebar>
 
     <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()} dir={locale === 'ar' ? 'rtl' : 'ltr'}>
+      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()} dir={isRtl ? 'rtl' : 'ltr'}>
         <DialogHeader>
-          <DialogTitle>{t.new_dossier}</DialogTitle>
-          <DialogDescription>{locale === 'ar' ? "تكوين المعلمات الأساسية والملف المهني." : "Configurez les paramètres de base et le profil métier."}</DialogDescription>
+          <DialogTitle>{t.Common.new_dossier}</DialogTitle>
+          <DialogDescription>{isRtl ? "تكوين المعلمات الأساسية والملف المهني." : "Configurez les paramètres de base et le profil métier."}</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="grid gap-2 text-right">
-            <Label htmlFor="raisonSociale">{locale === 'ar' ? "اسم الشركة" : "Raison Sociale"}</Label>
-            <Input id="raisonSociale" placeholder="SARL ..." value={newTenantData.raisonSociale} onChange={e => setNewTenantData({...newTenantData, raisonSociale: e.target.value})} />
+          <div className="grid gap-2">
+            <Label htmlFor="raisonSociale" className={isRtl ? 'text-right' : 'text-left'}>{isRtl ? "اسم الشركة" : "Raison Sociale"}</Label>
+            <Input id="raisonSociale" placeholder="SARL ..." value={newTenantData.raisonSociale} onChange={e => setNewTenantData({...newTenantData, raisonSociale: e.target.value})} className={isRtl ? 'text-right' : 'text-left'} />
           </div>
         </div>
         <DialogFooter>
-          <Button onClick={handleCreateTenant} disabled={isCreating} className="w-full">
-            {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-            {t.new_dossier}
+          <Button onClick={handleCreateTenant} disabled={isCreating} className="w-full font-bold">
+            {isCreating ? <Loader2 className="ms-2 h-4 w-4 animate-spin" /> : <Plus className="ms-2 h-4 w-4" />}
+            {t.Common.new_dossier}
           </Button>
         </DialogFooter>
       </DialogContent>
