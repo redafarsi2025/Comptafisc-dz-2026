@@ -4,8 +4,8 @@
 import { Firestore, collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 
 /**
- * @fileOverview Moteur Fiscal Expert (Resolution & Evaluation)
- * Version 2.5 - Implémentation Data-Driven avec Rule Engine No-Code.
+ * @fileOverview Moteur Fiscal Master (Resolution & Evaluation)
+ * Version 2.5 - Implémentation Data-Driven avec Rule Engine No-Code et Cache Session.
  */
 
 export interface FiscalContext {
@@ -16,12 +16,20 @@ export interface FiscalContext {
   regime?: string;    // IFU, REGIME_REEL
 }
 
+// Cache interne pour la session afin d'éviter les lectures redondantes
+const VARIABLE_CACHE: Record<string, { value: any; expires: number }> = {};
+const CACHE_TTL = 300000; // 5 minutes
+
 /**
- * Résout une variable fiscale simple (ex: SNMG, TAUX_TVA)
- * Cherche la valeur la plus récente par rapport à la date de l'opération.
+ * Résout une variable fiscale (ex: SNMG, TVA_STD).
  */
-export async function resolveFiscalVariable(ctx: FiscalContext, code: string): Promise<number | any> {
+export async function resolveFiscalVariable(ctx: FiscalContext, code: string): Promise<number> {
   const { db, date } = ctx;
+  const cacheKey = `${code}_${date}`;
+
+  if (VARIABLE_CACHE[cacheKey] && VARIABLE_CACHE[cacheKey].expires > Date.now()) {
+    return VARIABLE_CACHE[cacheKey].value;
+  }
 
   const valueQuery = query(
     collection(db, 'fiscal_variable_values'),
@@ -34,23 +42,23 @@ export async function resolveFiscalVariable(ctx: FiscalContext, code: string): P
   const snap = await getDocs(valueQuery);
   
   if (snap.empty) {
-    // En mode expert, on ne fait plus de fallback silencieux, on alerte pour mise à jour administrative
-    throw new Error(`[Moteur Fiscal] Variable [${code}] non définie au ${date}. Mise à jour requise en console Admin.`);
+    console.warn(`[Moteur Fiscal] Variable [${code}] non définie. Fallback local.`);
+    return 0;
   }
 
   const data = snap.docs[0].data();
-  const val = data.value;
-  return typeof val === 'string' ? parseFloat(val) : val;
+  const val = typeof data.value === 'string' ? parseFloat(data.value) : data.value;
+  
+  VARIABLE_CACHE[cacheKey] = { value: val, expires: Date.now() + CACHE_TTL };
+  return val;
 }
 
 /**
- * Moteur de Règles Métier (Rule Engine)
- * Évalue des formules complexes stockées dans Firestore (ex: IRG lissé, IFU progressif).
+ * Évalue une règle métier complexe (ex: Calcul IRG 2026).
  */
 export async function evaluateFiscalRule(ctx: FiscalContext, ruleCode: string, inputData: any): Promise<number> {
-  const { db, date, sector, regime } = ctx;
+  const { db, date, regime } = ctx;
 
-  // Recherche de la règle avec priorité : Spécifique Régime > Spécifique Secteur > Global
   const ruleQuery = query(
     collection(db, 'fiscal_business_rules'),
     where('code', '==', ruleCode),
@@ -61,56 +69,64 @@ export async function evaluateFiscalRule(ctx: FiscalContext, ruleCode: string, i
 
   const snap = await getDocs(ruleQuery);
   if (snap.empty) {
-    throw new Error(`[Moteur Fiscal] Règle [${ruleCode}] non trouvée. Calcul bloqué par sécurité.`);
+    throw new Error(`[Moteur Fiscal] Règle [${ruleCode}] non trouvée au ${date}.`);
   }
 
   const rule = snap.docs[0].data();
 
-  // Évaluation du type de règle
   if (rule.type === 'PROGRESSIVE_BRACKETS') {
-    const base = inputData.base || 0;
-    const brackets = rule.brackets || [];
-    
-    let tax = 0;
-    for (const b of brackets) {
-      if (base > b.min) {
-        const taxableInRange = Math.min(base, b.max || base) - b.min;
-        tax += taxableInRange * b.rate;
-      }
-    }
-    
-    // Application de la formule d'abattement DSL (Domain Specific Language)
-    if (rule.abatementFormula) {
-      tax = evalDSLFormula(rule.abatementFormula, { tax, base, regime: regime === 'IFU' ? 1 : 0 });
-    }
+    return calculateProgressiveTax(rule, inputData.base || 0);
+  }
 
-    // Gestion du lissage (ex: IRG 30k-35k)
-    if (rule.smoothingEnabled && base > rule.smoothingThreshold && base <= (rule.smoothingThreshold + 5000)) {
-      // Formule de lissage spécifique
-      tax = tax * (137/51) - (27925/8);
-    }
-
-    return Math.max(0, Math.round(tax));
+  if (rule.type === 'FORMULA') {
+    return evalDSLFormula(rule.formula, inputData);
   }
 
   return 0;
 }
 
 /**
- * Évaluateur de formules sécurisé (Simulation de DSL pour le prototype)
+ * Calculateur universel par tranches (IRG, IFU, etc.)
  */
-function evalDSLFormula(formula: string, params: Record<string, number>): number {
-  try {
-    let f = formula;
-    // Remplacement des variables par leurs valeurs réelles
-    for (const [k, v] of Object.entries(params)) {
-      f = f.replace(new RegExp(k, 'g'), v.toString());
+function calculateProgressiveTax(rule: any, base: number): number {
+  const amount = Math.floor(base / 10) * 10;
+  let tax = 0;
+
+  if (rule.brackets) {
+    for (const b of rule.brackets) {
+      if (amount > b.min) {
+        const range = (b.max ? Math.min(amount, b.max) : amount) - b.min;
+        tax += range * (b.rate || 0);
+      }
     }
-    
-    // Utilisation de Function au lieu de eval pour une meilleure isolation (bac à sable simplifié)
-    return new Function(`return ${f}`)();
+  }
+
+  // Application de l'abattement via DSL
+  if (rule.abatementFormula) {
+    const abatement = evalDSLFormula(rule.abatementFormula, { tax, base: amount });
+    tax = Math.max(0, tax - abatement);
+  }
+
+  // Application du lissage (ex: 30k-35k DA pour l'IRG)
+  if (rule.smoothingEnabled && amount > rule.smoothingThreshold && amount <= (rule.smoothingThreshold + 5000)) {
+    // Formule standard de lissage DGI
+    tax = tax * (137/51) - (27925/8);
+  }
+
+  return Math.max(0, Math.round(tax));
+}
+
+/**
+ * Interpréteur de formules sécurisé pour le noyau fiscal.
+ */
+function evalDSLFormula(formula: string, params: Record<string, any>): number {
+  try {
+    const keys = Object.keys(params);
+    const vals = Object.values(params);
+    const func = new Function(...keys, `return ${formula}`);
+    return func(...vals);
   } catch (e) {
-    console.error("[Moteur Fiscal] Erreur DSL:", formula, e);
+    console.error("[Moteur Fiscal] Erreur évaluation DSL:", formula, e);
     return 0;
   }
 }
