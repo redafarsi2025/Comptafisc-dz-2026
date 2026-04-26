@@ -147,7 +147,7 @@ export default function BusinessRulesConfig() {
                       <TableCell>
                         <div className="flex flex-col gap-1">
                           <code className="text-[10px] bg-slate-100 p-1 rounded border border-primary/10 text-primary">{rule.condition || rule.formula?.substring(0, 30)}...</code>
-                          {rule.dependsOn?.length &gt; 0 && (
+                          {rule.dependsOn && rule.dependsOn.length > 0 && (
                             <span className="text-[8px] text-muted-foreground flex items-center gap-1">
                               <Layers className="h-2 w-2" /> Dépend de : {rule.dependsOn.join(', ')}
                             </span>
