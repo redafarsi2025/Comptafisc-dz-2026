@@ -42,12 +42,10 @@ import {
   ShoppingCart,
   Truck,
   CreditCard,
-  History,
   FileSearch,
   Plus,
   Undo2,
   FileMinus,
-  ArrowRightLeft,
   CircleDollarSign
 } from "lucide-react"
 
@@ -309,7 +307,13 @@ export function DashboardSidebar() {
                   </DropdownMenuItem>
                 ))}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setIsCreateDialogOpen(true)} className="cursor-pointer font-bold text-primary text-xs flex items-center gap-2">
+                <DropdownMenuItem 
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    setIsCreateDialogOpen(true);
+                  }} 
+                  className="cursor-pointer font-bold text-primary text-xs flex items-center gap-2"
+                >
                   <PlusCircle className="h-4 w-4" /> Nouveau Dossier
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -338,7 +342,7 @@ export function DashboardSidebar() {
                   <LifeBuoy />
                   <span>Assistance & Support</span>
                 </Link>
-              </SidebarMenuItem>
+              </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname === "/dashboard/settings"} tooltip="Paramètres">
@@ -346,7 +350,7 @@ export function DashboardSidebar() {
                   <Settings />
                   <span>Paramètres Dossier</span>
                 </Link>
-              </SidebarMenuItem>
+              </SidebarMenuButton>
             </SidebarMenuItem>
             
             {isSaaSAdmin && (
@@ -393,7 +397,7 @@ export function DashboardSidebar() {
     </Sidebar>
 
     <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-      <DialogContent>
+      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>Créer un nouveau dossier</DialogTitle>
           <DialogDescription>Configurez les paramètres de base de l'entreprise.</DialogDescription>
@@ -406,7 +410,6 @@ export function DashboardSidebar() {
               placeholder="Ex: SARL Ma Nouvelle Entreprise" 
               value={newTenantData.raisonSociale}
               onChange={e => setNewTenantData({...newTenantData, raisonSociale: e.target.value})}
-              autoFocus
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
