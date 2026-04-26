@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -20,14 +21,16 @@ import { toast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { getCompatibleUnits, convertQuantity, UNITS } from "@/lib/units-data"
 
 interface RecipeComponent {
   productId: string;
   code: string;
   description: string;
   quantity: number;
-  unit: string;
-  unitCost: number;
+  unit: string; // Unité utilisée dans la recette (ex: Grammes)
+  baseUnit: string; // Unité de stockage du produit (ex: KG)
+  unitCost: number; // Coût unitaire dans l'unité de STOCKAGE
 }
 
 export default function NewRecipePage() {
@@ -103,6 +106,7 @@ export default function NewRecipePage() {
       description: product.name,
       quantity: 1,
       unit: product.unit || "U",
+      baseUnit: product.unit || "U",
       unitCost: product.purchasePrice || product.costPrice || 0
     }]);
   };
@@ -111,14 +115,21 @@ export default function NewRecipePage() {
     setComponents(components.filter((_, i) => i !== idx));
   };
 
-  const updateComponentQty = (idx: number, qty: number) => {
+  const updateComponent = (idx: number, updates: Partial<RecipeComponent>) => {
     const newComps = [...components];
-    newComps[idx].quantity = qty;
+    newComps[idx] = { ...newComps[idx], ...updates };
     setComponents(newComps);
   };
 
+  /**
+   * Calcul du coût matière total avec prise en compte des conversions d'unités.
+   */
   const materialCost = React.useMemo(() => {
-    return components.reduce((sum, c) => sum + (c.quantity * c.unitCost), 0);
+    return components.reduce((sum, c) => {
+      // On convertit la quantité consommée (c.unit) en unité de prix (c.baseUnit)
+      const qtyInBaseUnit = convertQuantity(c.quantity, c.unit, c.baseUnit);
+      return sum + (qtyInBaseUnit * c.unitCost);
+    }, 0);
   }, [components]);
 
   const totalProductionCost = materialCost + formData.overheadCost;
@@ -191,7 +202,6 @@ export default function NewRecipePage() {
       });
       if (docRef) {
         toast({ title: "Composant créé", description: quickComponent.name });
-        // Automatically add to current recipe components
         addComponent(docRef.id);
         setIsComponentModalOpen(false);
         setQuickComponent({ code: "", name: "", purchasePrice: 0, unit: "U" });
@@ -263,8 +273,13 @@ export default function NewRecipePage() {
                             <Input value={quickProduct.code} onChange={e => setQuickProduct({...quickProduct, code: e.target.value})} placeholder="PF-001" />
                           </div>
                           <div className="space-y-2">
-                            <Label>Unité</Label>
-                            <Input value={quickProduct.unit} onChange={e => setQuickProduct({...quickProduct, unit: e.target.value})} placeholder="U, KG, L..." />
+                            <Label>Unité de Stockage</Label>
+                            <Select value={quickProduct.unit} onValueChange={v => setQuickProduct({...quickProduct, unit: v})}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {UNITS.map(u => <SelectItem key={u.code} value={u.code}>{u.label}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
                           </div>
                         </div>
                         <div className="space-y-2">
@@ -331,8 +346,13 @@ export default function NewRecipePage() {
                           <Input value={quickComponent.code} onChange={e => setQuickComponent({...quickComponent, code: e.target.value})} placeholder="MP-001" />
                         </div>
                         <div className="space-y-2">
-                          <Label>Unité</Label>
-                          <Input value={quickComponent.unit} onChange={e => setQuickComponent({...quickComponent, unit: e.target.value})} placeholder="KG, L..." />
+                          <Label>Unité de Stockage</Label>
+                          <Select value={quickComponent.unit} onValueChange={v => setQuickComponent({...quickComponent, unit: v})}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {UNITS.map(u => <SelectItem key={u.code} value={u.code}>{u.label}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
                         </div>
                       </div>
                       <div className="space-y-2">
@@ -359,8 +379,8 @@ export default function NewRecipePage() {
                 <TableHeader className="bg-slate-50">
                   <TableRow className="text-[9px] uppercase font-black h-12">
                     <TableHead className="pl-6">Référence / Nom</TableHead>
-                    <TableHead className="text-center">Quantité Unitaire</TableHead>
-                    <TableHead className="text-right">P.U Achat (Est.)</TableHead>
+                    <TableHead className="text-center">Dosage / Unité</TableHead>
+                    <TableHead className="text-right">Coût Stock (DA)</TableHead>
                     <TableHead className="text-right">Total Ligne HT</TableHead>
                     <TableHead className="w-16"></TableHead>
                   </TableRow>
@@ -376,34 +396,59 @@ export default function NewRecipePage() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    components.map((c, idx) => (
-                      <TableRow key={c.productId} className="h-16 hover:bg-slate-50/50 transition-colors">
-                        <TableCell className="pl-6">
-                          <div className="flex flex-col">
-                            <span className="font-bold text-xs uppercase">{c.description}</span>
-                            <span className="text-[9px] font-mono text-muted-foreground">{c.code}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center justify-center gap-2">
-                            <Input 
-                              type="number" 
-                              value={c.quantity} 
-                              onChange={e => updateComponentQty(idx, parseFloat(e.target.value) || 0)}
-                              className="h-8 w-20 text-center font-bold text-xs rounded-lg"
-                            />
-                            <span className="text-[10px] font-bold text-slate-400 uppercase">{c.unit}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-xs">{c.unitCost.toLocaleString()} DA</TableCell>
-                        <TableCell className="text-right font-black text-xs text-slate-700">{(c.quantity * c.unitCost).toLocaleString()} DA</TableCell>
-                        <TableCell className="text-center">
-                          <Button variant="ghost" size="icon" onClick={() => removeComponent(idx)} className="h-8 w-8 text-destructive hover:bg-red-50">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    components.map((c, idx) => {
+                      const compatibleUnits = getCompatibleUnits(c.baseUnit);
+                      const lineCost = convertQuantity(c.quantity, c.unit, c.baseUnit) * c.unitCost;
+                      
+                      return (
+                        <TableRow key={c.productId} className="h-20 hover:bg-slate-50/50 transition-colors">
+                          <TableCell className="pl-6">
+                            <div className="flex flex-col">
+                              <span className="font-bold text-xs uppercase">{c.description}</span>
+                              <span className="text-[9px] font-mono text-muted-foreground">{c.code}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col items-center gap-2">
+                              <div className="flex items-center gap-2">
+                                <Input 
+                                  type="number" 
+                                  value={c.quantity} 
+                                  onChange={e => updateComponent(idx, { quantity: parseFloat(e.target.value) || 0 })}
+                                  className="h-8 w-24 text-center font-bold text-xs rounded-lg"
+                                />
+                                <Select value={c.unit} onValueChange={v => updateComponent(idx, { unit: v })}>
+                                    <SelectTrigger className="h-8 w-24 text-[10px] font-bold"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        {compatibleUnits.map(u => <SelectItem key={u.code} value={u.code}>{u.label}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                              </div>
+                              <p className="text-[8px] text-muted-foreground uppercase font-black">Stocké en : {c.baseUnit}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                             <div className="flex flex-col">
+                                <span className="font-mono text-xs">{c.unitCost.toLocaleString()} DA</span>
+                                <span className="text-[8px] text-slate-400 uppercase">Par {c.baseUnit}</span>
+                             </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                             <div className="flex flex-col">
+                                <span className="font-black text-xs text-primary">{lineCost.toLocaleString()} DA</span>
+                                {c.unit !== c.baseUnit && (
+                                  <span className="text-[8px] text-emerald-600 font-bold uppercase italic">Incl. Conversion</span>
+                                )}
+                             </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button variant="ghost" size="icon" onClick={() => removeComponent(idx)} className="h-8 w-8 text-destructive hover:bg-red-50">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })
                   )}
                 </TableBody>
               </Table>
@@ -455,23 +500,23 @@ export default function NewRecipePage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-emerald-50 border border-emerald-100 rounded-3xl p-6 relative overflow-hidden">
+          <Card className="bg-emerald-50 border border-emerald-100 rounded-3xl p-6 relative overflow-hidden shadow-inner">
              <ShieldCheck className="absolute -right-4 -bottom-4 h-20 w-20 opacity-10 text-emerald-600" />
              <h4 className="text-[10px] font-black text-emerald-800 uppercase tracking-widest mb-2 flex items-center gap-2">
-               <ShieldCheck className="h-4 w-4" /> Certification Industrielle
+               <ShieldCheck className="h-4 w-4" /> Conversion Automatisée
              </h4>
              <p className="text-[11px] text-emerald-700 leading-relaxed font-medium">
-              "La définition exacte d'une nomenclature (BOM) permet de valoriser les stocks de produits finis (Compte 35) à leur coût de production réel conformément au SCF."
+              "Le système convertit intelligemment vos unités de dosage vers vos unités de stockage (ex: g vers kg). Le prix de revient est calculé avec une précision chirurgicale sur la base du PAMP réel."
              </p>
           </Card>
 
           <div className="p-6 bg-slate-100 rounded-3xl border border-slate-200">
              <div className="flex items-center gap-2 mb-3">
                <Sparkles className="h-4 w-4 text-primary" />
-               <span className="text-[10px] font-black uppercase text-primary tracking-widest">IA Insight</span>
+               <span className="text-[10px] font-black uppercase text-primary tracking-widest">Master Node Insight</span>
              </div>
              <p className="text-[10px] text-slate-500 italic leading-relaxed">
-               "Les prix unitaires des composants sont récupérés en temps réel depuis votre catalogue article (PAMP). Toute variation de prix fournisseur impactera instantanément votre coût de revient simulé ici."
+               "N'oubliez pas que pour l'industrie, le compte 35 (Produits Finis) sera débité du coût de revient total calculé ici lors de chaque clôture d'Ordre de Fabrication."
              </p>
           </div>
         </div>

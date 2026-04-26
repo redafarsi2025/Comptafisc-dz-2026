@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useSearchParams } from "next/navigation"
 import { toast } from "@/hooks/use-toast"
+import { UNITS } from "@/lib/units-data"
 
 export default function StockManagement() {
   const db = useFirestore()
@@ -187,12 +188,10 @@ export default function StockManagement() {
                     <Label>Unité de mesure</Label>
                     <Select value={newProduct.unit} onValueChange={v => setNewProduct({...newProduct, unit: v})}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="U">Unité (U)</SelectItem>
-                        <SelectItem value="KG">Kilogramme (KG)</SelectItem>
-                        <SelectItem value="L">Litre (L)</SelectItem>
-                        <SelectItem value="M">Mètre (M)</SelectItem>
-                        <SelectItem value="CARTON">Carton</SelectItem>
+                      <SelectContent className="max-h-60">
+                        {UNITS.map(u => (
+                          <SelectItem key={u.code} value={u.code}>{u.label}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -295,7 +294,7 @@ export default function StockManagement() {
 
             <DialogFooter className="mt-6 border-t pt-4">
               <Button onClick={handleAddProduct} disabled={isSaving} className="w-full h-12 text-lg">
-                {isSaving ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : <Save className="mr-2 h-5 w-5" />}
+                {isSaving ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : <Save className="mr-2 h-4 w-4" />}
                 Valider l'Article Expert
               </Button>
             </DialogFooter>
