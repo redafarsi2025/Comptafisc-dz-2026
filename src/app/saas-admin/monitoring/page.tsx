@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { useFirestore, useCollection, useMemoFirebase, useUser, useDoc } from "@/firebase"
 import { collection, doc } from "firebase/firestore"
 
@@ -108,7 +109,7 @@ export default function MonitoringPage() {
 
       <div className="grid md:grid-cols-2 gap-8">
         <Card className="shadow-2xl border-none ring-1 ring-border bg-white min-h-[400px] flex items-center justify-center relative overflow-hidden group">
-          <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-10 transition-opacity" />
           <CardContent className="text-center space-y-6 relative">
             <div className="h-20 w-20 rounded-3xl bg-primary/10 flex items-center justify-center mx-auto border-2 border-dashed border-primary/20 shadow-inner">
                <Database className="h-10 w-10 text-primary opacity-30" />
@@ -124,7 +125,7 @@ export default function MonitoringPage() {
         </Card>
 
         <Card className="shadow-2xl border-none ring-1 ring-border bg-white min-h-[400px] flex items-center justify-center relative overflow-hidden group">
-          <div className="absolute inset-0 bg-accent/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="absolute inset-0 bg-accent/5 opacity-0 group-hover:opacity-10 transition-opacity" />
           <CardContent className="text-center space-y-6 relative">
             <div className="h-20 w-20 rounded-3xl bg-accent/10 flex items-center justify-center mx-auto border-2 border-dashed border-accent/20 shadow-inner">
                <Zap className="h-10 w-10 text-accent opacity-30" />
