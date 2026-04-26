@@ -18,7 +18,7 @@ import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useFirestore, useCollection, useMemoFirebase, useDoc, useUser } from "@/firebase"
-import { collection, query, orderBy, doc, limit } from "firebase/firestore"
+import { collection, query, orderBy, doc, limit, where } from "firebase/firestore"
 import Link from "next/link"
 
 const PLAN_COLORS: Record<string, string> = {
@@ -59,7 +59,7 @@ export default function AdminDashboard() {
   const ticketsQuery = useMemoFirebase(() => (db && isSaaSAdmin) ? query(collection(db, "support_tickets"), where("status", "==", "open"), limit(5)) : null, [db, isSaaSAdmin]);
   const { data: pendingTickets } = useCollection(ticketsQuery);
 
-  const newsQuery = useMemoFirebase(() => (db && isSaaSAdmin) ? query(collection(db, "dgi_publications"), where("analysisCompleted", "==", true), limit(5)) : null, [db, isSaaSAdmin]);
+  const newsQuery = useMemoFirebase(() => (db && isSaaSAdmin) ? query(collection(db, "dgi_publications"), where("analysisCompleted", "==", true), orderBy("detectedAt", "desc"), limit(5)) : null, [db, isSaaSAdmin]);
   const { data: recentNews } = useCollection(newsQuery);
 
   const stats = React.useMemo(() => {
@@ -206,8 +206,8 @@ export default function AdminDashboard() {
             <CardContent className="h-[400px] p-0">
                <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={[
-                    { name: 'Jan', value: stats.totalTenants * 0.7 },
-                    { name: 'Feb', value: stats.totalTenants * 0.85 },
+                    { name: 'Jan', value: Math.round(stats.totalTenants * 0.7) },
+                    { name: 'Feb', value: Math.round(stats.totalTenants * 0.85) },
                     { name: 'Mar', value: stats.totalTenants }
                   ]} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
                     <defs>
@@ -267,7 +267,7 @@ export default function AdminDashboard() {
                     <div key={ticket.id} className="p-4 hover:bg-muted/30 transition-colors">
                       <div className="flex justify-between items-start mb-1">
                         <Badge variant="outline" className="text-[8px] border-amber-200 text-amber-700 bg-amber-50 h-4">OUVERT</Badge>
-                        <span className="text-[9px] text-muted-foreground">Tiers: {ticket.priority}</span>
+                        <span className="text-[9px] text-muted-foreground">Prio: {ticket.priority}</span>
                       </div>
                       <p className="text-xs font-bold truncate text-slate-900">{ticket.subject}</p>
                     </div>
@@ -358,7 +358,7 @@ export default function AdminDashboard() {
           </Card>
 
           <div className="grid grid-cols-1 gap-4">
-             <Card className="border-none shadow-xl ring-1 ring-border bg-white group hover:bg-primary transition-colors cursor-pointer" asChild>
+             <Card className="border-none shadow-xl ring-1 ring-border bg-white group hover:bg-primary transition-colors cursor-pointer">
                <Link href="/saas-admin/fiscal-engine" className="p-4 flex items-center justify-between">
                  <div className="flex items-center gap-3">
                    <div className="h-10 w-10 rounded-xl bg-primary/10 group-hover:bg-white/20 flex items-center justify-center">
@@ -373,7 +373,7 @@ export default function AdminDashboard() {
                </Link>
              </Card>
 
-             <Card className="border-none shadow-xl ring-1 ring-border bg-white group hover:bg-blue-600 transition-colors cursor-pointer" asChild>
+             <Card className="border-none shadow-xl ring-1 ring-border bg-white group hover:bg-blue-600 transition-colors cursor-pointer">
                <Link href="/saas-admin/monitoring" className="p-4 flex items-center justify-between">
                  <div className="flex items-center gap-3">
                    <div className="h-10 w-10 rounded-xl bg-blue-50 group-hover:bg-white/20 flex items-center justify-center">
