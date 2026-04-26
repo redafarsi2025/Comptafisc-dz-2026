@@ -117,8 +117,10 @@ export default function ProjectDetailPage() {
               <Edit3 className="mr-2 h-4 w-4" /> Modifier la fiche
             </Link>
           </Button>
-          <Button className="bg-primary shadow-xl h-11 px-6 rounded-xl font-bold">
-            <FileText className="mr-2 h-4 w-4" /> Rapport de Situation
+          <Button className="bg-primary shadow-xl h-11 px-6 rounded-xl font-bold" asChild>
+            <Link href={`/dashboard/btp/projects/${id}/report?tenantId=${tenantId}`}>
+              <FileText className="mr-2 h-4 w-4" /> Rapport de Situation
+            </Link>
           </Button>
         </div>
       </div>
