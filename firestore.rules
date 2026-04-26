@@ -14,7 +14,8 @@ service cloud.firestore {
 
     // --- User Profiles ---
     match /userProfiles/{userId} {
-      allow read, write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
     }
 
     // --- Support Tickets ---
@@ -27,7 +28,8 @@ service cloud.firestore {
 
     // --- System Configuration (Billing, Engine Params, etc.) ---
     match /system_config/{configId} {
-      allow read, write: if isAdmin();
+      allow read: if isSignedIn() && isAdmin();
+      allow write: if isSignedIn() && isAdmin();
     }
 
     // --- DGI Publications & Templates ---
@@ -69,11 +71,12 @@ service cloud.firestore {
 
     // --- SaaS Admin Records (ACCÈS CRITIQUE) ---
     match /saas_admins/{userId} {
-      // Un utilisateur doit pouvoir lire son propre statut sans récursion
+      // Un utilisateur doit pouvoir lire son propre statut
       allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      // Seuls les admins peuvent lister tous les admins pour la gestion
+      // Seuls les admins peuvent lister
       allow list: if isAdmin();
-      allow create: if isSignedIn(); 
+      // Un utilisateur peut créer son propre record s'il connaît le chemin (via clé d'admin en UI)
+      allow create: if isSignedIn() && request.auth.uid == userId; 
       allow update, delete: if isAdmin();
     }
 
