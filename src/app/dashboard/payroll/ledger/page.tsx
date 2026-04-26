@@ -7,12 +7,14 @@ import { collection, query, where, limit } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table"
-import { Printer, FileDown, BookOpen, Calendar, Calculator, ShieldCheck, Loader2, Send } from "lucide-react"
-import { PAYROLL_CONSTANTS, calculateIRG } from "@/lib/calculations"
+import { Printer, FileDown, BookOpen, Calendar, Calculator, ShieldCheck, Loader2, Send, FileText } from "lucide-react"
+import { PAYROLL_CONSTANTS, calculateIRG, processEmployeePayroll } from "@/lib/calculations"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useSearchParams } from "next/navigation"
 import { toast } from "@/hooks/use-toast"
+import { jsPDF } from "jspdf"
+import autoTable from 'jspdf-autotable'
 
 export default function PayrollLedger() {
   const db = useFirestore()
@@ -47,43 +49,31 @@ export default function PayrollLedger() {
   }, [db, currentTenant?.id]);
   const { data: employees, isLoading } = useCollection(employeesQuery);
 
+  const context = React.useMemo(() => ({
+    valeurPoint: currentTenant?.iepPointValue || PAYROLL_CONSTANTS.DEFAULT_VALEUR_POINT
+  }), [currentTenant]);
+
   const ledgerData = React.useMemo(() => {
     if (!employees) return [];
     
     return employees.map(emp => {
-      const base = Number(emp.baseSalary) || 0;
-      const primes = Number(emp.primesImposables) || 0;
-      const panier = Number(emp.indemnitePanier) || 0;
-      const transport = Number(emp.indemniteTransport) || 0;
-
-      const salairePoste = base + primes;
-      const cnasEmployee = salairePoste * PAYROLL_CONSTANTS.CNAS_EMPLOYEE;
-      const imposable = salairePoste - cnasEmployee;
-      const irg = calculateIRG(imposable, emp.isGrandSud, emp.isHandicapped);
-      const net = imposable - irg + panier + transport;
-      const cnasEmployer = salairePoste * PAYROLL_CONSTANTS.CNAS_EMPLOYER;
-
+      const pay = processEmployeePayroll(emp, context);
       return {
         ...emp,
-        salairePoste,
-        cnasEmployee,
-        imposable,
-        irg,
-        net,
-        cnasEmployer,
-        totalFrais: panier + transport
+        ...pay,
+        totalFrais: (Number(emp.indemnitePanier) || 0) + (Number(emp.indemniteTransport) || 0)
       };
     });
-  }, [employees]);
+  }, [employees, context]);
 
   const totals = React.useMemo(() => {
     return ledgerData.reduce((acc, curr) => ({
-      base: acc.base + (curr.baseSalary || 0),
+      base: acc.base + curr.salaireBase,
       poste: acc.poste + curr.salairePoste,
-      cnasE: acc.cnasE + curr.cnasEmployee,
+      cnasE: acc.cnasE + curr.cnasSalariale,
       irg: acc.irg + curr.irg,
       net: acc.net + curr.net,
-      cnasP: acc.cnasP + curr.cnasEmployer
+      cnasP: acc.cnasP + curr.cnasPatronale
     }), { base: 0, poste: 0, cnasE: 0, irg: 0, net: 0, cnasP: 0 });
   }, [ledgerData]);
 
@@ -124,6 +114,97 @@ export default function PayrollLedger() {
     }
   };
 
+  const generatePaySlip = (emp: any) => {
+    const doc = new jsPDF();
+    const monthName = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"][parseInt(selectedMonth)];
+
+    // 1. Header (Entreprise)
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text(currentTenant?.raisonSociale || "ENTREPRISE", 14, 15);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text(`Adresse : ${currentTenant?.adresse || "Non renseignée"}`, 14, 20);
+    doc.text(`NIF : ${currentTenant?.nif || "N/A"}`, 14, 25);
+    doc.text(`RC : ${currentTenant?.rc || "N/A"}`, 14, 30);
+
+    // 2. Title
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("BULLETIN DE PAIE", 105, 45, { align: "center" });
+    doc.setFontSize(10);
+    doc.text(`Période : ${monthName} 2026`, 105, 52, { align: "center" });
+
+    // 3. Employee Info Box
+    doc.setDrawColor(200);
+    doc.rect(14, 60, 182, 35);
+    doc.setFontSize(9);
+    doc.text(`Nom & Prénom : ${emp.name}`, 20, 70);
+    doc.text(`Matricule : ${emp.id.substring(0, 8).toUpperCase()}`, 20, 75);
+    doc.text(`Poste : ${emp.position}`, 20, 80);
+    doc.text(`NIN : ${emp.nin || "N/A"}`, 20, 85);
+
+    doc.text(`Date Embauche : ${emp.createdAt ? new Date(emp.createdAt).toLocaleDateString() : 'N/A'}`, 120, 70);
+    doc.text(`Indice : ${emp.indice}`, 120, 75);
+    doc.text(`Valeur Point : ${context.valeurPoint}`, 120, 80);
+    doc.text(`N° CNAS : ${emp.cnasNumber || "N/A"}`, 120, 85);
+
+    // 4. Payroll Table
+    const body = [
+      ["Salaire de base", emp.indice.toLocaleString(), context.valeurPoint.toLocaleString(), emp.salaireBase.toLocaleString(), ""],
+      ["Primes imposables", "", "", (emp.primesImposables || 0).toLocaleString(), ""],
+      ["Indemnité Panier", "", "", emp.indemnitePanier.toLocaleString(), ""],
+      ["Indemnité Transport", "", "", emp.indemniteTransport.toLocaleString(), ""],
+      ["Cotisation CNAS (Salariale)", emp.salairePoste.toLocaleString(), "9%", "", emp.cnasSalariale.toLocaleString()],
+      ["Impôt Revenu Global (IRG)", emp.imposable.toLocaleString(), "Barème 2026", "", emp.irg.toLocaleString()],
+    ];
+
+    autoTable(doc, {
+      startY: 105,
+      head: [['Désignation Rubrique', 'Base / Indice', 'Taux / VP', 'Gain (DA)', 'Retenue (DA)']],
+      body: body,
+      theme: 'grid',
+      headStyles: { fillColor: [12, 85, 204], textColor: [255, 255, 255], fontStyle: 'bold' },
+      styles: { fontSize: 8 },
+      columnStyles: {
+        0: { cellWidth: 60 },
+        1: { halign: 'right' },
+        2: { halign: 'center' },
+        3: { halign: 'right' },
+        4: { halign: 'right' },
+      }
+    });
+
+    const finalY = (doc as any).lastAutoTable.finalY + 10;
+
+    // 5. Totals & Net
+    doc.setFont("helvetica", "bold");
+    doc.rect(14, finalY, 182, 25);
+    doc.text("TOTAL BRUT :", 20, finalY + 10);
+    doc.text(`${emp.salairePoste.toLocaleString()} DA`, 70, finalY + 10, { align: "right" });
+    
+    doc.text("TOTAL RETENUES :", 20, finalY + 18);
+    doc.text(`${(emp.cnasSalariale + emp.irg).toLocaleString()} DA`, 70, finalY + 18, { align: "right" });
+
+    doc.setFontSize(12);
+    doc.text("NET À PAYER :", 110, finalY + 15);
+    doc.text(`${emp.net.toLocaleString()} DA`, 185, finalY + 15, { align: "right" });
+
+    // 6. Footer / Signatures
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text("Mode de paiement : Virement Bancaire", 14, finalY + 35);
+    
+    doc.text("Signature et Cachet Employeur", 40, finalY + 50);
+    doc.text("Signature du Salarié", 140, finalY + 50);
+
+    doc.line(14, finalY + 70, 80, finalY + 70);
+    doc.line(120, finalY + 70, 186, finalY + 70);
+
+    doc.save(`Bulletin_${emp.name.replace(/\s+/g, '_')}_${monthName}_2026.pdf`);
+    toast({ title: "Bulletin généré", description: `Le document pour ${emp.name} est prêt.` });
+  };
+
   if (isLoading) return <div className="flex items-center justify-center h-screen"><BookOpen className="animate-spin h-8 w-8 text-primary" /></div>
 
   return (
@@ -156,7 +237,7 @@ export default function PayrollLedger() {
             {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
             Journaliser la Paie
           </Button>
-          <Button variant="outline" size="sm" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Imprimer</Button>
+          <Button variant="outline" size="sm" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Imprimer Registre</Button>
         </div>
       </div>
 
@@ -182,7 +263,7 @@ export default function PayrollLedger() {
                   <TableHead className="text-right">IRG 2026</TableHead>
                   <TableHead className="text-right">Frais (P/T)</TableHead>
                   <TableHead className="text-right font-black text-primary">Net à Payer</TableHead>
-                  <TableHead className="text-right text-muted-foreground">Part Patr. (26%)</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -198,11 +279,15 @@ export default function PayrollLedger() {
                     </TableCell>
                     <TableCell className="text-right font-mono">{formatAmount(s.baseSalary)}</TableCell>
                     <TableCell className="text-right font-mono font-semibold">{formatAmount(s.salairePoste)}</TableCell>
-                    <TableCell className="text-right font-mono text-destructive">-{formatAmount(s.cnasEmployee)}</TableCell>
+                    <TableCell className="text-right font-mono text-destructive">-{formatAmount(s.cnasSalariale)}</TableCell>
                     <TableCell className="text-right font-mono text-destructive">-{formatAmount(s.irg)}</TableCell>
                     <TableCell className="text-right font-mono">+{formatAmount(s.totalFrais)}</TableCell>
                     <TableCell className="text-right font-mono font-black text-primary">{formatAmount(s.net)}</TableCell>
-                    <TableCell className="text-right font-mono text-muted-foreground">{formatAmount(s.cnasEmployer)}</TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => generatePaySlip(s)}>
+                        <FileText className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -216,7 +301,7 @@ export default function PayrollLedger() {
                     <TableCell className="text-right font-mono text-destructive">-{formatAmount(totals.irg)}</TableCell>
                     <TableCell className="text-right"></TableCell>
                     <TableCell className="text-right font-mono text-lg text-primary">{formatAmount(totals.net)} DA</TableCell>
-                    <TableCell className="text-right font-mono text-muted-foreground">{formatAmount(totals.cnasP)}</TableCell>
+                    <TableCell className="text-right"></TableCell>
                   </TableRow>
                 </TableFooter>
               )}
