@@ -177,7 +177,9 @@ export default function DashboardOverview() {
           <Card className="bg-primary text-white border-none shadow-lg hover:scale-[1.02] transition-transform cursor-pointer" asChild>
             <Link href={`/dashboard/btp/projects?tenantId=${currentTenant?.id}`}>
               <CardContent className="p-6 flex items-center gap-4">
-                <div className="h-12 w-12 rounded-2xl bg-white/20 flex items-center justify-center"><Pickaxe className="h-6 w-6 text-white" /></div>
+                <div className="h-12 w-12 rounded-2xl bg-white/20 flex items-center justify-center">
+                  <Pickaxe className="h-6 w-6 text-white" />
+                </div>
                 <div>
                   <h4 className="font-bold text-sm">Nouveau Chantier</h4>
                   <p className="text-[10px] opacity-70">Ouvrir un nouveau dossier de projet</p>
@@ -186,27 +188,33 @@ export default function DashboardOverview() {
             </Link>
           </Card>
         )}
+        
         <Card className="bg-slate-900 text-white border-none shadow-lg hover:scale-[1.02] transition-transform cursor-pointer" asChild>
           <Link href={`/dashboard/ocr?tenantId=${currentTenant?.id}`}>
             <CardContent className="p-6 flex items-center gap-4">
-              <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center"><Camera className="h-6 w-6 text-accent" /></div>
+              <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center">
+                <Camera className="h-6 w-6 text-accent" />
+              </div>
               <div>
                 <h4 className="font-bold text-sm">Scan Facture IA</h4>
                 <p className="text-[10px] opacity-70">Capture intelligente OCR Gemini</p>
               </div>
-            </Link>
-          </CardContent>
+            </CardContent>
+          </Link>
         </Card>
+
         <Card className="border-none shadow-lg hover:scale-[1.02] transition-transform cursor-pointer bg-white" asChild>
           <Link href={`/dashboard/inventory/stock?tenantId=${currentTenant?.id}`}>
             <CardContent className="p-6 flex items-center gap-4">
-              <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center"><Package className="h-6 w-6 text-primary" /></div>
+              <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+                <Package className="h-6 w-6 text-primary" />
+              </div>
               <div>
                 <h4 className="font-bold text-sm">Gestion de Stock</h4>
                 <p className="text-[10px] opacity-70">Contrôler l'état des références</p>
               </div>
-            </Link>
-          </CardContent>
+            </CardContent>
+          </Link>
         </Card>
       </div>
 
