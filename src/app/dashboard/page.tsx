@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -28,7 +27,8 @@ import { collection, query, where, limit } from "firebase/firestore"
 import { 
   TrendingUp, ArrowUpRight, BadgeCheck, 
   CheckCircle2, Activity, Sparkles, Landmark, History, ShieldCheck, Zap, Loader2,
-  ChevronRight, PlayCircle, Lightbulb, Target, ArrowRight, Pickaxe, Factory, ShoppingCart, Briefcase
+  ChevronRight, PlayCircle, Lightbulb, Target, ArrowRight, Pickaxe, Factory, ShoppingCart, Briefcase,
+  Camera
 } from "lucide-react"
 import { getIBSRate } from "@/lib/calculations"
 import { useSearchParams, useRouter } from "next/navigation"
@@ -249,7 +249,7 @@ export default function DashboardOverview() {
               <Activity className="h-5 w-5 text-primary" /> Analyse des Flux (HT)
             </CardTitle>
             <CardDescription>Évolution des produits et charges sur l'exercice en cours.</CardDescription>
-          </CardHeader>
+          </header>
           <CardContent className="h-[350px] pt-6">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthlyData}>
