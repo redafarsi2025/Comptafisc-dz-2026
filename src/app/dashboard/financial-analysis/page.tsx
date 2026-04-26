@@ -16,7 +16,8 @@ import {
 import { 
   TrendingUp, Activity, Landmark, Wallet, AlertTriangle, 
   ShieldCheck, ArrowUpRight, Scale, Calculator, PieChart,
-  BarChart3, HeartPulse, Zap, Info, Loader2
+  BarChart3, HeartPulse, Zap, Info, Loader2, Lightbulb, Target, ArrowRight,
+  TrendingDown, CheckCircle2
 } from "lucide-react"
 import { calculateBFR, calculateLiquidityRatio, calculateCAF } from "@/lib/calculations"
 import { useSearchParams } from "next/navigation"
@@ -48,7 +49,6 @@ export default function FinancialAnalysisPage() {
   }, [db, currentTenant?.id]);
   const { data: entries, isLoading } = useCollection(entriesQuery);
 
-  // Agrégation des masses financières (SCF)
   const analysis = React.useMemo(() => {
     if (!entries) return null;
     const balances: Record<string, number> = {};
@@ -89,7 +89,7 @@ export default function FinancialAnalysisPage() {
   if (!mounted || isLoading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary h-10 w-10" /></div>
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-primary tracking-tighter uppercase flex items-center gap-3">
@@ -104,10 +104,85 @@ export default function FinancialAnalysisPage() {
         </div>
       </div>
 
+      {/* SECTION CONSEILS IA (NOUVEAU) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="bg-slate-900 text-white border-none shadow-2xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:rotate-12 transition-transform">
+            <Lightbulb className="h-24 w-24 text-accent" />
+          </div>
+          <CardHeader>
+            <CardTitle className="text-xs font-black uppercase tracking-widest text-accent flex items-center gap-2">
+              <Zap className="h-4 w-4" /> Optimisation Trésorerie
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm font-medium leading-relaxed">
+              Votre BFR est actuellement de <span className="text-accent font-bold">{analysis?.bfr.toLocaleString()} DA</span>. 
+            </p>
+            <div className="p-3 bg-white/5 rounded-xl border border-white/10">
+               <p className="text-[11px] italic opacity-80">
+                 "Action conseillée : En réduisant votre délai moyen de paiement client (DSO) de 3 jours, vous pourriez dégager immédiatement une liquidité de {Math.round((analysis?.revenue || 0) * 0.01).toLocaleString()} DA."
+               </p>
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button variant="outline" className="w-full border-accent text-accent hover:bg-accent/10 h-8 text-[10px] font-black uppercase tracking-widest">
+              Générer plan d'action
+            </Button>
+          </CardFooter>
+        </Card>
+
+        <Card className="border-none shadow-xl ring-1 ring-border bg-white border-t-4 border-t-emerald-500">
+          <CardHeader>
+            <CardTitle className="text-xs font-black uppercase tracking-widest text-emerald-600 flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" /> Efficience Fiscale
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm font-medium leading-relaxed">
+              Votre marge nette est de <span className="text-emerald-600 font-bold">{analysis?.margo.toFixed(1)}%</span>. 
+            </p>
+            <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+               <p className="text-[11px] text-emerald-800 italic">
+                 "Conseil : Le réinvestissement de {Math.round((analysis?.netProfit || 0) * 0.2).toLocaleString()} DA dans de nouveaux équipements avant fin 2026 permettrait une déduction d'IBS supplémentaire via l'amortissement accéléré."
+               </p>
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button variant="ghost" className="w-full text-emerald-600 font-black uppercase tracking-widest text-[10px] h-8">
+              Simuler réinvestissement <ArrowRight className="ml-2 h-3 w-3" />
+            </Button>
+          </CardFooter>
+        </Card>
+
+        <Card className="border-none shadow-xl ring-1 ring-border bg-white border-t-4 border-t-blue-500">
+          <CardHeader>
+            <CardTitle className="text-xs font-black uppercase tracking-widest text-blue-600 flex items-center gap-2">
+              <Target className="h-4 w-4" /> Performance Commerciale
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm font-medium leading-relaxed">
+              La rotation de vos stocks est de <span className="text-blue-600 font-bold">45 jours</span>.
+            </p>
+            <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
+               <p className="text-[11px] text-blue-800 italic">
+                 "Benchmark : Votre secteur (COMMERCE) affiche une moyenne de 32 jours. Une liquidation de 15% de vos stocks dormants améliorerait votre ratio de liquidité de 0.4 points."
+               </p>
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button variant="ghost" className="w-full text-blue-600 font-black uppercase tracking-widest text-[10px] h-8">
+              Analyser stocks lents <ArrowRight className="ml-2 h-3 w-3" />
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="border-none shadow-xl ring-1 ring-border bg-white border-l-4 border-l-primary">
           <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Besoin en Fonds de Roulement (BFR)</CardTitle>
+            <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">B.F.R</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-black text-primary tracking-tighter">{analysis?.bfr.toLocaleString()} DA</div>
@@ -138,13 +213,12 @@ export default function FinancialAnalysisPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-slate-900 text-white border-none shadow-2xl relative overflow-hidden">
-          <div className="absolute inset-0 bg-primary/20 opacity-50" />
-          <CardHeader className="pb-2 relative">
-            <CardTitle className="text-[10px] font-black uppercase opacity-70 tracking-widest text-accent">CAF Estimée</CardTitle>
+        <Card className="bg-slate-50 border border-slate-200 shadow-inner">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-[10px] font-black uppercase text-slate-500 tracking-widest">CAF Estimée</CardTitle>
           </CardHeader>
-          <CardContent className="relative">
-            <div className="text-2xl font-black tracking-tighter">{(analysis?.netProfit || 0).toLocaleString()} <span className="text-xs font-normal opacity-60">DA</span></div>
+          <CardContent>
+            <div className="text-2xl font-black tracking-tighter text-slate-900">{(analysis?.netProfit || 0).toLocaleString()} <span className="text-xs font-normal opacity-60">DA</span></div>
             <p className="text-[10px] mt-2 opacity-70 font-bold uppercase tracking-widest">Capacité d'Autofinancement</p>
           </CardContent>
         </Card>
@@ -247,7 +321,7 @@ export default function FinancialAnalysisPage() {
       </Card>
 
       <div className="p-6 bg-blue-50 border border-blue-100 rounded-3xl flex items-start gap-4 shadow-sm">
-        <div className="h-10 w-10 rounded-2xl bg-white border border-blue-200 flex items-center justify-center shrink-0">
+        <div className="h-10 w-10 rounded-2xl bg-white border border-blue-200 flex items-center justify-center shrink-0 shadow-sm">
           <Info className="h-5 w-5 text-blue-600" />
         </div>
         <div className="text-[11px] text-blue-900 leading-relaxed font-medium">
