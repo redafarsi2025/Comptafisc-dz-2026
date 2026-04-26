@@ -1,13 +1,14 @@
 
 /**
  * @fileOverview Moniteur de Consommation Carburant Master Node.
+ * Intégration de la comptabilisation automatique des tickets.
  */
 
 "use client"
 
 import * as React from "react"
-import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, query, orderBy, limit } from "firebase/firestore"
+import { useFirestore, useUser, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase"
+import { collection, query, orderBy, limit, doc } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -16,13 +17,14 @@ import {
   Fuel, Plus, Search, Filter, Loader2, 
   TrendingUp, TrendingDown, History, 
   Zap, ShieldCheck, Gauge, Landmark,
-  ArrowRight, CreditCard, Droplets
+  ArrowRight, CreditCard, Droplets, CheckCircle2, Calculator
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { formatDZD } from "@/utils/fiscalAlgerie"
 import { cn } from "@/lib/utils"
+import { toast } from "@/hooks/use-toast"
 
 export default function FuelManagementPage() {
   const db = useFirestore()
@@ -31,6 +33,7 @@ export default function FuelManagementPage() {
   const tenantId = searchParams.get('tenantId')
   const [mounted, setMounted] = React.useState(false)
   const [searchTerm, setSearchTerm] = React.useState("")
+  const [isProcessingId, setIsProcessingId] = React.useState<string | null>(null)
 
   React.useEffect(() => { setMounted(true) }, [])
 
@@ -50,6 +53,69 @@ export default function FuelManagementPage() {
 
     return { totalLiters, totalCost, avgEfficiency };
   }, [logs]);
+
+  const handlePostToAccounting = async (log: any) => {
+    if (!db || !tenantId || !user) return;
+    setIsProcessingId(log.id);
+
+    try {
+      // 1. Générer l'écriture comptable (OD ou Caisse)
+      const journalEntriesRef = collection(db, "tenants", tenantId, "journal_entries");
+      const entryData = {
+        tenantId,
+        entryDate: log.date,
+        description: `CARBURANT ${log.fuelType} - ${log.vehiclePlate} (${log.gasStation})`,
+        documentReference: log.documentRef || "TICKET",
+        journalType: "CAISSE",
+        status: 'Validated',
+        createdAt: new Date().toISOString(),
+        createdByUserId: user.uid,
+        tenantMembers: { [user.uid]: 'owner' },
+        lines: [
+          { 
+            accountCode: "6061", 
+            accountName: "Fournitures non stockables (Carburant)", 
+            debit: log.totalAmount, 
+            credit: 0,
+            sectionId: log.vehiclePlate // Liaison analytique par plaque
+          },
+          { 
+            accountCode: "53", 
+            accountName: "Caisse", 
+            debit: 0, 
+            credit: log.totalAmount 
+          }
+        ]
+      };
+
+      await addDocumentNonBlocking(journalEntriesRef, entryData);
+
+      // 2. Mettre à jour le statut du log
+      await updateDocumentNonBlocking(doc(db, "tenants", tenantId, "fuel_logs", log.id), {
+        isComptabilise: true,
+        accountingEntryDate: new Date().toISOString()
+      });
+
+      toast({ 
+        title: "Écriture générée", 
+        description: `Le ticket de ${log.vehiclePlate} a été intégré au journal de Caisse.` 
+      });
+    } catch (e) {
+      console.error(e);
+      toast({ variant: "destructive", title: "Erreur comptabilisation" });
+    } finally {
+      setIsProcessingId(null);
+    }
+  };
+
+  const filteredLogs = React.useMemo(() => {
+    if (!logs) return [];
+    return logs.filter(l => 
+      l.vehiclePlate.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      l.vehicleName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      l.gasStation.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [logs, searchTerm]);
 
   if (!mounted) return null;
 
@@ -92,7 +158,7 @@ export default function FuelManagementPage() {
            </div>
            <div>
              <p className="text-[10px] font-black text-blue-800 uppercase leading-tight">TVA Récupérable</p>
-             <p className="text-[11px] text-blue-600 font-medium">Auto-extraite (G50)</p>
+             <p className="text-[11px] text-blue-600 font-medium">G50 Auto-calculée</p>
            </div>
         </Card>
       </div>
@@ -119,15 +185,16 @@ export default function FuelManagementPage() {
                 <TableHead className="text-right">Volume (L)</TableHead>
                 <TableHead className="text-right">Montant (DA)</TableHead>
                 <TableHead className="text-center">Efficience</TableHead>
-                <TableHead className="text-center pr-6">Statut</TableHead>
+                <TableHead className="text-center">Statut</TableHead>
+                <TableHead className="text-right pr-6">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-20"><Loader2 className="animate-spin h-8 w-8 mx-auto text-primary opacity-20" /></TableCell></TableRow>
-              ) : !logs?.length ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-20 text-muted-foreground italic text-xs uppercase font-black opacity-20">Aucun ticket de carburant saisi.</TableCell></TableRow>
-              ) : logs.map((log) => (
+                <TableRow><TableCell colSpan={7} className="text-center py-20"><Loader2 className="animate-spin h-8 w-8 mx-auto text-primary opacity-20" /></TableCell></TableRow>
+              ) : !filteredLogs.length ? (
+                <TableRow><TableCell colSpan={7} className="text-center py-20 text-muted-foreground italic text-xs uppercase font-black opacity-20">Aucun ticket de carburant trouvé.</TableCell></TableRow>
+              ) : filteredLogs.map((log) => (
                 <TableRow key={log.id} className="hover:bg-muted/5 group transition-colors h-16">
                   <TableCell className="pl-6">
                     <div className="flex flex-col">
@@ -155,10 +222,26 @@ export default function FuelManagementPage() {
                       <span className="text-[8px] text-slate-300 italic">Initial</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-center pr-6">
+                  <TableCell className="text-center">
                     <Badge variant="outline" className={cn("text-[8px] font-black uppercase h-5", log.isComptabilise ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200")}>
                       {log.isComptabilise ? 'POINTÉ GL' : 'ATTENTE OD'}
                     </Badge>
+                  </TableCell>
+                  <TableCell className="text-right pr-6">
+                    {!log.isComptabilise ? (
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="h-7 text-[9px] font-black uppercase border-primary/20 text-primary hover:bg-primary/5"
+                        onClick={() => handlePostToAccounting(log)}
+                        disabled={isProcessingId === log.id}
+                      >
+                        {isProcessingId === log.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Calculator className="h-3 w-3 mr-1" />}
+                        Comptabiliser
+                      </Button>
+                    ) : (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500 ml-auto" />
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -170,10 +253,22 @@ export default function FuelManagementPage() {
       <div className="p-6 bg-slate-900 text-white rounded-3xl flex items-start gap-4 shadow-xl">
         <Zap className="h-6 w-6 text-accent shrink-0 mt-1" />
         <div className="text-xs leading-relaxed space-y-2">
-          <p className="font-bold text-accent uppercase tracking-widest">Expertise Master Logistique :</p>
-          <p className="opacity-80 italic">
-            "Le système détecte automatiquement les écarts de consommation supérieurs à 15% par rapport à la moyenne constructeur. Ces alertes permettent d'identifier les besoins de maintenance préventive (injecteurs, pneumatiques) ou les pertes anormales de carburant."
-          </p>
+          <p className="font-bold text-accent uppercase tracking-widest">Explication de la Logique de Calcul :</p>
+          <div className="grid md:grid-cols-2 gap-8 mt-4">
+             <div className="space-y-2 border-l-2 border-accent/20 pl-4">
+                <p className="font-bold text-white uppercase text-[10px]">Efficience (L/100km)</p>
+                <p className="opacity-70 leading-relaxed italic">
+                  Calculée automatiquement selon la formule : `(Volume du plein / (Index Actuel - Index Précédent)) * 100`. 
+                  Cela permet de détecter instantanément les vols de carburant ou les moteurs fatigués.
+                </p>
+             </div>
+             <div className="space-y-2 border-l-2 border-emerald-500/20 pl-4">
+                <p className="font-bold text-white uppercase text-[10px]">Liaison Comptable & Analytique</p>
+                <p className="opacity-70 leading-relaxed italic">
+                  L'action "Comptabiliser" transforme un ticket technique en écriture légale. Le montant TTC alimente le compte 6061 et réduit votre solde de Caisse (53), tout en s'imputant au véhicule pour son calcul de ROI.
+                </p>
+             </div>
+          </div>
         </div>
       </div>
     </div>
