@@ -2,14 +2,14 @@
 "use client"
 
 import * as React from "react"
-import { useFirestore, useUser, useCollection, useMemoFirebase, addDocumentNonBlocking } from "@/firebase"
-import { collection, query, where, limit } from "firebase/firestore"
+import { useFirestore, useUser, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase"
+import { collection, query, where, limit, doc } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Users, Plus, Search, Mail, Phone, Building2, MapPin, Loader2, Filter, UserCheck, ShieldCheck, Landmark } from "lucide-react"
+import { Users, Plus, Search, Mail, Phone, Building2, MapPin, Loader2, Filter, UserCheck, ShieldCheck, Landmark, Edit3 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -27,8 +27,10 @@ export default function ContactsPage() {
   const [activeType, setActiveType] = React.useState("ALL")
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [mounted, setMounted] = React.useState(false)
+  const [isSaving, setIsSaving] = React.useState(false)
+  const [editingContactId, setEditingContactId] = React.useState<string | null>(null)
   
-  const [newContact, setNewContact] = React.useState({
+  const initialContactState = {
     name: "",
     type: "Client",
     nif: "",
@@ -36,7 +38,9 @@ export default function ContactsPage() {
     phone: "",
     address: "",
     wilaya: "16"
-  })
+  }
+
+  const [contactForm, setContactForm] = React.useState(initialContactState)
 
   React.useEffect(() => { setMounted(true) }, [])
 
@@ -58,23 +62,55 @@ export default function ContactsPage() {
   }, [db, currentTenant?.id]);
   const { data: contacts, isLoading } = useCollection(contactsQuery);
 
-  const handleAddContact = async () => {
-    if (!db || !currentTenant || !newContact.name) return;
-
-    const contactData = {
-      ...newContact,
-      tenantId: currentTenant.id,
-      createdAt: new Date().toISOString()
-    };
+  const handleSaveContact = async () => {
+    if (!db || !currentTenant || !contactForm.name) return;
+    setIsSaving(true);
 
     try {
-      await addDocumentNonBlocking(collection(db, "tenants", currentTenant.id, "clients"), contactData);
-      toast({ title: "Tiers enregistré", description: `${newContact.name} a été ajouté à l'annuaire.` });
+      if (editingContactId) {
+        // Mode Edition
+        const contactRef = doc(db, "tenants", currentTenant.id, "clients", editingContactId);
+        await updateDocumentNonBlocking(contactRef, {
+          ...contactForm,
+          updatedAt: new Date().toISOString()
+        });
+        toast({ title: "Tiers mis à jour", description: `Les informations de ${contactForm.name} ont été modifiées.` });
+      } else {
+        // Mode Création
+        await addDocumentNonBlocking(collection(db, "tenants", currentTenant.id, "clients"), {
+          ...contactForm,
+          tenantId: currentTenant.id,
+          createdAt: new Date().toISOString()
+        });
+        toast({ title: "Tiers enregistré", description: `${contactForm.name} a été ajouté à l'annuaire.` });
+      }
       setIsDialogOpen(false);
-      setNewContact({ name: "", type: "Client", nif: "", email: "", phone: "", address: "", wilaya: "16" });
+      resetForm();
     } catch (e) {
       console.error(e);
+      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer les modifications." });
+    } finally {
+      setIsSaving(false);
     }
+  }
+
+  const handleEditClick = (contact: any) => {
+    setEditingContactId(contact.id);
+    setContactForm({
+      name: contact.name || "",
+      type: contact.type || "Client",
+      nif: contact.nif || "",
+      email: contact.email || "",
+      phone: contact.phone || "",
+      address: contact.address || "",
+      wilaya: contact.wilaya || "16"
+    });
+    setIsDialogOpen(true);
+  }
+
+  const resetForm = () => {
+    setEditingContactId(null);
+    setContactForm(initialContactState);
   }
 
   const filteredContacts = React.useMemo(() => {
@@ -106,22 +142,27 @@ export default function ContactsPage() {
           </h1>
           <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest mt-1">Annuaire centralisé des partenaires économiques</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) resetForm();
+        }}>
           <DialogTrigger asChild>
-            <Button className="bg-primary shadow-xl rounded-xl h-11 px-8 font-black uppercase text-[10px] tracking-widest" disabled={!currentTenant}>
+            <Button className="bg-primary shadow-xl rounded-xl h-11 px-8 font-black uppercase text-[10px] tracking-widest" disabled={!currentTenant} onClick={resetForm}>
               <Plus className="mr-2 h-4 w-4" /> Ajouter un Partenaire
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle className="text-2xl font-black uppercase tracking-tighter">Nouveau Tiers</DialogTitle>
+              <DialogTitle className="text-2xl font-black uppercase tracking-tighter">
+                {editingContactId ? "Modifier le Partenaire" : "Nouveau Tiers"}
+              </DialogTitle>
               <DialogDescription className="text-[10px] font-bold uppercase text-slate-400">Identification légale et coordonnées de contact</DialogDescription>
             </DialogHeader>
             <div className="grid gap-6 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Type de relation</Label>
-                  <Select value={newContact.type} onValueChange={(v) => setNewContact({...newContact, type: v})}>
+                  <Select value={contactForm.type} onValueChange={(v) => setContactForm({...contactForm, type: v})}>
                     <SelectTrigger className="h-11 rounded-xl bg-white">
                       <SelectValue />
                     </SelectTrigger>
@@ -134,8 +175,8 @@ export default function ContactsPage() {
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Raison Sociale / Nom*</Label>
                   <Input 
-                    value={newContact.name} 
-                    onChange={e => setNewContact({...newContact, name: e.target.value})} 
+                    value={contactForm.name} 
+                    onChange={e => setContactForm({...contactForm, name: e.target.value})} 
                     className="h-11 rounded-xl"
                     placeholder="Ex: SARL Grans Travaux"
                   />
@@ -147,15 +188,15 @@ export default function ContactsPage() {
                   <Label className="text-[10px] font-black uppercase text-slate-400 px-1">NIF (15 chiffres)</Label>
                   <Input 
                     placeholder="001..." 
-                    value={newContact.nif} 
-                    onChange={e => setNewContact({...newContact, nif: e.target.value})} 
+                    value={contactForm.nif} 
+                    onChange={e => setContactForm({...contactForm, nif: e.target.value})} 
                     className="h-11 rounded-xl font-mono"
                     maxLength={15}
                   />
                 </div>
                 <div className="space-y-2">
                    <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Wilaya du siège</Label>
-                   <Select value={newContact.wilaya} onValueChange={v => setNewContact({...newContact, wilaya: v})}>
+                   <Select value={contactForm.wilaya} onValueChange={v => setContactForm({...contactForm, wilaya: v})}>
                       <SelectTrigger className="h-11 rounded-xl bg-white"><SelectValue /></SelectTrigger>
                       <SelectContent className="max-h-60">
                         {WILAYAS.map(w => <SelectItem key={w.code} value={w.code}>{w.code} - {w.name}</SelectItem>)}
@@ -167,21 +208,24 @@ export default function ContactsPage() {
               <div className="grid grid-cols-2 gap-4 border-t pt-4">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Email professionnel</Label>
-                  <Input type="email" value={newContact.email} onChange={e => setNewContact({...newContact, email: e.target.value})} className="h-11 rounded-xl" />
+                  <Input type="email" value={contactForm.email} onChange={e => setContactForm({...contactForm, email: e.target.value})} className="h-11 rounded-xl" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Téléphone</Label>
-                  <Input value={newContact.phone} onChange={e => setNewContact({...newContact, phone: e.target.value})} className="h-11 rounded-xl" />
+                  <Input value={contactForm.phone} onChange={e => setContactForm({...contactForm, phone: e.target.value})} className="h-11 rounded-xl" />
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Adresse complète</Label>
-                <Input value={newContact.address} onChange={e => setNewContact({...newContact, address: e.target.value})} className="h-11 rounded-xl" />
+                <Input value={contactForm.address} onChange={e => setContactForm({...contactForm, address: e.target.value})} className="h-11 rounded-xl" />
               </div>
             </div>
             <DialogFooter className="bg-slate-50 p-4 -mx-6 -mb-6 border-t">
-              <Button onClick={handleAddContact} className="w-full h-12 text-lg shadow-xl bg-primary">Enregistrer le Partenaire</Button>
+              <Button onClick={handleSaveContact} disabled={isSaving} className="w-full h-12 text-lg shadow-xl bg-primary">
+                {isSaving ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : null}
+                {editingContactId ? "Enregistrer les modifications" : "Créer le Partenaire"}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -210,10 +254,10 @@ export default function ContactsPage() {
 
       <Tabs defaultValue="ALL" onValueChange={setActiveType} className="w-full">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
-          <TabsList className="bg-muted/50 p-1 rounded-2xl h-auto border">
-            <TabsTrigger value="ALL" className="py-2.5 px-8 rounded-xl font-black text-[10px] uppercase tracking-widest">Tous les tiers</TabsTrigger>
-            <TabsTrigger value="CLIENT" className="py-2.5 px-8 rounded-xl font-black text-[10px] uppercase tracking-widest">Clients</TabsTrigger>
-            <TabsTrigger value="FOURNISSEUR" className="py-2.5 px-8 rounded-xl font-black text-[10px] uppercase tracking-widest">Fournisseurs</TabsTrigger>
+          <TabsList className="bg-muted/50 p-1 rounded-2xl h-auto border shadow-inner">
+            <TabsTrigger value="ALL" className="py-2.5 px-8 rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-sm">Tous les tiers</TabsTrigger>
+            <TabsTrigger value="CLIENT" className="py-2.5 px-8 rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-sm">Clients</TabsTrigger>
+            <TabsTrigger value="FOURNISSEUR" className="py-2.5 px-8 rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-sm">Fournisseurs</TabsTrigger>
           </TabsList>
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -276,7 +320,14 @@ export default function ContactsPage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-right pr-8">
-                          <Button variant="ghost" size="sm" className="h-8 text-[10px] font-black uppercase text-primary rounded-xl opacity-0 group-hover:opacity-100 transition-all">Éditer</Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 text-[10px] font-black uppercase text-primary rounded-xl opacity-0 group-hover:opacity-100 transition-all"
+                            onClick={() => handleEditClick(c)}
+                          >
+                            <Edit3 className="h-3 w-3 mr-1" /> Modifier
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))
