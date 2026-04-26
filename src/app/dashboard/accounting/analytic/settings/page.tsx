@@ -5,7 +5,7 @@
 "use client"
 
 import * as React from "react"
-import { useFirestore, useUser, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase"
+import { useFirestore, useUser, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, useDoc } from "@/firebase"
 import { collection, query, orderBy, doc } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -15,13 +15,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { 
   Layers, Plus, Search, Settings2, 
   Database, ShieldCheck, Loader2, 
-  Trash2, Edit3, ChevronRight, FolderTree, Landmark
+  Trash2, Edit3, ChevronRight, FolderTree, Landmark,
+  Sparkles, Zap, Info
 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { useSearchParams } from "next/navigation"
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { seedDefaultAnalyticArchitecture } from "@/services/analytique/seed.service"
 
 export default function AnalyticSettings() {
   const db = useFirestore()
@@ -30,11 +32,16 @@ export default function AnalyticSettings() {
   const tenantId = searchParams.get('tenantId')
   const [mounted, setMounted] = React.useState(false)
   const [activeAxeId, setActiveAxeId] = React.useState<string | null>(null)
+  const [isInitializing, setIsInitializing] = React.useState(false)
 
   const [newAxe, setNewAxe] = React.useState({ code: "", libelle: "", obligatoire: false })
   const [newSection, setNewSection] = React.useState({ code: "", libelle: "" })
 
   React.useEffect(() => { setMounted(true) }, [])
+
+  // Charger le profil du tenant pour connaître son secteur
+  const tenantRef = useMemoFirebase(() => (db && tenantId) ? doc(db, "tenants", tenantId) : null, [db, tenantId]);
+  const { data: tenant } = useDoc(tenantRef);
 
   const axesQuery = useMemoFirebase(() => 
     (db && tenantId) ? query(collection(db, "tenants", tenantId, "axesAnalytiques"), orderBy("ordre", "asc")) : null
@@ -68,12 +75,30 @@ export default function AnalyticSettings() {
         ...newSection,
         axeId: activeAxeId,
         axeCode: axe?.code,
+        axeLibelle: axe?.libelle,
         actif: true,
         createdAt: new Date().toISOString()
       });
       toast({ title: "Section ajoutée", description: `Centre de coût ${newSection.code} prêt.` });
       setNewSection({ code: "", libelle: "" });
     } catch (e) { console.error(e); }
+  }
+
+  const handleInitializeDefault = async () => {
+    if (!db || !tenantId || !tenant?.secteurActivite) return;
+    setIsInitializing(true);
+    try {
+      await seedDefaultAnalyticArchitecture(db, tenantId, tenant.secteurActivite);
+      toast({ 
+        title: "Architecture Déployée", 
+        description: `Les axes standards pour le secteur ${tenant.secteurActivite} ont été créés.` 
+      });
+    } catch (e) {
+      console.error(e);
+      toast({ variant: "destructive", title: "Erreur d'initialisation" });
+    } finally {
+      setIsInitializing(false);
+    }
   }
 
   if (!mounted) return null;
@@ -87,7 +112,37 @@ export default function AnalyticSettings() {
           </h1>
           <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest mt-1">Structure Master - Centres de coûts & Projets</p>
         </div>
+        {axes?.length === 0 && !isAxesLoading && (
+          <Button 
+            onClick={handleInitializeDefault} 
+            disabled={isInitializing}
+            className="bg-accent text-primary font-black uppercase text-[10px] tracking-widest h-11 px-8 rounded-2xl shadow-lg animate-in fade-in slide-in-from-right-4"
+          >
+            {isInitializing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
+            Initialiser par défaut ({tenant?.secteurActivite || "SERVICES"})
+          </Button>
+        )}
       </div>
+
+      {axes?.length === 0 && !isAxesLoading && (
+        <Card className="border-2 border-dashed border-primary/20 bg-primary/5 rounded-3xl p-8 text-center space-y-4">
+           <div className="h-16 w-16 rounded-3xl bg-white flex items-center justify-center mx-auto shadow-sm">
+             <Layers className="h-8 w-8 text-primary opacity-20" />
+           </div>
+           <div className="max-w-md mx-auto space-y-2">
+             <h3 className="text-lg font-black uppercase tracking-tighter">Aucune structure détectée</h3>
+             <p className="text-xs text-muted-foreground leading-relaxed">
+               Votre comptabilité analytique n'est pas encore configurée. Vous pouvez créer vos axes manuellement ou utiliser notre 
+               <strong> configuration intelligente</strong> adaptée au secteur <strong>{tenant?.secteurActivite}</strong>.
+             </p>
+           </div>
+           <div className="pt-4">
+             <Button onClick={handleInitializeDefault} disabled={isInitializing} size="lg" className="rounded-2xl px-12 font-black uppercase text-xs tracking-widest bg-primary shadow-xl">
+               Déployer l'architecture métier
+             </Button>
+           </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <Card className="lg:col-span-1 shadow-xl border-none ring-1 ring-border bg-white rounded-3xl overflow-hidden">
@@ -98,7 +153,7 @@ export default function AnalyticSettings() {
             <Dialog>
               <DialogTrigger asChild><Button size="icon" variant="ghost" className="h-8 w-8 text-primary"><Plus className="h-4 w-4" /></Button></DialogTrigger>
               <DialogContent>
-                <DialogHeader><DialogTitle>Nouvel Axe de Analyse</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>Nouvel Axe d'Analyse</DialogTitle></DialogHeader>
                 <div className="grid gap-4 py-4 text-foreground">
                   <div className="grid gap-2"><Label>Code (CC, PRJ, ACT...)</Label><Input value={newAxe.code} onChange={e => setNewAxe({...newAxe, code: e.target.value})} placeholder="Ex: CC" /></div>
                   <div className="grid gap-2"><Label>Libellé</Label><Input value={newAxe.libelle} onChange={e => setNewAxe({...newAxe, libelle: e.target.value})} placeholder="Ex: Centre de Coût" /></div>
@@ -150,7 +205,7 @@ export default function AnalyticSettings() {
               <Dialog>
                 <DialogTrigger asChild><Button size="sm" className="h-9 px-4 rounded-xl"><Plus className="h-4 w-4 mr-2" /> Nouvelle Section</Button></DialogTrigger>
                 <DialogContent>
-                  <DialogHeader><DialogTitle>Ajouter un Centre de Coût</DialogTitle></DialogHeader>
+                  <DialogHeader><DialogTitle>Ajouter une Section</DialogTitle></DialogHeader>
                   <div className="grid gap-4 py-4 text-foreground">
                     <div className="grid gap-2"><Label>Code Section</Label><Input value={newSection.code} onChange={e => setNewSection({...newSection, code: e.target.value})} placeholder="Ex: ADM-RH" /></div>
                     <div className="grid gap-2"><Label>Libellé complet</Label><Input value={newSection.libelle} onChange={e => setNewSection({...newSection, libelle: e.target.value})} placeholder="Ex: Ressources Humaines" /></div>
