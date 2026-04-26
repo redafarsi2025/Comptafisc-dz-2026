@@ -6,9 +6,9 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/s
 import { DashboardSidebar } from "@/components/dashboard/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
-import { Bell, Search, Globe } from "lucide-react"
+import { Bell, Search, Globe, Loader2 } from "lucide-react"
 import { useUser, useFirestore } from "@/firebase"
-import { doc, setDoc, serverTimestamp } from "firebase/firestore"
+import { doc, setDoc } from "firebase/firestore"
 
 export default function DashboardLayout({
   children,
@@ -39,7 +39,9 @@ export default function DashboardLayout({
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
-        <DashboardSidebar />
+        <React.Suspense fallback={<div className="w-64 bg-white border-r flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
+          <DashboardSidebar />
+        </React.Suspense>
         <SidebarInset className="bg-background">
           <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-2 border-b bg-card px-4 shadow-sm transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
             <div className="flex items-center gap-4">
@@ -66,7 +68,9 @@ export default function DashboardLayout({
             </div>
           </header>
           <main className="flex-1 overflow-auto p-4 md:p-8">
-            {children}
+            <React.Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+              {children}
+            </React.Suspense>
           </main>
         </SidebarInset>
       </div>
