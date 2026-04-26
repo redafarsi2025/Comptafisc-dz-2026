@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -39,7 +40,11 @@ import {
   HandCoins,
   LifeBuoy,
   PlusCircle,
-  Loader2
+  Loader2,
+  Package,
+  ClipboardCheck,
+  Boxes,
+  History
 } from "lucide-react"
 
 import {
@@ -97,6 +102,12 @@ const accountingNav = [
   { name: "États Financiers", href: "/dashboard/accounting/financial-statements", icon: FileBarChart },
   { name: "Registre des Immos", href: "/dashboard/accounting/assets", icon: TrendingDown },
   { name: "Rapprochement Bancaire", href: "/dashboard/cabinet/bank-recon", icon: Landmark },
+]
+
+const inventoryNav = [
+  { name: "Sessions d'Inventaire", href: "/dashboard/inventory", icon: ClipboardCheck },
+  { name: "Gestion des Stocks", href: "/dashboard/inventory/stock", icon: Boxes },
+  { name: "Inventaire des Actifs", href: "/dashboard/inventory/assets", icon: Package },
 ]
 
 const businessNav = [
@@ -345,6 +356,7 @@ export function DashboardSidebar() {
       <SidebarContent className="px-2">
         <NavGroup label="Pilotage" items={pilotageNav} />
         <NavGroup label="Comptabilité SCF" items={accountingNav} />
+        <NavGroup label="Stocks & Inventaires" items={inventoryNav} />
         <NavGroup label="Activité & Tiers" items={businessNav} />
         <NavGroup label="RH & Paie" items={payrollNav} />
         <NavGroup label="Fiscalité & Sociaux" items={fiscalNav} />
