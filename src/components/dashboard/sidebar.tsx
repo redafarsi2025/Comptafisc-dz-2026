@@ -57,7 +57,9 @@ import {
   HeartPulse,
   Zap,
   Target,
-  Calculator
+  Calculator,
+  ShieldCheck,
+  AlertTriangle
 } from "lucide-react"
 
 import {
@@ -156,6 +158,7 @@ const inventoryNav = [
 const payrollNav = [
   { name: "Registre Personnel", href: "/dashboard/payroll", icon: Users },
   { name: "Simulateur RH", href: "/dashboard/payroll/simulator", icon: Calculator },
+  { name: "Audit & Conformité", href: "/dashboard/payroll/compliance", icon: ShieldCheck },
   { name: "Livre de Paie", href: "/dashboard/payroll/ledger", icon: BookOpen },
   { name: "Bordereau DAC (CNAS)", href: "/dashboard/payroll/dac", icon: CalendarCheck },
 ]
