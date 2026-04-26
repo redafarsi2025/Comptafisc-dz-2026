@@ -1,7 +1,6 @@
-
 /**
- * @fileOverview Moteur de Calcul (Refactoré v2.6)
- * Intégration des fonctions de Management Financier et Ratios de Pilotage.
+ * @fileOverview Moteur de Calcul (Refactoré v2.8)
+ * Alignement total sur les mesures de la Loi de Finances 2026.
  */
 
 export const TAX_RATES = {
@@ -10,7 +9,8 @@ export const TAX_RATES = {
   IBS_NORMAL: 0.26,
   IBS_PRODUCTION: 0.19,
   IBS_SERVICES: 0.23,
-  IBS_BTP: 0.26,
+  IBS_BTP: 0.23, // Réduit selon LF 2026
+  IRG_DIVIDENDES: 0.10, // Réduction LF 2026
   IFU_THRESHOLD: 8000000,
   IFU_AUTO_THRESHOLD: 5000000,
   IFU_MIN_STANDARD: 10000,
@@ -34,6 +34,7 @@ export const CASNOS_CONSTANTS = {
 
 /**
  * Calculateur IRG Salarié - Version 2026
+ * Applique le barème progressif avec lissage pour les bas salaires.
  */
 export function calculateIRG(netImposable: number, isGrandSud: boolean = false, isHandicapped: boolean = false): number {
   const amount = Math.floor(netImposable / 10) * 10;
@@ -51,6 +52,7 @@ export function calculateIRG(netImposable: number, isGrandSud: boolean = false, 
   if (abatement > 1500) abatement = 1500;
   tax = Math.max(0, tax - abatement);
 
+  // Lissage pour tranches 30 000 - 35 000 DA
   if (amount > 30000 && amount <= 35000) {
     tax = tax * (137/51) - (27925/8);
   }
@@ -73,28 +75,12 @@ export function calculateStampDuty(totalTTC: number, isCash: boolean): number {
   return Math.max(5, Math.min(2500, duty));
 }
 
-// --- Fonctions Expertes en Management Financier ---
+// --- Fonctions de Pilotage Financier ---
 
-/**
- * Calcule le Besoin en Fonds de Roulement (BFR)
- * Formule : Stocks + Créances Clients - Dettes Fournisseurs
- */
 export function calculateBFR(stocks: number, receivables: number, payables: number): number {
   return stocks + receivables - payables;
 }
 
-/**
- * Calcule la Capacité d'Autofinancement (CAF) simplifiée
- * Formule : Résultat Net + Dotations aux Amortissements
- */
-export function calculateCAF(netProfit: number, depreciation: number): number {
-  return netProfit + depreciation;
-}
-
-/**
- * Ratio de Liquidité Générale
- * Un ratio > 1 indique que l'entreprise peut payer ses dettes à court terme.
- */
 export function calculateLiquidityRatio(currentAssets: number, currentLiabilities: number): number {
   if (currentLiabilities === 0) return 0;
   return currentAssets / currentLiabilities;
@@ -116,6 +102,6 @@ export function getIFURate(secteur: string, formeJuridique: string): number {
 export function getIBSRate(secteur: string, activiteNAP?: string): number {
   if (secteur === 'INDUSTRIE' || secteur === 'PRODUCTION') return TAX_RATES.IBS_PRODUCTION;
   if (secteur === 'BTP') return TAX_RATES.IBS_BTP;
-  if (secteur === 'SERVICES') return TAX_RATES.IBS_SERVICES;
+  if (secteur === 'SERVICES' || secteur === 'COMMERCE') return TAX_RATES.IBS_NORMAL;
   return TAX_RATES.IBS_NORMAL;
 }

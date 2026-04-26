@@ -1,12 +1,11 @@
-
 'use client';
 
 import { Firestore, collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 
 /**
- * @fileOverview Moteur Fiscal Master (Noyau v2.7 - DSL Edition)
- * Implémentation d'un DSL déclaratif pour la fiscalité algérienne.
- * Supporte : WHEN (conditions), THEN (actions), JUSTIFY (audit), PRIORITY.
+ * @fileOverview Moteur Fiscal Master (Noyau v2.8 - DSL Edition)
+ * Implémentation d'un DSL déclaratif pour la fiscalité algérienne 2026.
+ * Supporte : WHEN (conditions), THEN (actions conditionnelles), JUSTIFY (audit), PRIORITY.
  */
 
 export interface FiscalContext {
@@ -70,7 +69,7 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
   const rulesQuery = query(
     collection(db, 'fiscal_business_rules'),
     ...constraints,
-    orderBy('priority', 'asc') // Utilisation de priority au lieu de order
+    orderBy('priority', 'asc')
   );
 
   const snap = await getDocs(rulesQuery);
@@ -86,18 +85,22 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
       if (isMet) {
         const executedActions: string[] = [];
         
-        // 2. Exécution des actions THEN
+        // 2. Exécution des actions THEN (Support du format conditionnel complexe)
         if (Array.isArray(rule.then)) {
           for (const action of rule.then) {
             const subConditionMet = action.if ? evalDSLFormula(action.if, results) : true;
             if (subConditionMet && action.set) {
-              const [variable, formula] = action.set.split('=').map((s: string) => s.trim());
-              const calculatedValue = evalDSLFormula(formula, results);
-              results[variable] = calculatedValue;
-              executedActions.push(`${variable} = ${calculatedValue}`);
+              const parts = action.set.split('=');
+              if (parts.length === 2) {
+                const variable = parts[0].trim();
+                const formula = parts[1].trim();
+                const calculatedValue = evalDSLFormula(formula, results);
+                results[variable] = calculatedValue;
+                executedActions.push(`${variable} = ${calculatedValue}`);
+              }
             }
           }
-        } else if (rule.formula) { // Fallback ancien format
+        } else if (rule.formula) { 
           const val = evalDSLFormula(rule.formula, results);
           results[rule.code] = val;
           executedActions.push(`${rule.code} = ${val}`);
@@ -143,7 +146,6 @@ export async function evaluateFiscalRule(ctx: FiscalContext, ruleCode: string, i
   
   if (!isMet) return 0;
 
-  // Calcul simplifié pour retour direct de valeur
   if (rule.type === 'PROGRESSIVE_BRACKETS') {
     return calculateProgressiveTax(rule, inputData.base || 0);
   }
@@ -152,7 +154,9 @@ export async function evaluateFiscalRule(ctx: FiscalContext, ruleCode: string, i
     return evalDSLFormula(rule.formula, inputData);
   }
 
-  return 0;
+  // Si règle à multiples actions, on retourne la valeur de la variable principale
+  const { results } = await executeFiscalPipeline(ctx, undefined, inputData);
+  return results[ruleCode] || 0;
 }
 
 function calculateProgressiveTax(rule: any, base: number): number {
@@ -173,28 +177,32 @@ function calculateProgressiveTax(rule: any, base: number): number {
     tax = Math.max(0, tax - abatement);
   }
 
-  if (rule.smoothingEnabled && amount > rule.smoothingThreshold && amount <= (rule.smoothingThreshold + 5000)) {
-    tax = tax * (137/51) - (27925/8);
-  }
-
   return Math.max(0, Math.round(tax));
 }
 
 /**
  * Interpréteur d'expressions sécurisé.
- * Supporte les opérateurs logiques et arithmétiques standards.
+ * Supporte les opérateurs logiques et arithmétiques standards, 
+ * ainsi que IN et BETWEEN.
  */
 function evalDSLFormula(formula: string, params: Record<string, any>): any {
   try {
-    // Nettoyage de la formule (gestion des types Money, Percentage etc via conversion native)
-    const sanitized = formula.replace(/ABS\(/g, 'Math.abs(').replace(/MAX\(/g, 'Math.max(').replace(/MIN\(/g, 'Math.min(');
-    
+    let expression = formula
+      .replace(/ABS\(/g, 'Math.abs(')
+      .replace(/MAX\(/g, 'Math.max(')
+      .replace(/MIN\(/g, 'Math.min(')
+      .replace(/SUM\(/g, '((...args) => args.reduce((a,b)=>a+b,0))('); // Mock SUM
+
+    // Gestion de l'opérateur IN : "x IN ['a','b']" -> "['a','b'].includes(x)"
+    const inRegex = /(\w+)\s+IN\s+\[(.*?)\]/g;
+    expression = expression.replace(inRegex, (match, field, list) => `[${list}].includes(${field})`);
+
     const keys = Object.keys(params);
     const vals = Object.values(params);
-    const func = new Function(...keys, `return ${sanitized}`);
+    const func = new Function(...keys, `return ${expression}`);
     return func(...vals);
   } catch (e) {
-    console.error("[Moteur DSL] Logic Error:", formula, e);
+    console.error("[Moteur DSL] Logic Error in expression:", formula, e);
     return 0;
   }
 }

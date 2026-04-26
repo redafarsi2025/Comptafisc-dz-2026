@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -12,14 +11,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { 
   DatabaseZap, Loader2, Sparkles, RefreshCcw, BrainCircuit, Check,
   Code2, Calculator, ShieldCheck, Play, FlaskConical, Beaker,
-  TrendingUp, ArrowRight, Database
+  TrendingUp, ArrowRight, Database, History, Gavel
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
 import { parseFiscalUpdate } from "@/ai/flows/fiscal-update-parsing"
-import { evaluateFiscalRule } from "@/lib/fiscal-engine"
+import { evaluateFiscalRule, executeFiscalPipeline } from "@/lib/fiscal-engine"
 
 export default function FiscalEngineAdmin() {
   const db = useFirestore()
@@ -29,17 +28,12 @@ export default function FiscalEngineAdmin() {
   const [isAiProcessing, setIsAiProcessing] = React.useState(false)
   const [aiProposals, setAiProposals] = React.useState<any[] | null>(null)
 
-  const [simBase, setSimBase] = React.useState("45000")
-  const [simResult, setSimResult] = React.useState<number | null>(null)
+  const [simBase, setSimBase] = React.useState("4500000")
+  const [simSector, setSimSector] = React.useState("PRODUCTION")
+  const [simResult, setSimResult] = React.useState<any>(null)
   const [isSimulating, setIsSimulating] = React.useState(false)
 
   React.useEffect(() => { setMounted(true) }, [])
-
-  const lawsQuery = useMemoFirebase(() => db ? query(collection(db, "fiscal_laws"), orderBy("publicationDate", "desc")) : null, [db]);
-  const { data: laws } = useCollection(lawsQuery);
-
-  const typesQuery = useMemoFirebase(() => db ? query(collection(db, "fiscal_variable_types"), orderBy("name", "asc")) : null, [db]);
-  const { data: types } = useCollection(typesQuery);
 
   const rulesQuery = useMemoFirebase(() => db ? query(collection(db, "fiscal_business_rules"), orderBy("priority", "asc")) : null, [db]);
   const { data: rules } = useCollection(rulesQuery);
@@ -58,83 +52,101 @@ export default function FiscalEngineAdmin() {
     }
   }
 
-  const handleRunSimulation = async (ruleCode: string) => {
+  const handleRunFullSimulation = async () => {
     if (!db) return;
     setIsSimulating(true);
     try {
-      const res = await evaluateFiscalRule(
-        { db, date: new Date().toISOString().split('T')[0] },
-        ruleCode,
-        { base: parseFloat(simBase) }
+      const { results, traces } = await executeFiscalPipeline(
+        { db, date: "2026-01-01" },
+        undefined,
+        { resultat_fiscal: parseFloat(simBase), secteur: simSector, multi_activite: false }
       );
-      setSimResult(res);
+      setSimResult({ results, traces });
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Erreur", description: e.message });
+      toast({ variant: "destructive", title: "Erreur simulation", description: e.message });
     } finally {
       setIsSimulating(false);
     }
   }
 
-  const handleInitialize2026 = async () => {
+  const handleInitialize2026DSL = async () => {
     if (!db) return;
     setIsInitializing(true);
     try {
       const lawId = "LF_2026";
-      await setDocumentNonBlocking(doc(db, "fiscal_laws", lawId), {
-        id: lawId,
-        name: "Loi de Finances 2026",
-        description: "Mise à jour SNMG 24k et barèmes IRG lissés.",
-        effectiveStartDate: "2026-01-01",
-        publicationDate: "2025-12-30",
-        status: 'VALIDATED'
-      }, { merge: true });
-
-      // Règle IBS via nouveau moteur DSL
-      const ibsRuleId = "RULE_IBS_2026";
-      await setDocumentNonBlocking(doc(db, "fiscal_business_rules", ibsRuleId), {
-        id: ibsRuleId,
-        code: "IBS_CALC",
-        name: "Calcul IBS 2026",
+      
+      // 1. Règle IBS 2026 (Taux différentiés)
+      await setDocumentNonBlocking(doc(db, "fiscal_business_rules", "RULE_IBS_2026"), {
+        id: "RULE_IBS_2026",
+        code: "IBS_TAUX",
+        name: "IBS : Taux par secteur 2026",
         category: "FISCAL",
-        priority: 300,
+        priority: 100,
         active: true,
         effectiveStartDate: "2026-01-01",
         sourceLawId: lawId,
-        when: "resultat > 0",
+        when: "resultat_fiscal > 0",
         then: [
-          { if: "secteur == 'PRODUCTION'", set: "IBS = resultat * 0.19" },
-          { if: "secteur == 'BTP'", set: "IBS = resultat * 0.26" },
-          { if: "secteur == 'SERVICES'", set: "IBS = resultat * 0.23" }
+          { if: "secteur == 'PRODUCTION'", set: "taux_IBS = 0.19" },
+          { if: "secteur == 'BTP'", set: "taux_IBS = 0.23" },
+          { if: "secteur == 'SERVICES' || secteur == 'COMMERCE'", set: "taux_IBS = 0.26" },
+          { set: "IBS = resultat_fiscal * taux_IBS" }
         ],
-        justify: "Calcul de l'IBS selon le taux préférentiel par secteur (Art. 150 CIDTA)."
+        justify: "Application des taux IBS différentiés selon l'activité (Art. 150 CIDTA)."
       }, { merge: true });
 
-      const irgRuleId = "RULE_IRG_SALARY_2026";
-      await setDocumentNonBlocking(doc(db, "fiscal_business_rules", irgRuleId), {
-        id: irgRuleId,
-        code: "IRG_SALARY",
-        name: "Calcul IRG Salarié 2026",
-        type: "PROGRESSIVE_BRACKETS",
+      // 2. Règle IRG Dividendes 10%
+      await setDocumentNonBlocking(doc(db, "fiscal_business_rules", "RULE_IRG_DIV_2026"), {
+        id: "RULE_IRG_DIV_2026",
+        code: "IRG_DIVIDENDES",
+        name: "IRG : Dividendes (Taux réduit)",
         category: "FISCAL",
-        priority: 200,
+        priority: 150,
+        active: true,
         effectiveStartDate: "2026-01-01",
         sourceLawId: lawId,
-        active: true,
-        brackets: [
-          { min: 0, max: 20000, rate: 0 },
-          { min: 20000, max: 40000, rate: 0.23 },
-          { min: 40000, max: 80000, rate: 0.27 },
-          { min: 80000, max: 160000, rate: 0.30 },
-          { min: 160000, max: 320000, rate: 0.33 },
-          { min: 320000, max: null, rate: 0.35 }
+        when: "distribution_dividendes > 0",
+        then: [
+          { set: "IRG_DIV = distribution_dividendes * 0.10" }
         ],
-        abatementFormula: "Math.max(1000, Math.min(1500, tax * 0.4))",
-        smoothingEnabled: true,
-        smoothingThreshold: 30000,
-        justify: "Barème progressif avec abattement de 40% et lissage pour les bas salaires."
+        justify: "Réduction du taux IRG sur dividendes à 10% (Mesure LF 2026)."
       }, { merge: true });
 
-      toast({ title: "Moteur 2026 Prêt (DSL Edition)" });
+      // 3. Règle TVA Réduite 9% étendue
+      await setDocumentNonBlocking(doc(db, "fiscal_business_rules", "RULE_TVA_REDUITE_2026"), {
+        id: "RULE_TVA_REDUITE_2026",
+        code: "TVA_REDUITE",
+        name: "TVA : Extension Taux 9%",
+        category: "FISCAL",
+        priority: 50,
+        active: true,
+        effectiveStartDate: "2026-01-01",
+        sourceLawId: lawId,
+        when: "secteur IN ['SANTE', 'TRANSPORT', 'FORMATION', 'LOGEMENT']",
+        then: [
+          { set: "taux_tva = 0.09" }
+        ],
+        justify: "Extension du taux réduit de TVA à 9% (Mesure LF 2026)."
+      }, { merge: true });
+
+      // 4. Suppression TAP
+      await setDocumentNonBlocking(doc(db, "fiscal_business_rules", "RULE_TAP_SUPPRESSION"), {
+        id: "RULE_TAP_SUPPRESSION",
+        code: "TAP_SUPPRESSION",
+        name: "TAP : Suppression Totale",
+        category: "FISCAL",
+        priority: 10,
+        active: true,
+        effectiveStartDate: "2024-01-01",
+        sourceLawId: "LF_2024",
+        when: "TRUE",
+        then: [
+          { set: "TAP = 0" }
+        ],
+        justify: "Suppression de la Taxe sur l'Activité Professionnelle (TAP)."
+      }, { merge: true });
+
+      toast({ title: "Noyau DSL 2026 Opérationnel" });
     } finally { setIsInitializing(false); }
   }
 
@@ -145,12 +157,12 @@ export default function FiscalEngineAdmin() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">Moteur Fiscal Master</h1>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Legislative Logic & DSL Engine</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Industrial DSL & 2026 Compliance</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" size="sm" onClick={handleInitialize2026} disabled={isInitializing} className="rounded-2xl bg-white border-slate-200 font-bold">
+          <Button variant="outline" size="sm" onClick={handleInitialize2026DSL} disabled={isInitializing} className="rounded-2xl bg-white border-slate-200 font-bold">
             {isInitializing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
-            Initialiser DSL 2026
+            Réinitialiser DSL 2026
           </Button>
         </div>
       </div>
@@ -159,33 +171,52 @@ export default function FiscalEngineAdmin() {
         <Card className="lg:col-span-1 border-none shadow-2xl shadow-slate-200/50 bg-white rounded-3xl ring-1 ring-slate-100 overflow-hidden">
           <CardHeader className="bg-slate-50/80 border-b border-slate-100 p-6">
             <CardTitle className="text-lg font-black flex items-center gap-2 text-slate-900 uppercase tracking-tighter">
-              <BrainCircuit className="h-5 w-5 text-primary" /> IA Gemini Vision
+              <Beaker className="h-5 w-5 text-primary" /> Simulation Lab
             </CardTitle>
-            <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Extraction de données législatives</CardDescription>
+            <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Test du pipeline de calcul</CardDescription>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
-            <Textarea 
-              placeholder="Collez le texte officiel ici..." 
-              className="min-h-[180px] bg-slate-50 border-slate-200 text-xs rounded-2xl focus-visible:ring-primary/20"
-              value={aiInput}
-              onChange={(e) => setAiInput(e.target.value)}
-            />
-            <Button className="w-full bg-primary text-white font-black uppercase tracking-widest text-[10px] h-12 rounded-2xl shadow-lg shadow-primary/20" onClick={handleAiAnalysis} disabled={isAiProcessing || !aiInput.trim()}>
-              {isAiProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-              Analyse & Mapping DSL
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase">Résultat Fiscal (DA)</Label>
+                <Input type="number" value={simBase} onChange={e => setSimBase(e.target.value)} className="rounded-xl" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase">Secteur</Label>
+                <Select value={simSector} onValueChange={setSimSector}>
+                  <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PRODUCTION">Production (19%)</SelectItem>
+                    <SelectItem value="BTP">BTP (23%)</SelectItem>
+                    <SelectItem value="SERVICES">Services (26%)</SelectItem>
+                    <SelectItem value="SANTE">Santé (TVA 9%)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <Button className="w-full bg-slate-900 text-white font-black uppercase tracking-widest text-[10px] h-12 rounded-2xl shadow-lg" onClick={handleRunFullSimulation} disabled={isSimulating}>
+              {isSimulating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
+              Exécuter Pipeline DSL
             </Button>
-            {aiProposals && (
-              <div className="pt-6 space-y-3 animate-in fade-in duration-300">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2">Extractions détectées :</p>
-                {aiProposals.map((p, i) => (
-                  <div key={i} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 shadow-sm flex justify-between items-center">
-                    <div>
-                      <p className="font-black text-slate-900 text-[10px] uppercase tracking-tighter">{p.variableName}</p>
-                      <p className="text-[8px] font-mono text-primary mt-0.5">{p.variableCode}</p>
-                    </div>
-                    <Badge className="bg-white border-slate-200 text-emerald-600 font-black text-[10px] h-6">{p.value}</Badge>
+            
+            {simResult && (
+              <div className="pt-6 space-y-4 animate-in fade-in duration-300">
+                <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10">
+                  <p className="text-[9px] font-black text-primary uppercase mb-1">Impact Calculé</p>
+                  <div className="flex justify-between items-baseline">
+                    <span className="text-2xl font-black text-slate-900">{(simResult.results.IBS || 0).toLocaleString()} DA</span>
+                    <Badge className="bg-primary text-white text-[8px]">IBS FINAL</Badge>
                   </div>
-                ))}
+                </div>
+                <div className="space-y-2">
+                  <p className="text-[9px] font-black text-slate-400 uppercase">Traces d'Audit :</p>
+                  {simResult.traces.map((t: any, i: number) => (
+                    <div key={i} className="text-[9px] border-l-2 border-emerald-500 pl-3 py-1">
+                      <p className="font-bold text-slate-700 uppercase">{t.ruleName}</p>
+                      <p className="text-slate-400 italic">"{t.justification}"</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </CardContent>
@@ -194,97 +225,63 @@ export default function FiscalEngineAdmin() {
         <div className="lg:col-span-2">
           <Tabs defaultValue="rules" className="w-full">
             <TabsList className="bg-slate-100 border border-slate-200 p-1.5 rounded-3xl h-auto mb-8">
-              <TabsTrigger value="rules" className="rounded-2xl px-6 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs font-bold"><Code2 className="h-4 w-4 mr-2" /> Pipeline DSL</TabsTrigger>
-              <TabsTrigger value="lab" className="rounded-2xl px-6 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs font-bold"><FlaskConical className="h-4 w-4 mr-2" /> Simulation</TabsTrigger>
-              <TabsTrigger value="vars" className="rounded-2xl px-6 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs font-bold"><DatabaseZap className="h-4 w-4 mr-2" /> Variables</TabsTrigger>
+              <TabsTrigger value="rules" className="rounded-2xl px-6 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs font-bold"><Code2 className="h-4 w-4 mr-2" /> Pipeline DSL Actif</TabsTrigger>
+              <TabsTrigger value="ai" className="rounded-2xl px-6 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs font-bold"><Sparkles className="h-4 w-4 mr-2" /> IA Vision</TabsTrigger>
             </TabsList>
 
             <TabsContent value="rules" className="space-y-6">
               {rules?.map((rule) => (
                 <Card key={rule.id} className="border-none shadow-xl shadow-slate-200/50 bg-white rounded-3xl border-l-4 border-l-primary group">
-                  <CardHeader className="py-4 px-8 bg-slate-50/50 border-b border-slate-100">
-                    <div className="flex justify-between items-start">
-                      <div className="space-y-1">
-                        <CardTitle className="text-sm font-black text-slate-900 uppercase tracking-tighter flex items-center gap-3">
-                          {rule.name}
-                          <Badge variant="outline" className="text-[8px] h-4 font-mono">{rule.code}</Badge>
-                        </CardTitle>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Actif depuis : {rule.effectiveStartDate} • Priorité: {rule.priority}</p>
-                      </div>
-                      <Badge className="bg-emerald-100 text-emerald-700 text-[8px] font-black border-none h-5">ACTIVE</Badge>
+                  <CardHeader className="py-4 px-8 bg-slate-50/50 border-b border-slate-100 flex flex-row justify-between items-center">
+                    <div className="space-y-1">
+                      <CardTitle className="text-sm font-black text-slate-900 uppercase tracking-tighter flex items-center gap-3">
+                        {rule.name}
+                        <Badge variant="outline" className="text-[8px] h-4 font-mono">{rule.code}</Badge>
+                      </CardTitle>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Priorité: {rule.priority} • Actif</p>
                     </div>
+                    <Badge className="bg-emerald-100 text-emerald-700 text-[8px] font-black h-5">DSL 2026</Badge>
                   </CardHeader>
                   <CardContent className="p-8">
                     <div className="bg-slate-900 rounded-2xl p-6 font-mono text-[10px] text-emerald-400 shadow-inner">
-                      <p className="mb-2 text-blue-400">WHEN {rule.when || "TRUE"}</p>
-                      {Array.isArray(rule.then) ? rule.then.map((t: any, i: number) => (
-                        <p key={i} className="mb-1 opacity-90">THEN SET {t.set} {t.if ? `IF ${t.if}` : ""}</p>
-                      )) : (
-                        <p className="opacity-90">THEN SET {rule.code} = {rule.formula}</p>
-                      )}
-                      <p className="mt-4 text-slate-400 italic border-t border-white/10 pt-3">JUSTIFY: "{rule.justify}"</p>
+                      <p className="mb-2 text-blue-400 font-bold">WHEN {rule.when || "TRUE"}</p>
+                      <div className="space-y-1 pl-4 border-l border-white/10">
+                        {Array.isArray(rule.then) ? rule.then.map((t: any, i: number) => (
+                          <p key={i} className="opacity-90">
+                            <span className="text-slate-500">THEN</span> {t.set} 
+                            {t.if && <span className="text-blue-300 ml-2">IF {t.if}</span>}
+                          </p>
+                        )) : (
+                          <p className="opacity-90"><span className="text-slate-500">THEN</span> SET {rule.code} = {rule.formula}</p>
+                        )}
+                      </div>
+                      <p className="mt-4 text-slate-400 italic border-t border-white/10 pt-3 flex items-start gap-2">
+                        <Gavel className="h-3 w-3 mt-0.5 shrink-0" />
+                        JUSTIFY: "{rule.justify}"
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
               ))}
             </TabsContent>
 
-            <TabsContent value="lab">
-              <Card className="border-none shadow-2xl shadow-slate-200/50 bg-white rounded-3xl ring-1 ring-slate-200">
-                <CardHeader className="border-b border-slate-100 p-8">
-                  <CardTitle className="text-xl font-black flex items-center gap-3 text-slate-900 uppercase tracking-tighter">
-                    <Beaker className="h-6 w-6 text-primary" /> Simulation Lab
-                  </CardTitle>
+            <TabsContent value="ai">
+              <Card className="border-none shadow-xl bg-white rounded-3xl">
+                <CardHeader>
+                  <CardTitle className="text-lg font-black flex items-center gap-2 uppercase tracking-tighter"><BrainCircuit className="h-5 w-5 text-primary" /> Extraction de Texte Officiel</CardTitle>
                 </CardHeader>
-                <CardContent className="p-8 space-y-8">
-                  <div className="grid grid-cols-2 gap-8">
-                    <div className="space-y-3">
-                      <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Base Imposable (DA)</Label>
-                      <Input type="number" value={simBase} onChange={e => setSimBase(e.target.value)} className="h-14 text-2xl font-black rounded-2xl border-slate-200 bg-slate-50 px-6" />
-                    </div>
-                    <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 flex flex-col justify-center items-center text-center shadow-inner">
-                      <p className="text-[9px] uppercase font-black text-slate-400 tracking-widest mb-1">Résultat Estimé</p>
-                      <h2 className="text-3xl font-black text-primary tracking-tighter">
-                        {isSimulating ? <Loader2 className="h-6 w-6 animate-spin text-primary" /> : (simResult?.toLocaleString() || "---")} <span className="text-sm font-normal">DA</span>
-                      </h2>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {rules?.map((r) => (
-                      <Button key={r.id} variant="outline" className="justify-between h-12 rounded-2xl border-slate-200 hover:bg-slate-50 hover:border-primary/30 transition-all font-bold group px-6" onClick={() => handleRunSimulation(r.code)}>
-                        <span className="flex items-center gap-3"><Play className="h-4 w-4 text-emerald-600" /> {r.name}</span>
-                        <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-                      </Button>
-                    ))}
-                  </div>
+                <CardContent className="space-y-4">
+                  <Textarea 
+                    placeholder="Collez ici un communiqué de la DGI ou un article de la Loi de Finances..." 
+                    className="min-h-[250px] bg-slate-50 border-slate-200 text-xs rounded-2xl"
+                    value={aiInput}
+                    onChange={(e) => setAiInput(e.target.value)}
+                  />
+                  <Button className="w-full bg-primary h-12 rounded-2xl font-black uppercase tracking-widest text-[10px]" onClick={handleAiAnalysis} disabled={isAiProcessing}>
+                    {isAiProcessing ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                    Convertir en DSL Fiscal
+                  </Button>
                 </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="vars">
-              <Card className="border-none shadow-2xl shadow-slate-200/50 bg-white rounded-3xl overflow-hidden ring-1 ring-slate-200">
-                <Table>
-                  <TableHeader className="bg-slate-50/50 border-b border-slate-100">
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="font-black text-[10px] uppercase tracking-widest py-6 px-8">Variable Code</TableHead>
-                      <TableHead className="font-black text-[10px] uppercase tracking-widest py-6">Description Nom</TableHead>
-                      <TableHead className="font-black text-[10px] uppercase tracking-widest py-6">Unité</TableHead>
-                      <TableHead className="text-right font-black text-[10px] uppercase tracking-widest py-6 px-8">Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {types?.map((t) => (
-                      <TableRow key={t.id} className="hover:bg-slate-50 transition-colors">
-                        <TableCell className="py-6 px-8 font-mono text-xs font-black text-primary">{t.code}</TableCell>
-                        <TableCell className="py-6 text-xs font-bold text-slate-700">{t.name}</TableCell>
-                        <TableCell className="py-6"><Badge variant="secondary" className="text-[9px] font-black h-5 bg-slate-100 text-slate-500 uppercase">{t.unit}</Badge></TableCell>
-                        <TableCell className="py-6 text-right px-8">
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-destructive" onClick={() => deleteDocumentNonBlocking(doc(db, "fiscal_variable_types", t.id))}><Trash2 className="h-4 w-4" /></Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
               </Card>
             </TabsContent>
           </Tabs>
