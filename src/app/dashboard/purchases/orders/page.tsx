@@ -2,9 +2,9 @@
 "use client"
 
 import * as React from "react"
-import { useFirestore, useUser, useCollection, useMemoFirebase, addDocumentNonBlocking } from "@/firebase"
-import { collection, query, where, orderBy, limit } from "firebase/firestore"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
+import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
+import { collection, query, orderBy } from "firebase/firestore"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
@@ -15,7 +15,7 @@ import {
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useSearchParams } from "next/navigation"
-import { toast } from "@/hooks/use-toast"
+import Link from "next/link"
 
 export default function PurchaseOrdersManagement() {
   const db = useFirestore()
@@ -45,8 +45,10 @@ export default function PurchaseOrdersManagement() {
           </h1>
           <p className="text-muted-foreground font-medium">Contrat d'engagement fournisseur et base du contrôle fiscal.</p>
         </div>
-        <Button className="bg-primary shadow-lg" disabled={!tenantId}>
-          <Plus className="mr-2 h-4 w-4" /> Nouveau Bon de Commande
+        <Button className="bg-primary shadow-lg" disabled={!tenantId} asChild>
+          <Link href={`/dashboard/purchases/orders/new?tenantId=${tenantId}`}>
+            <Plus className="mr-2 h-4 w-4" /> Nouveau Bon de Commande
+          </Link>
         </Button>
       </div>
 
@@ -57,11 +59,13 @@ export default function PurchaseOrdersManagement() {
         </Card>
         <Card className="border-l-4 border-l-amber-500 shadow-sm bg-white">
           <CardHeader className="pb-2"><CardTitle className="text-[10px] uppercase font-bold text-muted-foreground">En attente réception</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-black text-amber-600">8 dossiers</div></CardContent>
+          <CardContent><div className="text-2xl font-black text-amber-600">{orders?.filter(o => o.status === 'VALIDATED').length || 0}</div></CardContent>
         </Card>
         <Card className="border-l-4 border-l-emerald-500 shadow-sm bg-white">
           <CardHeader className="pb-2"><CardTitle className="text-[10px] uppercase font-bold text-muted-foreground">Budget engagé TTC</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-black text-emerald-600">1.2M DA</div></CardContent>
+          <CardContent><div className="text-2xl font-black text-emerald-600">
+            {orders?.reduce((acc, o) => acc + (o.totalTTC || 0), 0).toLocaleString()} DA
+          </div></CardContent>
         </Card>
         <Card className="bg-slate-900 text-white border-none shadow-lg">
           <CardHeader className="pb-2"><CardTitle className="text-[10px] uppercase font-bold opacity-70">Statut Fournisseurs</CardTitle></CardHeader>
@@ -106,12 +110,12 @@ export default function PurchaseOrdersManagement() {
                     <TableCell className="text-xs font-bold">
                       <div className="flex flex-col">
                         <span>{order.orderNumber}</span>
-                        <span className="text-[10px] text-muted-foreground font-normal">{order.date}</span>
+                        <span className="text-[10px] text-muted-foreground font-normal">{new Date(order.date).toLocaleDateString()}</span>
                       </div>
                     </TableCell>
                     <TableCell className="text-xs font-medium">{order.supplierName}</TableCell>
-                    <TableCell className="text-right font-mono text-xs">{order.totalHT.toLocaleString()} DA</TableCell>
-                    <TableCell className="text-right font-black text-xs text-primary">{order.totalTTC.toLocaleString()} DA</TableCell>
+                    <TableCell className="text-right font-mono text-xs">{order.totalHT?.toLocaleString()} DA</TableCell>
+                    <TableCell className="text-right font-black text-xs text-primary">{order.totalTTC?.toLocaleString()} DA</TableCell>
                     <TableCell className="text-center">
                       <Badge className={
                         order.status === 'VALIDATED' ? 'bg-blue-500' : 
@@ -125,7 +129,11 @@ export default function PurchaseOrdersManagement() {
                       <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button variant="ghost" size="icon" className="h-8 w-8"><Printer className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-primary"><Send className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8"><ArrowRight className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                           <Link href={`/dashboard/purchases/orders/${order.id}?tenantId=${tenantId}`}>
+                             <ArrowRight className="h-4 w-4" />
+                           </Link>
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -149,3 +157,4 @@ export default function PurchaseOrdersManagement() {
     </div>
   )
 }
+
