@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { 
   FileBarChart, Printer, FileDown, TrendingUp, Landmark, 
   Calculator, PieChart, ShieldCheck, ArrowRightLeft, 
-  Wallet, Banknote, History, Loader2, Info, Lightbulb, Activity, Scale, AlertTriangle
+  Wallet, Banknote, History, Loader2, Info, Lightbulb, Activity, Scale, AlertTriangle, CheckCircle2
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { jsPDF } from "jspdf"
