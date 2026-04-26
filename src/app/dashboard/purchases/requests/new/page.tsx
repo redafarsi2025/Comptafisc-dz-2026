@@ -84,7 +84,7 @@ export default function NewPurchaseRequest() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       createdByUserId: user.uid,
-      tenantMembers: { [user.uid]: 'owner' } // Simplification pour le prototype
+      tenantMembers: { [user.uid]: 'owner' }
     };
 
     try {
@@ -205,7 +205,7 @@ export default function NewPurchaseRequest() {
             <CardHeader><CardTitle className="text-sm font-bold flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-primary" /> Contrôle Interne</CardTitle></CardHeader>
             <CardContent className="text-[11px] text-muted-foreground leading-relaxed space-y-2">
               <p>Toute demande d'achat doit être visée par le responsable de service avant d'être transmise à la direction financière.</p>
-              <p className="font-bold text-primary">Un devis comparatif (3 offres) sera requis pour tout montant > 100 000 DA HT.</p>
+              <p className="font-bold text-primary">Un devis comparatif (3 offres) sera requis pour tout montant &gt; 100 000 DA HT.</p>
             </CardContent>
           </Card>
         </div>
