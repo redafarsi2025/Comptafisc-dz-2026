@@ -59,7 +59,9 @@ import {
   Target,
   Calculator,
   ShieldCheck,
-  AlertTriangle
+  AlertTriangle,
+  Layers,
+  PieChart
 } from "lucide-react"
 
 import {
@@ -147,6 +149,12 @@ const accountingNav = [
   { name: "Grand Livre", href: "/dashboard/accounting/ledger", icon: Library },
   { name: "Balance Générale", href: "/dashboard/accounting/balance", icon: Scale },
   { name: "États Financiers", href: "/dashboard/accounting/financial-statements", icon: FileBarChart },
+]
+
+// Menu Analytique
+const analyticNav = [
+  { name: "Pilotage Analytique", href: "/dashboard/accounting/analytic/reporting", icon: PieChart },
+  { name: "Architecture Analytique", href: "/dashboard/accounting/analytic/settings", icon: Layers },
 ]
 
 // Menu Stocks
@@ -374,6 +382,8 @@ export function DashboardSidebar() {
         
         <NavGroup label="Comptabilité SCF" items={accountingNav} />
         
+        <NavGroup label="Comptabilité Analytique" items={analyticNav} />
+
         <NavGroup 
           label="Stocks & Inventaires" 
           items={inventoryNav} 
