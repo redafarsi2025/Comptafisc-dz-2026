@@ -38,7 +38,9 @@ import {
   Scale,
   ShieldAlert,
   HandCoins,
-  LifeBuoy
+  LifeBuoy,
+  PlusCircle,
+  Loader2
 } from "lucide-react"
 
 import {
@@ -59,10 +61,29 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { useUser, useFirestore, useAuth, useCollection, useMemoFirebase, useDoc, initiateAnonymousSignIn } from "@/firebase"
+import { useUser, useFirestore, useAuth, useCollection, useMemoFirebase, useDoc, initiateAnonymousSignIn, addDocumentNonBlocking } from "@/firebase"
 import { collection, query, where, doc } from "firebase/firestore"
 import { signOut } from "firebase/auth"
+import { toast } from "@/hooks/use-toast"
 
 // Navigation configurations
 const pilotageNav = [
@@ -120,6 +141,13 @@ export function DashboardSidebar() {
   const db = useFirestore()
   const auth = useAuth()
   const [mounted, setMounted] = React.useState(false)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false)
+  const [isCreating, setIsCreating] = React.useState(false)
+  const [newTenantData, setNewTenantData] = React.useState({
+    raisonSociale: "",
+    formeJuridique: "SARL",
+    regimeFiscal: "REGIME_REEL"
+  })
 
   React.useEffect(() => {
     setMounted(true)
@@ -162,6 +190,37 @@ export function DashboardSidebar() {
       console.error(e)
     }
   }
+
+  const handleCreateTenant = async () => {
+    if (!db || !user || !newTenantData.raisonSociale) return;
+    setIsCreating(true);
+
+    const tenantData = {
+      ...newTenantData,
+      createdAt: new Date().toISOString(),
+      createdByUserId: user.uid,
+      members: { [user.uid]: 'owner' },
+      onboardingComplete: false,
+      plan: 'GRATUIT',
+      secteurActivite: 'SERVICES',
+      assujettissementTva: newTenantData.regimeFiscal === 'REGIME_REEL'
+    };
+
+    try {
+      const docRef = await addDocumentNonBlocking(collection(db, "tenants"), tenantData);
+      if (docRef) {
+        toast({ title: "Dossier créé", description: `Le dossier ${newTenantData.raisonSociale} est prêt.` });
+        setIsCreateDialogOpen(false);
+        setNewTenantData({ raisonSociale: "", formeJuridique: "SARL", regimeFiscal: "REGIME_REEL" });
+        handleTenantSelect(docRef.id);
+      }
+    } catch (e) {
+      console.error(e);
+      toast({ variant: "destructive", title: "Erreur", description: "Impossible de créer le dossier." });
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   const NavGroup = ({ label, items }: { label: string, items: any[] }) => (
     <SidebarGroup>
@@ -222,7 +281,7 @@ export function DashboardSidebar() {
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-72 p-2 shadow-2xl rounded-xl">
-                <div className="px-2 py-1.5 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Dossiers actifs</div>
+                <div className="px-2 py-1.5 text-[10px] font-black text-muted-foreground uppercase tracking-widest border-b mb-2">Dossiers actifs</div>
                 {tenants?.map((t) => (
                   <DropdownMenuItem key={t.id} onClick={() => handleTenantSelect(t.id)} className="cursor-pointer rounded-lg mb-1">
                     <div className="flex flex-col">
@@ -232,9 +291,57 @@ export function DashboardSidebar() {
                   </DropdownMenuItem>
                 ))}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild className="cursor-pointer font-bold text-primary text-xs">
-                  <Link href="/dashboard/settings"><Plus className="mr-2 h-3 w-3" /> Configurer un nouveau dossier</Link>
-                </DropdownMenuItem>
+                
+                <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                  <DialogTrigger asChild>
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer font-bold text-primary text-xs flex items-center gap-2">
+                      <PlusCircle className="h-4 w-4" /> Nouveau Dossier
+                    </DropdownMenuItem>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Créer un nouveau dossier</DialogTitle>
+                      <DialogDescription>Configurez les paramètres de base de l'entreprise.</DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid gap-2">
+                        <Label>Raison Sociale</Label>
+                        <Input 
+                          placeholder="Ex: SARL Ma Nouvelle Entreprise" 
+                          value={newTenantData.raisonSociale}
+                          onChange={e => setNewTenantData({...newTenantData, raisonSociale: e.target.value})}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                          <Label>Forme Juridique</Label>
+                          <Select value={newTenantData.formeJuridique} onValueChange={v => setNewTenantData({...newTenantData, formeJuridique: v})}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {["SARL", "SPA", "EURL", "SNC", "EI", "Auto-entrepreneur"].map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="grid gap-2">
+                          <Label>Régime Fiscal</Label>
+                          <Select value={newTenantData.regimeFiscal} onValueChange={v => setNewTenantData({...newTenantData, regimeFiscal: v})}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="IFU">IFU (Forfaitaire)</SelectItem>
+                              <SelectItem value="REGIME_REEL">Régime du Réel</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button onClick={handleCreateTenant} disabled={isCreating || !newTenantData.raisonSociale} className="w-full">
+                        {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                        Créer le dossier
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>
@@ -259,12 +366,12 @@ export function DashboardSidebar() {
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname === "/dashboard/support"} tooltip="Assistance">
                 <Link href={currentTenant ? `/dashboard/support?tenantId=${currentTenant.id}` : "/dashboard/support"}><LifeBuoy /><span>Assistance & Support</span></Link>
-              </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname === "/dashboard/settings"} tooltip="Paramètres">
                 <Link href={currentTenant ? `/dashboard/settings?tenantId=${currentTenant.id}` : "/dashboard/settings"}><Settings /><span>Paramètres Dossier</span></Link>
-              </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenuItem>
             
             {isSaaSAdmin && (
