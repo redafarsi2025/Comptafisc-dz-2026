@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -14,7 +15,7 @@ import {
   MapPin, Users, TrendingUp, Calculator, 
   ShieldCheck, AlertTriangle, Clock, History,
   FileText, HardHat, Loader2, Edit3, CheckCircle2, Plus, 
-  Save, Trash2, PieChart, ArrowUpRight, ArrowDownRight, Wallet, Link2, Search, Link2Off, Info
+  Save, Trash2, PieChart, ArrowUpRight, ArrowDownRight, Wallet, Link2, Search, Link2Off, Info, Hourglass
 } from "lucide-react"
 import { useRouter, useSearchParams, useParams } from "next/navigation"
 import Link from "next/link"
@@ -23,6 +24,7 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
+import { differenceInDays, isAfter, isBefore, parseISO } from "date-fns"
 
 export default function ProjectDetailPage() {
   const db = useFirestore()
@@ -77,7 +79,6 @@ export default function ProjectDetailPage() {
           if (line.accountCode.startsWith('6')) charges += (line.debit - line.credit);
           if (line.accountCode.startsWith('7')) revenus += (line.credit - line.debit);
         } else if (!line.projectId || line.projectId === "") {
-          // Candidat potentiel si c'est une charge ou produit et que ce n'est pas lié
           if (line.accountCode.startsWith('6') || line.accountCode.startsWith('7')) {
             hasUnlinkedPotential = true;
           }
@@ -99,6 +100,30 @@ export default function ProjectDetailPage() {
       }
     };
   }, [allEntries, id]);
+
+  // ANALYSE DU DÉLAI
+  const timeMetrics = React.useMemo(() => {
+    if (!project?.startDate || !project?.endDate) return { timeProgress: 0, icd: 0, status: 'UNKNOWN' };
+    
+    const start = parseISO(project.startDate);
+    const end = parseISO(project.endDate);
+    const now = new Date();
+
+    if (isBefore(now, start)) return { timeProgress: 0, icd: 0, status: 'NOT_STARTED' };
+    if (isAfter(now, end)) return { timeProgress: 100, icd: (project.progress || 0) / 100, status: 'OVERDUE' };
+
+    const totalDays = Math.max(1, differenceInDays(end, start));
+    const elapsedDays = differenceInDays(now, start);
+    const timeProgress = Math.min(100, Math.round((elapsedDays / totalDays) * 100));
+    
+    const icd = timeProgress > 0 ? (project.progress || 0) / timeProgress : 0;
+
+    let status = 'ON_TRACK';
+    if (icd < 0.9) status = 'DELAYED';
+    if (icd > 1.1) status = 'AHEAD';
+
+    return { timeProgress, icd, status };
+  }, [project]);
 
   const handleLinkEntry = async (entryId: string) => {
     if (!db || !tenantId || !id) return;
@@ -208,23 +233,29 @@ export default function ProjectDetailPage() {
            <p className="text-[10px] uppercase font-black text-accent tracking-widest mb-1">Budget Alloué HT</p>
            <h2 className="text-3xl font-black">{project.budget?.toLocaleString()} DA</h2>
         </Card>
+        
         <Card className="border-l-4 border-l-amber-500 shadow-sm bg-white p-6 flex flex-col justify-center">
-           <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Dépenses Réelles (Journal)</p>
+           <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Consommé Réel</p>
            <h2 className="text-2xl font-black text-amber-600">{analyticMetrics.charges.toLocaleString()} DA</h2>
            <div className="mt-2 flex items-center justify-between text-[9px] font-black uppercase">
-              <span className="opacity-60">Consommation Analytique</span>
+              <span className="opacity-60">Consommation Budgétaire</span>
               <span className={analyticMetrics.charges > (project.budget || 0) ? 'text-destructive' : 'text-amber-600'}>
                 {project.budget > 0 ? ((analyticMetrics.charges / project.budget) * 100).toFixed(1) : 0}%
               </span>
            </div>
         </Card>
+
         <Card className="border-l-4 border-l-emerald-500 shadow-sm bg-white p-6 flex flex-col justify-center">
-           <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Marge Réelle Chantier</p>
-           <h2 className={`text-2xl font-black ${analyticMetrics.marge >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-             {analyticMetrics.marge.toLocaleString()} DA
+           <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Indice de Délai (ICD)</p>
+           <h2 className={`text-2xl font-black ${timeMetrics.status === 'DELAYED' ? 'text-destructive' : 'text-emerald-600'}`}>
+             {timeMetrics.icd.toFixed(2)}
            </h2>
-           <p className="text-[9px] font-bold text-slate-400 mt-1">Rentabilité : {analyticMetrics.tauxMarge.toFixed(1)}%</p>
+           <div className="mt-2 flex items-center justify-between text-[9px] font-black uppercase">
+              <span className="opacity-60">Temps Consommé</span>
+              <span className="text-blue-600">{timeMetrics.timeProgress}%</span>
+           </div>
         </Card>
+
         <Card className="bg-primary text-white border-none shadow-xl p-6 flex flex-col justify-center">
            <p className="text-[10px] uppercase font-black opacity-70 mb-1">Avancement Physique</p>
            <h2 className="text-3xl font-black">{project.progress}%</h2>
@@ -244,6 +275,44 @@ export default function ProjectDetailPage() {
         <TabsContent value="overview" className="space-y-8 animate-in fade-in duration-500">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
+              {/* PERFORMANCE DU DÉLAI */}
+              <Card className="shadow-xl border-none ring-1 ring-border rounded-2xl overflow-hidden bg-white">
+                <CardHeader className="bg-slate-50 border-b">
+                   <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                     <Hourglass className="h-4 w-4 text-primary" /> Performance Temporelle (ICD)
+                   </CardTitle>
+                </CardHeader>
+                <CardContent className="p-8">
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="space-y-6">
+                        <div>
+                          <div className="flex justify-between text-[10px] font-black uppercase mb-2">
+                            <span className="text-slate-400">Progression du planning</span>
+                            <span className="text-blue-600">{timeMetrics.timeProgress}% du délai total</span>
+                          </div>
+                          <Progress value={timeMetrics.timeProgress} className="h-2 bg-blue-50" />
+                        </div>
+                        <div>
+                          <div className="flex justify-between text-[10px] font-black uppercase mb-2">
+                            <span className="text-slate-400">Avancement physique</span>
+                            <span className="text-emerald-600">{project.progress}% réalisé</span>
+                          </div>
+                          <Progress value={project.progress} className="h-2 bg-emerald-50" />
+                        </div>
+                      </div>
+                      <div className={`p-6 rounded-3xl flex flex-col justify-center text-center border-2 border-dashed ${timeMetrics.status === 'DELAYED' ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}`}>
+                         <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Indice de Performance Délai</p>
+                         <h3 className={`text-4xl font-black ${timeMetrics.status === 'DELAYED' ? 'text-red-600' : 'text-emerald-600'}`}>
+                           {timeMetrics.icd.toFixed(2)}
+                         </h3>
+                         <p className={`text-[10px] font-bold mt-2 uppercase ${timeMetrics.status === 'DELAYED' ? 'text-red-600' : 'text-emerald-600'}`}>
+                           {timeMetrics.status === 'DELAYED' ? 'CHANTIER EN RETARD' : timeMetrics.status === 'AHEAD' ? 'EN AVANCE SUR PLANNING' : 'DANS LES TEMPS'}
+                         </p>
+                      </div>
+                   </div>
+                </CardContent>
+              </Card>
+
               <Card className="shadow-xl border-none ring-1 ring-border rounded-2xl overflow-hidden bg-white">
                 <CardHeader className="bg-primary/5 border-b border-primary/10">
                   <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
@@ -278,7 +347,7 @@ export default function ProjectDetailPage() {
                         <ShieldCheck className="absolute -right-4 -bottom-4 h-24 w-24 opacity-10 text-accent" />
                         <h4 className="text-[10px] font-black text-accent uppercase tracking-widest mb-4">Note Master Analytique</h4>
                         <p className="text-[11px] leading-relaxed italic opacity-80">
-                          "Votre marge est calculée par rapprochement des comptes de produits (701) et charges (60/61/62) tagués avec cet ID Projet. L'écart entre l'avancement physique ({project.progress}%) et la marge comptable ({analyticMetrics.tauxMarge.toFixed(1)}%) indique votre niveau d'efficience réelle."
+                          "L'indice ICD de {timeMetrics.icd.toFixed(2)} indique que vous réalisez {Math.round(timeMetrics.icd * 100)}% de travail prévu pour chaque jour consommé. Un ICD inférieur à 1.0 nécessite une réorganisation immédiate pour éviter les pénalités."
                         </p>
                       </div>
                   </div>
@@ -392,9 +461,16 @@ export default function ProjectDetailPage() {
                 <ShieldCheck className="absolute -right-4 -bottom-4 h-24 w-24 opacity-10 text-emerald-600" />
                 <h4 className="text-[10px] font-black text-emerald-800 uppercase tracking-widest mb-2">Expertise BTP ComptaFisc</h4>
                 <p className="text-[11px] text-emerald-700 leading-relaxed italic">
-                  "La ventilation analytique permet d'isoler les coûts réels et de justifier vos situations auprès du Maître d'Ouvrage."
+                  "Le respect de l'indice ICD permet d'isoler les dérives opérationnelles avant qu'elles n'impactent la trésorerie."
                 </p>
               </Card>
+
+              <div className="p-6 bg-slate-900 text-white rounded-3xl flex items-start gap-4">
+                <Info className="h-6 w-6 text-accent shrink-0" />
+                <div className="text-[11px] leading-relaxed opacity-80 italic">
+                  "L'ICD (Indice de Consommation du Délai) = % Avancement Physique / % Temps Écoulé. Un ICD < 1.0 signifie que le temps s'écoule plus vite que les briques ne montent."
+                </div>
+              </div>
             </div>
           </div>
         </TabsContent>

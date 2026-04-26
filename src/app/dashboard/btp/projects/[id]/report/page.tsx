@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -12,10 +13,11 @@ import {
   Pickaxe, Printer, ChevronLeft, MapPin, 
   CalendarDays, Calculator, ShieldCheck, 
   Clock, History, FileText, Landmark, Loader2,
-  AlertTriangle, CheckCircle2
+  AlertTriangle, CheckCircle2, Hourglass
 } from "lucide-react"
 import { useRouter, useSearchParams, useParams } from "next/navigation"
 import Link from "next/link"
+import { differenceInDays, isAfter, isBefore, parseISO } from "date-fns"
 
 export default function ProjectReportPage() {
   const db = useFirestore()
@@ -31,6 +33,26 @@ export default function ProjectReportPage() {
     (db && tenantId && id) ? doc(db, "tenants", tenantId, "projects", id as string) : null
   , [db, tenantId, id]);
   const { data: project, isLoading } = useDoc(projectRef);
+
+  // ANALYSE DU DÉLAI
+  const timeMetrics = React.useMemo(() => {
+    if (!project?.startDate || !project?.endDate) return { timeProgress: 0, icd: 0, status: 'UNKNOWN' };
+    
+    const start = parseISO(project.startDate);
+    const end = parseISO(project.endDate);
+    const now = new Date();
+
+    if (isBefore(now, start)) return { timeProgress: 0, icd: 0, status: 'NOT_STARTED' };
+    if (isAfter(now, end)) return { timeProgress: 100, icd: (project.progress || 0) / 100, status: 'OVERDUE' };
+
+    const totalDays = Math.max(1, differenceInDays(end, start));
+    const elapsedDays = differenceInDays(now, start);
+    const timeProgress = Math.min(100, Math.round((elapsedDays / totalDays) * 100));
+    
+    const icd = timeProgress > 0 ? (project.progress || 0) / timeProgress : 0;
+
+    return { timeProgress, icd };
+  }, [project]);
 
   if (!mounted || isLoading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary h-10 w-10" /></div>
   if (!project) return <div className="p-20 text-center">Projet introuvable.</div>
@@ -111,48 +133,54 @@ export default function ProjectReportPage() {
           </div>
         </section>
 
+        {/* Temporal Analysis (ICD) */}
+        <section className="mb-12">
+          <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest border-b pb-2 mb-6">Analyse de la Performance Temporelle</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <p className="text-[9px] font-black text-slate-400 uppercase">Temps Consommé du Planning</p>
+                <div className="flex justify-between items-center">
+                  <span className="text-lg font-black text-blue-600">{timeMetrics.timeProgress}%</span>
+                </div>
+                <Progress value={timeMetrics.timeProgress} className="h-2 bg-blue-50" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[9px] font-black text-slate-400 uppercase">Avancement Physique Réel</p>
+                <div className="flex justify-between items-center">
+                  <span className="text-lg font-black text-emerald-600">{project.progress}%</span>
+                </div>
+                <Progress value={project.progress} className="h-2 bg-emerald-50" />
+              </div>
+            </div>
+            <div className="p-6 bg-slate-50 rounded-3xl border-2 border-slate-100 flex flex-col items-center justify-center text-center">
+               <Hourglass className="h-6 w-6 text-primary mb-2" />
+               <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Indice de Consommation du Délai</p>
+               <p className={`text-4xl font-black ${timeMetrics.icd < 0.9 ? 'text-destructive' : 'text-primary'}`}>{timeMetrics.icd.toFixed(2)}</p>
+               <p className="text-[9px] font-bold text-slate-500 mt-2 italic uppercase">
+                 {timeMetrics.icd < 1.0 ? 'Retard par rapport au planning' : 'Conformité planning respectée'}
+               </p>
+            </div>
+          </div>
+        </section>
+
         {/* Financial Summary */}
         <section className="mb-12">
           <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest border-b pb-2 mb-6">Bilan Financier du Projet (HT)</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 text-center">
               <p className="text-[8px] font-black uppercase text-slate-400 mb-1">Budget Total Alloué</p>
-              <p className="text-2xl font-black text-slate-900">{project.budget?.toLocaleString()} DA</p>
+              <p className="text-2xl font-black text-slate-900">{project.budget?.toLocaleString('fr-FR')} DA</p>
             </div>
             <div className="p-6 bg-amber-50 rounded-2xl border border-amber-100 text-center">
               <p className="text-[8px] font-black uppercase text-amber-600 mb-1">Dépenses Consommées</p>
-              <p className="text-2xl font-black text-amber-600">{project.consumed?.toLocaleString()} DA</p>
+              <p className="text-2xl font-black text-amber-600">{project.consumed?.toLocaleString('fr-FR')} DA</p>
               <p className="text-[10px] font-bold text-amber-500 mt-1">{consumptionRate.toFixed(1)}% du budget</p>
             </div>
             <div className="p-6 bg-emerald-50 rounded-2xl border border-emerald-100 text-center">
               <p className="text-[8px] font-black uppercase text-emerald-600 mb-1">Solde Restant</p>
-              <p className="text-2xl font-black text-emerald-600">{remainingBudget.toLocaleString()} DA</p>
+              <p className="text-2xl font-black text-emerald-600">{remainingBudget.toLocaleString('fr-FR')} DA</p>
             </div>
-          </div>
-        </section>
-
-        {/* Progress Analysis */}
-        <section className="mb-12">
-          <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest border-b pb-2 mb-6">Indice d'Avancement Physique</h3>
-          <div className="space-y-4">
-             <div className="flex justify-between items-end">
-               <div className="space-y-1">
-                 <p className="text-4xl font-black text-primary tracking-tighter">{project.progress}%</p>
-                 <p className="text-[10px] font-bold uppercase text-slate-400">Pourcentage d'exécution certifié</p>
-               </div>
-               <div className="text-right">
-                 {consumptionRate > project.progress ? (
-                   <div className="flex items-center gap-1 text-destructive font-black text-[10px] uppercase">
-                     <AlertTriangle className="h-3 w-3" /> Surconsommation budgétaire
-                   </div>
-                 ) : (
-                   <div className="flex items-center gap-1 text-emerald-600 font-black text-[10px] uppercase">
-                     <CheckCircle2 className="h-3 w-3" /> Maîtrise des coûts
-                   </div>
-                 )}
-               </div>
-             </div>
-             <Progress value={project.progress} className="h-3 bg-slate-100" />
           </div>
         </section>
 
