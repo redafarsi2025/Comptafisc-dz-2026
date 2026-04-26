@@ -25,7 +25,8 @@ export default function G50Declaration() {
     setMounted(true)
   }, [])
 
-  const formatAmount = (val: number) => mounted ? Math.round(val).toLocaleString() : "..."
+  const formatAmount = (val: number) => mounted ? val.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "..."
+  const formatPDF = (val: number) => val.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
   // 1. Fetch Tenant Profile
   const tenantsQuery = useMemoFirebase(() => {
@@ -118,11 +119,11 @@ export default function G50Declaration() {
     doc.text("Détail du Versement Spontané", 14, 68);
     
     const body = [
-      ["TVA Collectée (Opérations Imposables)", g50Calculations.tvaCollectee.toLocaleString() + " DA"],
-      ["TVA Déductible (Achats)", "-" + g50Calculations.tvaDeductible.toLocaleString() + " DA"],
-      ["TVA Nette à reverser", g50Calculations.tvaNette.toLocaleString() + " DA"],
-      ["IRG Salariés (Retenue à la source)", g50Calculations.irgSalaries.toLocaleString() + " DA"],
-      ["TOTAL À PAYER", g50Calculations.total.toLocaleString() + " DA"],
+      ["TVA Collectée (Opérations Imposables)", formatPDF(g50Calculations.tvaCollectee) + " DA"],
+      ["TVA Déductible (Achats)", "-" + formatPDF(g50Calculations.tvaDeductible) + " DA"],
+      ["TVA Nette à reverser", formatPDF(g50Calculations.tvaNette) + " DA"],
+      ["IRG Salariés (Retenue à la source)", formatPDF(g50Calculations.irgSalaries) + " DA"],
+      ["TOTAL À PAYER", formatPDF(g50Calculations.total) + " DA"],
     ];
 
     let y = 75;
@@ -182,7 +183,7 @@ export default function G50Declaration() {
            <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">TVA Nette (Collectée - Déd.)</p>
            <h2 className="text-2xl font-black text-blue-600">{formatAmount(g50Calculations.tvaNette)} DA</h2>
            {g50Calculations.tvaCollectee < g50Calculations.tvaDeductible && (
-             <Badge className="bg-emerald-500 mt-2">PRÉCOMPTE TVA</Badge>
+             <Badge className="bg-emerald-50 mt-2">PRÉCOMPTE TVA</Badge>
            )}
         </Card>
         <Card className="border-l-4 border-l-amber-500 shadow-sm bg-white p-6">
@@ -192,7 +193,7 @@ export default function G50Declaration() {
         </Card>
         <Card className="border-l-4 border-l-emerald-500 shadow-sm bg-white p-6">
            <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Acomptes IBS / IFU</p>
-           <h2 className="text-2xl font-black text-emerald-600">0 DA</h2>
+           <h2 className="text-2xl font-black text-emerald-600">0,00 DA</h2>
         </Card>
       </div>
 

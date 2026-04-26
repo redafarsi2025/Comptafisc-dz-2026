@@ -29,7 +29,8 @@ export default function PayrollLedger() {
     setMounted(true)
   }, [])
 
-  const formatAmount = (val: number) => mounted ? Math.round(val).toLocaleString() : "..."
+  const formatAmount = (val: number) => mounted ? val.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "..."
+  const formatPDF = (val: number) => val.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -151,12 +152,12 @@ export default function PayrollLedger() {
 
     // 4. Payroll Table
     const body = [
-      ["Salaire de base", emp.indice.toLocaleString(), context.valeurPoint.toLocaleString(), emp.salaireBase.toLocaleString(), ""],
-      ["Primes imposables", "", "", (emp.primesImposables || 0).toLocaleString(), ""],
-      ["Indemnité Panier", "", "", emp.indemnitePanier.toLocaleString(), ""],
-      ["Indemnité Transport", "", "", emp.indemniteTransport.toLocaleString(), ""],
-      ["Cotisation CNAS (Salariale)", emp.salairePoste.toLocaleString(), "9%", "", emp.cnasSalariale.toLocaleString()],
-      ["Impôt Revenu Global (IRG)", emp.imposable.toLocaleString(), "Barème 2026", "", emp.irg.toLocaleString()],
+      ["Salaire de base", emp.indice.toLocaleString('fr-FR'), formatPDF(context.valeurPoint), formatPDF(emp.salaireBase), ""],
+      ["Primes imposables", "", "", formatPDF(emp.primesImposables || 0), ""],
+      ["Indemnité Panier", "", "", formatPDF(emp.indemnitePanier), ""],
+      ["Indemnité Transport", "", "", formatPDF(emp.indemniteTransport), ""],
+      ["Cotisation CNAS (Salariale)", formatPDF(emp.salairePoste), "9%", "", formatPDF(emp.cnasSalariale)],
+      ["Impôt Revenu Global (IRG)", formatPDF(emp.imposable), "Barème 2026", "", formatPDF(emp.irg)],
     ];
 
     autoTable(doc, {
@@ -181,14 +182,14 @@ export default function PayrollLedger() {
     doc.setFont("helvetica", "bold");
     doc.rect(14, finalY, 182, 25);
     doc.text("TOTAL BRUT :", 20, finalY + 10);
-    doc.text(`${emp.salairePoste.toLocaleString()} DA`, 70, finalY + 10, { align: "right" });
+    doc.text(`${formatPDF(emp.salairePoste)} DA`, 70, finalY + 10, { align: "right" });
     
     doc.text("TOTAL RETENUES :", 20, finalY + 18);
-    doc.text(`${(emp.cnasSalariale + emp.irg).toLocaleString()} DA`, 70, finalY + 18, { align: "right" });
+    doc.text(`${formatPDF(emp.cnasSalariale + emp.irg)} DA`, 70, finalY + 18, { align: "right" });
 
     doc.setFontSize(12);
     doc.text("NET À PAYER :", 110, finalY + 15);
-    doc.text(`${emp.net.toLocaleString()} DA`, 185, finalY + 15, { align: "right" });
+    doc.text(`${formatPDF(emp.net)} DA`, 185, finalY + 15, { align: "right" });
 
     // 6. Footer / Signatures
     doc.setFontSize(8);
