@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Switch } from "@/components/ui/switch"
 import { 
   Layers, Plus, Save, Trash2, Edit3, Check, X, 
-  Info, Users as UsersIcon, Database, Zap, RefreshCcw, Sparkles, FileText
+  Info, Users as UsersIcon, Database, Zap, RefreshCcw, Sparkles, FileText, Loader2
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -66,11 +66,9 @@ export default function PlansManagement() {
     setIsInitializing(true);
     
     try {
-      // On itère sur les plans définis dans src/lib/plans.ts
       for (const p of PLANS) {
         const planRef = doc(db, "plans", p.id);
         
-        // On construit un objet compatible avec le schéma attendu par Firestore
         const planData = {
           id: p.id,
           name: p.name,
@@ -79,7 +77,6 @@ export default function PlansManagement() {
           description: p.description,
           isActive: true,
           limits: p.limits,
-          // Mapping simplifié des modules pour l'initialisation
           modules: MODULES.reduce((acc, m) => {
             const isIncluded = p.categories.some(cat => 
               cat.features.some(f => f.name.toLowerCase().includes(m.label.toLowerCase()) && f.included === 'yes')
