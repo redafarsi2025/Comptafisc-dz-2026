@@ -32,34 +32,45 @@ export function calculateSalaireBase(indice: number, valeurPoint: number = PAYRO
 
 /**
  * Calcule l'IRG (Impôt sur le Revenu Global) Traitements et Salaires - Loi de Finances 2026.
+ * Selon le barème : 0-30k (0%), 30k-120k (23%), 120k-360k (27%), 360k-1.44M (30%), >1.44M (33%)
  */
 export function calculateIRG(salaireImposable: number, isGrandSud: boolean = false, isHandicapped: boolean = false): number {
-  let abattement = salaireImposable * 0.40;
+  if (salaireImposable <= 30000) return 0;
+
+  // 1. Calcul de l'IRG Théorique par tranches
+  let theoreticalTax = 0;
+  
+  if (salaireImposable <= 120000) {
+    theoreticalTax = (salaireImposable - 30000) * 0.23;
+  } else if (salaireImposable <= 360000) {
+    theoreticalTax = (120000 - 30000) * 0.23 + (salaireImposable - 120000) * 0.27;
+  } else if (salaireImposable <= 1440000) {
+    theoreticalTax = (120000 - 30000) * 0.23 + (360000 - 120000) * 0.27 + (salaireImposable - 360000) * 0.30;
+  } else {
+    theoreticalTax = (120000 - 30000) * 0.23 + (360000 - 120000) * 0.27 + (1440000 - 360000) * 0.30 + (salaireImposable - 1440000) * 0.33;
+  }
+
+  // 2. Application de l'abattement de 40% (Min 1000, Max 1500)
+  let abattement = theoreticalTax * 0.40;
+  if (abattement < 1000) abattement = 1000;
   if (abattement > 1500) abattement = 1500;
   
-  const baseIRG = Math.max(0, salaireImposable - abattement);
+  // L'abattement ne peut pas être supérieur à la taxe elle-même
+  if (abattement > theoreticalTax) abattement = theoreticalTax;
 
-  let tax = 0;
-  if (baseIRG <= 30000) {
-    tax = 0;
-  } else if (baseIRG <= 120000) {
-    tax = (baseIRG - 30000) * 0.20;
-  } else if (baseIRG <= 360000) {
-    tax = (120000 - 30000) * 0.20 + (baseIRG - 120000) * 0.30;
-  } else if (baseIRG <= 1440000) {
-    tax = (120000 - 30000) * 0.20 + (360000 - 120000) * 0.30 + (baseIRG - 360000) * 0.33;
-  } else {
-    tax = (120000 - 30000) * 0.20 + (360000 - 120000) * 0.30 + (1440000 - 360000) * 0.33 + (baseIRG - 1440000) * 0.35;
+  let netTax = theoreticalTax - abattement;
+
+  // 3. Réduction spécifique Travailleurs Handicapés (Si base < 40 000 DA)
+  if (isHandicapped && salaireImposable < 40000) {
+    netTax *= 0.5;
   }
 
-  if (isHandicapped && baseIRG <= 42500) {
-    tax *= 0.5;
-  }
+  // 4. Réduction Zone Grand Sud (Abattement de 50%)
   if (isGrandSud) {
-    tax *= 0.5;
+    netTax *= 0.5;
   }
 
-  return Math.round(tax);
+  return Math.round(netTax);
 }
 
 /**
@@ -95,11 +106,11 @@ export function processEmployeePayroll(emp: any, context: { valeurPoint: number 
  * Métriques RH de simulation.
  */
 export function calculateRHMetrics(input: { brut: number, primes: number, avantages: number }) {
-  const cnasE = input.brut * PAYROLL_CONSTANTS.CNAS_EMPLOYEE;
-  const imposable = input.brut - cnasE;
+  const cnasE = (input.brut + input.primes) * PAYROLL_CONSTANTS.CNAS_EMPLOYEE;
+  const imposable = (input.brut + input.primes) - cnasE;
   const irg = calculateIRG(imposable);
   const net = (imposable - irg) + input.avantages;
-  const cost = input.brut + (input.brut * PAYROLL_CONSTANTS.CNAS_EMPLOYER) + input.avantages;
+  const cost = (input.brut + input.primes) + ((input.brut + input.primes) * PAYROLL_CONSTANTS.CNAS_EMPLOYER) + input.avantages;
 
   return {
     net,
