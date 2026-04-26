@@ -19,22 +19,17 @@ import {
   LogOut,
   Library,
   FileBarChart,
-  FileStack,
+  TrendingDown,
   ClipboardList,
   CalendarCheck,
   HardHat,
   Contact,
-  Layers,
-  MessagesSquare,
-  Repeat,
   Landmark,
   BookOpen,
   CalendarDays,
   Eye,
   GraduationCap,
   FileBadge,
-  TrendingDown,
-  Plus,
   Scale,
   ShieldAlert,
   HandCoins,
@@ -43,7 +38,13 @@ import {
   Loader2,
   Package,
   ClipboardCheck,
-  Boxes
+  Boxes,
+  ShoppingCart,
+  Truck,
+  CreditCard,
+  History,
+  FileSearch,
+  Plus
 } from "lucide-react"
 
 import {
@@ -71,7 +72,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -102,6 +102,14 @@ const accountingNav = [
   { name: "Rapprochement Bancaire", href: "/dashboard/cabinet/bank-recon", icon: Landmark },
 ]
 
+const purchaseNav = [
+  { name: "Flux d'Achat Hub", href: "/dashboard/purchases", icon: ShoppingCart },
+  { name: "Bons de Commande", href: "/dashboard/purchases/orders", icon: FileSearch },
+  { name: "Bons de Réception", href: "/dashboard/purchases/receptions", icon: Truck },
+  { name: "Factures Fournisseurs", href: "/dashboard/purchases/invoices", icon: Receipt },
+  { name: "Règlements", href: "/dashboard/purchases/payments", icon: CreditCard },
+]
+
 const inventoryNav = [
   { name: "Sessions d'Inventaire", href: "/dashboard/inventory", icon: ClipboardCheck },
   { name: "Gestion des Stocks", href: "/dashboard/inventory/stock", icon: Boxes },
@@ -125,7 +133,7 @@ const fiscalNav = [
   { name: "Déclarations (G50/G12)", href: "/dashboard/declarations", icon: FileText },
   { name: "G50 ter (Trimestriel)", href: "/dashboard/declarations/g50ter", icon: CalendarDays },
   { name: "Cotisations CASNOS", href: "/dashboard/declarations/casnos", icon: HandCoins },
-  { name: "Liasse Fiscale (G4)", href: "/dashboard/declarations/g4", icon: FileStack },
+  { name: "Liasse Fiscale (G4)", href: "/dashboard/declarations/g4", icon: FileText },
   { name: "Existence (G8)", href: "/dashboard/declarations/g8", icon: FileBadge },
   { name: "Taxe Apprentissage", href: "/dashboard/declarations/taxe-apprentissage", icon: GraduationCap },
 ]
@@ -299,6 +307,7 @@ export function DashboardSidebar() {
       <SidebarContent className="px-2">
         <NavGroup label="Pilotage" items={pilotageNav} />
         <NavGroup label="Comptabilité SCF" items={accountingNav} />
+        <NavGroup label="Achats & Dépenses" items={purchaseNav} />
         <NavGroup label="Stocks & Inventaires" items={inventoryNav} />
         <NavGroup label="Activité & Tiers" items={businessNav} />
         <NavGroup label="RH & Paie" items={payrollNav} />

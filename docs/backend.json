@@ -56,28 +56,39 @@
         "tenantId": { "type": "string" }
       }
     },
-    "InventorySession": {
-      "title": "InventorySession",
+    "PurchaseOrder": {
+      "title": "PurchaseOrder",
       "type": "object",
-      "description": "Session d'inventaire avec workflow C1/C2/C3.",
+      "description": "Bon de commande fournisseur.",
       "properties": {
         "id": { "type": "string" },
-        "name": { "type": "string" },
-        "type": { "type": "string", "enum": ["ANNUAL", "ROTATING", "AUDIT"] },
-        "status": { "type": "string", "enum": ["DRAFT", "IN_PROGRESS", "RECONCILIATION", "CLOSED"] },
-        "warehouse": { "type": "string" },
-        "counts": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "productId": { "type": "string" },
-              "c1": { "type": "number" },
-              "c2": { "type": "number" },
-              "c3": { "type": "number" }
-            }
-          }
-        }
+        "orderNumber": { "type": "string" },
+        "supplierId": { "type": "string" },
+        "supplierName": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["DRAFT", "VALIDATED", "RECEIVED", "INVOICED", "CANCELLED"] },
+        "totalHT": { "type": "number" },
+        "totalTVA": { "type": "number" },
+        "totalTTC": { "type": "number" },
+        "items": { "type": "array" }
+      }
+    },
+    "SupplierInvoice": {
+      "title": "SupplierInvoice",
+      "type": "object",
+      "description": "Facture fournisseur avec rapprochement 3-way.",
+      "properties": {
+        "id": { "type": "string" },
+        "invoiceNumber": { "type": "string" },
+        "orderId": { "type": "string" },
+        "receiptId": { "type": "string" },
+        "supplierId": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "amountHT": { "type": "number" },
+        "amountTVA": { "type": "number" },
+        "amountTTC": { "type": "number" },
+        "isMatched": { "type": "boolean" },
+        "paymentStatus": { "type": "string", "enum": ["UNPAID", "PARTIAL", "PAID"] }
       }
     }
   },
@@ -91,6 +102,8 @@
     "/tenants/{tenantId}": { "schema": "object", "description": "Dossiers clients" },
     "/tenants/{tenantId}/assets/{assetId}": { "schema": "#/backend/entities/Asset", "description": "Registre des immobilisations" },
     "/tenants/{tenantId}/products/{productId}": { "schema": "#/backend/entities/Product", "description": "Catalogue articles" },
-    "/tenants/{tenantId}/inventory_sessions/{sessionId}": { "schema": "#/backend/entities/InventorySession", "description": "Sessions d'inventaire" }
+    "/tenants/{tenantId}/inventory_sessions/{sessionId}": { "schema": "#/backend/entities/InventorySession", "description": "Sessions d'inventaire" },
+    "/tenants/{tenantId}/purchase_orders/{orderId}": { "schema": "#/backend/entities/PurchaseOrder", "description": "Bons de commande" },
+    "/tenants/{tenantId}/supplier_invoices/{invoiceId}": { "schema": "#/backend/entities/SupplierInvoice", "description": "Factures fournisseurs" }
   }
 }
