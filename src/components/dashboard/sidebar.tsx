@@ -38,6 +38,7 @@ import {
   LifeBuoy,
   Boxes,
   ClipboardCheck,
+  ClipboardList,
   FileSearch,
   FilePlus2,
   BookOpen,
