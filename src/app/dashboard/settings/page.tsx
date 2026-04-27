@@ -78,16 +78,16 @@ export default function TenantSettingsPage() {
   if (isTenantsLoading) return <div className="flex items-center justify-center h-full"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-20">
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col gap-1">
+    <div className="max-w-5xl mx-auto space-y-6 pb-20" dir={isRtl ? "rtl" : "ltr"}>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col gap-1 text-start">
           <h1 className="text-3xl font-black text-primary flex items-center gap-2 uppercase tracking-tighter">
             {t.Settings.master_config}
           </h1>
           <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest">{t.Settings.governance}</p>
         </div>
         <Button onClick={handleSave} disabled={isSaving} className="shadow-xl bg-primary h-11 px-8 rounded-xl font-bold">
-          {isSaving ? <Loader2 className={cn(isRtl ? "ml-2" : "mr-2", "h-4 w-4 animate-spin")} /> : <Save className={cn(isRtl ? "ml-2" : "mr-2", "h-4 w-4")} />}
+          {isSaving ? <Loader2 className={cn(isRtl ? "ms-2" : "me-2", "h-4 w-4 animate-spin")} /> : <Save className={cn(isRtl ? "ms-2" : "me-2", "h-4 w-4")} />}
           {t.Common.save}
         </Button>
       </div>
@@ -103,7 +103,9 @@ export default function TenantSettingsPage() {
         <TabsContent value="identification" className="mt-6 space-y-6">
           <Card className="border-none shadow-xl ring-1 ring-border rounded-2xl overflow-hidden">
             <CardHeader className="bg-slate-50 border-b border-slate-100 text-start">
-              <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2"><Building2 className="h-4 w-4 text-primary" /> {t.Settings.legal_id}</CardTitle>
+              <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-primary" /> {t.Settings.legal_id}
+              </CardTitle>
             </CardHeader>
             <CardContent className="grid md:grid-cols-2 gap-8 pt-6">
               <div className="space-y-4">
@@ -162,11 +164,13 @@ export default function TenantSettingsPage() {
         <TabsContent value="fiscal" className="mt-6 space-y-6">
           <Card className="border-none shadow-xl ring-1 ring-border rounded-2xl overflow-hidden bg-white">
             <CardHeader className="bg-slate-50 border-b text-start">
-              <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2"><Gavel className="h-4 w-4 text-primary" /> {t.Settings.fiscal_profile}</CardTitle>
+              <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                <Gavel className="h-4 w-4 text-primary" /> {t.Settings.fiscal_profile}
+              </CardTitle>
             </CardHeader>
             <CardContent className="pt-6 grid md:grid-cols-2 gap-8">
-              <div className="space-y-6">
-                <div className="space-y-2 text-start">
+              <div className="space-y-6 text-start">
+                <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-slate-400">{t.Settings.regime}</Label>
                   <Select value={formData.regimeFiscal || "REGIME_REEL"} onValueChange={(v) => handleUpdate("regimeFiscal", v)}>
                     <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
@@ -176,7 +180,7 @@ export default function TenantSettingsPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2 text-start">
+                <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-slate-400">{t.Settings.sector}</Label>
                   <Select value={formData.secteurActivite || "SERVICES"} onValueChange={(v) => handleUpdate("secteurActivite", v)}>
                     <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
@@ -202,7 +206,7 @@ export default function TenantSettingsPage() {
                 <CardHeader className="bg-blue-50 border-b border-blue-100 text-start">
                   <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2"><Truck className="h-4 w-4 text-blue-600" /> Options Transport</CardTitle>
                 </CardHeader>
-                <CardContent className="pt-6 space-y-4">
+                <CardContent className="pt-6 space-y-4 text-start">
                   <div className="flex items-center justify-between">
                     <Label className="text-xs font-bold">Activer Rentabilité par Véhicule</Label>
                     <Switch checked={true} disabled />
@@ -218,7 +222,7 @@ export default function TenantSettingsPage() {
               <CardHeader className="bg-slate-50 border-b text-start">
                 <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2"><Briefcase className="h-4 w-4 text-primary" /> Paramètres Métier</CardTitle>
               </CardHeader>
-              <CardContent className="pt-6 space-y-4">
+              <CardContent className="pt-6 space-y-4 text-start">
                 <div className="flex items-center space-x-2">
                   <Checkbox id="startup" checked={formData.isStartup} onCheckedChange={(v) => handleUpdate("isStartup", !!v)} />
                   <Label htmlFor="startup" className="text-xs font-bold">Label Startup (Exonéré IBS/IFU)</Label>

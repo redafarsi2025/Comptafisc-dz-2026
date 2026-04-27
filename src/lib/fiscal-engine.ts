@@ -1,11 +1,11 @@
 'use client';
 
-import { Firestore, collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { Firestore, collection, query, where, getDocs } from 'firebase/firestore';
 
 /**
- * @fileOverview Moteur Fiscal Master (Noyau v3.0 - Pro DSL Edition)
+ * @fileOverview Moteur Fiscal Master (Noyau v3.1 - Index Opti)
  * Implémentation d'un DSL déclaratif pour la fiscalité algérienne.
- * Architecture : GLOBAL (Loi) → ACTIVITÉ (Secteur) → CLIENT (Profil) → DOCUMENT (Input)
+ * Correction : Filtrage et tri côté client pour éviter les erreurs d'index composite Firestore.
  */
 
 export interface FiscalContext {
@@ -39,19 +39,25 @@ export async function resolveFiscalVariable(ctx: FiscalContext, code: string): P
     return VARIABLE_CACHE[cacheKey].value;
   }
 
+  // Requête simple sur un champ unique pour éviter les erreurs d'index
   const valueQuery = query(
     collection(db, 'fiscal_variable_values'),
-    where('fiscalVariableTypeId', '==', code),
-    where('effectiveStartDate', '<=', date),
-    orderBy('effectiveStartDate', 'desc'),
-    limit(1)
+    where('fiscalVariableTypeId', '==', code)
   );
 
   const snap = await getDocs(valueQuery);
   
   if (snap.empty) return 0;
 
-  const data = snap.docs[0].data();
+  // Filtrage manuel par date et tri pour éviter l'index composite
+  const validDocs = snap.docs
+    .map(d => d.data())
+    .filter(d => d.effectiveStartDate <= date)
+    .sort((a, b) => b.effectiveStartDate.localeCompare(a.effectiveStartDate));
+
+  if (validDocs.length === 0) return 0;
+
+  const data = validDocs[0];
   const val = typeof data.value === 'string' ? parseFloat(data.value) : data.value;
   
   VARIABLE_CACHE[cacheKey] = { value: val, expires: Date.now() + CACHE_TTL };
@@ -60,26 +66,29 @@ export async function resolveFiscalVariable(ctx: FiscalContext, code: string): P
 
 /**
  * Pipeline Master DSL : Évalue les règles en respectant l'isolation par ACTIVITÉ et CLIENT.
+ * Utilise le filtrage client-side pour garantir la compatibilité sans index composite.
  */
 export async function executeFiscalPipeline(ctx: FiscalContext, category?: string, inputData: any = {}): Promise<{ results: any, traces: RuleTrace[] }> {
   const { db, date, sector, regime } = ctx;
   
-  // 1. Filtrage Global & Temporel
-  let constraints = [
-    where('effectiveStartDate', '<=', date), 
-    where('active', '==', true)
-  ];
-  if (category) constraints.push(where('category', '==', category));
-
+  // Requête ultra-simple pour éviter les erreurs d'index complexe
   const rulesQuery = query(
     collection(db, 'fiscal_business_rules'),
-    ...constraints,
-    orderBy('priority', 'asc')
+    where('active', '==', true)
   );
 
   const snap = await getDocs(rulesQuery);
   
-  // Initialisation des variables avec le contexte CLIENT et ACTIVITÉ
+  // Filtrage et tri client-side
+  const filteredRules = snap.docs
+    .map(doc => ({ id: doc.id, ...doc.data() }))
+    .filter((rule: any) => {
+      const matchDate = rule.effectiveStartDate <= date;
+      const matchCategory = category ? rule.category === category : true;
+      return matchDate && matchCategory;
+    })
+    .sort((a: any, b: any) => (a.priority || 0) - (b.priority || 0));
+
   let results = { 
     ...inputData, 
     secteur: sector || 'SERVICES', 
@@ -89,16 +98,13 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
   
   let traces: RuleTrace[] = [];
 
-  for (const doc of snap.docs) {
-    const rule = doc.data();
+  for (const rule of filteredRules as any[]) {
     try {
-      // 2. Évaluation de la condition WHEN (Isolation ACTIVITÉ / PROFIL)
       const isMet = rule.when ? evalDSLFormula(rule.when, results) : true;
       
       if (isMet) {
         const executedActions: string[] = [];
         
-        // 3. Exécution des actions THEN (Calcul DOCUMENT)
         if (Array.isArray(rule.then)) {
           for (const action of rule.then) {
             const subConditionMet = action.if ? evalDSLFormula(action.if, results) : true;
@@ -119,7 +125,6 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
           executedActions.push(`${rule.code} = ${val}`);
         }
 
-        // 4. Justification (Audit-Ready)
         traces.push({
           ruleCode: rule.code,
           ruleName: rule.name,
@@ -137,10 +142,6 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
   return { results, traces };
 }
 
-/**
- * Interpréteur d'expressions métier (Logic-less).
- * Ajout du support CEIL pour le droit de timbre 2026.
- */
 function evalDSLFormula(formula: string, params: Record<string, any>): any {
   try {
     let expression = formula

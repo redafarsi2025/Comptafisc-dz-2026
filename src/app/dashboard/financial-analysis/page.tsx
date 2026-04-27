@@ -114,7 +114,7 @@ export default function FinancialAnalysisPage() {
     return { fixedAssets, stocks, receivables, payables, cash, bfr, liquidity, revenue, netProfit, reintegrations, vatCollected, vatDeductible, margo: revenue > 0 ? (netProfit / revenue) * 100 : 0 };
   }, [entries, assets]);
 
-  // EXECUTION DU MOTEUR FISCAL MASTER (DÉTERMINISTE)
+  // EXECUTION DU MOTEUR FISCAL MASTER
   React.useEffect(() => {
     const runDiagnostic = async () => {
       if (!db || !analysis || !currentTenant) return;
@@ -130,7 +130,7 @@ export default function FinancialAnalysisPage() {
           'FISCAL',
           { 
             resultat_fiscal: analysis.netProfit + analysis.reintegrations,
-            totalTTC: analysis.revenue * 1.19, // Simulation simplifiée
+            totalTTC: analysis.revenue * 1.19,
             paymentMethod: 'Virement'
           }
         );
@@ -163,22 +163,21 @@ export default function FinancialAnalysisPage() {
   if (!mounted || isLoading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary h-10 w-10" /></div>
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="space-y-8 pb-20" dir={isRtl ? "rtl" : "ltr"}>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
+        <div className={cn("text-start")}>
           <h1 className="text-3xl font-black text-primary tracking-tighter uppercase flex items-center gap-3">
             <BarChart3 className="text-accent h-8 w-8" /> {t.Navigation.analytics}
           </h1>
           <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest mt-1">Niveau Master - Jumeau Numérique Financier</p>
         </div>
         <div className="flex gap-2">
-          <Badge className="bg-primary/10 text-primary border-primary/20 px-4 py-2 font-black uppercase text-[10px] tracking-widest">
-            <ShieldCheck className="h-3 w-3 mr-2" /> Analyse d'Efficience : Active
+          <Badge className={cn("px-4 py-2 font-black uppercase text-[10px] tracking-widest shadow-sm bg-primary/10 text-primary border-primary/20", isRtl && "flex-row-reverse")}>
+            <ShieldCheck className={cn("h-3 w-3", isRtl ? "ml-2" : "mr-2")} /> {t.Common.status_compliance}: {t.Common.certified}
           </Badge>
         </div>
       </div>
 
-      {/* DASHBOARD CONSEILLER FISCAL (DÉTERMINISTE) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <Card className="lg:col-span-2 border-none shadow-2xl ring-1 ring-border bg-white rounded-3xl overflow-hidden">
           <CardHeader className="bg-slate-50 border-b p-6 flex flex-row items-center justify-between">
@@ -186,7 +185,7 @@ export default function FinancialAnalysisPage() {
               <div className="h-10 w-10 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
                 <Gavel className="h-5 w-5 text-white" />
               </div>
-              <div>
+              <div className="text-start">
                 <CardTitle className="text-lg font-black uppercase tracking-tighter">{t.Analysis.diagnostic}</CardTitle>
                 <CardDescription className="text-[10px] font-bold uppercase text-slate-400">Audit automatique basé sur le Livre-Journal</CardDescription>
               </div>
@@ -208,12 +207,12 @@ export default function FinancialAnalysisPage() {
                 <div className="flex justify-between items-center pt-2">
                   <span className="text-sm font-black text-primary uppercase">{t.Analysis.fiscal_profit}</span>
                   <Badge className="h-8 px-4 text-sm font-black bg-primary text-white">
-                    {(analysis?.netProfit || 0 + (analysis?.reintegrations || 0)).toLocaleString()} DA
+                    {( (analysis?.netProfit || 0) + (analysis?.reintegrations || 0) ).toLocaleString()} DA
                   </Badge>
                 </div>
                 <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex items-start gap-3">
                    <Info className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
-                   <p className="text-[10px] text-blue-800 leading-relaxed font-medium italic">
+                   <p className="text-[10px] text-blue-800 leading-relaxed font-medium italic text-start">
                     "Les réintégrations incluent automatiquement les montants portés au débit du compte 671 (Amendes et pénalités) conformément à l'Art. 141 du CIDTA."
                    </p>
                 </div>
@@ -225,21 +224,21 @@ export default function FinancialAnalysisPage() {
                    <div className="space-y-2">
                       <div className="flex justify-between items-center text-[10px] font-black uppercase text-accent">
                         <span>{t.Analysis.tax_pressure}</span>
-                        <span>{fiscalDiagnostic ? ((fiscalDiagnostic.results.IBS / analysis?.netProfit) * 100).toFixed(1) : '...'}%</span>
+                        <span>{fiscalDiagnostic ? ((fiscalDiagnostic.results.IBS / (analysis?.netProfit || 1)) * 100).toFixed(1) : '...'}%</span>
                       </div>
-                      <Progress value={fiscalDiagnostic ? (fiscalDiagnostic.results.IBS / analysis?.netProfit) * 100 : 0} className="h-1 bg-white/10" />
+                      <Progress value={fiscalDiagnostic ? (fiscalDiagnostic.results.IBS / (analysis?.netProfit || 1)) * 100 : 0} className="h-1 bg-white/10" />
                    </div>
                    <div className="space-y-2">
                       <div className="flex justify-between items-center text-[10px] font-black uppercase text-blue-400">
                         <span>{t.Analysis.vat_ratio}</span>
-                        <span>{analysis ? ((analysis.vatDeductible / analysis.vatCollected) * 100).toFixed(1) : '...'}%</span>
+                        <span>{analysis ? ((analysis.vatDeductible / (analysis.vatCollected || 1)) * 100).toFixed(1) : '...'}%</span>
                       </div>
-                      <Progress value={analysis ? (analysis.vatDeductible / analysis.vatCollected) * 100 : 0} className="h-1 bg-white/10" />
+                      <Progress value={analysis ? (analysis.vatDeductible / (analysis.vatCollected || 1)) * 100 : 0} className="h-1 bg-white/10" />
                    </div>
                    <div className="pt-4 border-t border-white/5">
-                      <Badge className={cn("w-full h-8 flex justify-center text-[10px] font-black tracking-widest", analysis?.reintegrations > (analysis?.netProfit * 0.05) ? "bg-red-500" : "bg-emerald-500")}>
+                      <Badge className={cn("w-full h-8 flex justify-center text-[10px] font-black tracking-widest", (analysis?.reintegrations || 0) > ((analysis?.netProfit || 0) * 0.05) ? "bg-red-500" : "bg-emerald-500")}>
                         <ShieldCheck className="h-3 w-3 mr-2" /> 
-                        {analysis?.reintegrations > (analysis?.netProfit * 0.05) ? t.Analysis.risk_medium : t.Analysis.risk_low}
+                        {(analysis?.reintegrations || 0) > ((analysis?.netProfit || 0) * 0.05) ? t.Analysis.risk_medium : t.Analysis.risk_low}
                       </Badge>
                    </div>
                 </div>
@@ -247,29 +246,28 @@ export default function FinancialAnalysisPage() {
           </CardContent>
         </Card>
 
-        {/* RECOMMANDATIONS D'OPTIMISATION */}
         <Card className="lg:col-span-1 border-none shadow-xl ring-1 ring-border bg-white rounded-3xl overflow-hidden flex flex-col">
           <CardHeader className="bg-emerald-50 border-b border-emerald-100 p-6">
-            <CardTitle className="text-sm font-black uppercase tracking-widest text-emerald-900 flex items-center gap-2">
+            <CardTitle className={cn("text-sm font-black uppercase tracking-widest text-emerald-900 flex items-center gap-2", isRtl && "flex-row-reverse")}>
               <Lightbulb className="h-4 w-4" /> {t.Analysis.recommendations}
             </CardTitle>
           </CardHeader>
           <CardContent className="flex-1 p-6 space-y-4">
-             <ScrollArea className="h-[300px] pr-4">
+             <ScrollArea className="h-[300px] pe-4">
                 <div className="space-y-4">
-                   {analysis?.reintegrations > 0 && (
-                     <div className="p-4 bg-slate-50 rounded-2xl border-l-4 border-l-amber-500 space-y-2">
+                   {(analysis?.reintegrations || 0) > 0 && (
+                     <div className="p-4 bg-slate-50 rounded-2xl border-s-4 border-s-amber-500 space-y-2 text-start">
                         <p className="text-[10px] font-black uppercase text-amber-700">Optimisation IBS</p>
                         <p className="text-[11px] text-slate-600 leading-relaxed font-medium">Réduire les charges non déductibles (671) pour abaisser le résultat fiscal.</p>
                      </div>
                    )}
                    {analysis && analysis.vatDeductible < analysis.vatCollected * 0.2 && (
-                     <div className="p-4 bg-slate-50 rounded-2xl border-l-4 border-l-primary space-y-2">
+                     <div className="p-4 bg-slate-50 rounded-2xl border-s-4 border-s-primary space-y-2 text-start">
                         <p className="text-[10px] font-black uppercase text-primary">Gestion de TVA</p>
                         <p className="text-[11px] text-slate-600 leading-relaxed font-medium">Récupération de TVA faible. Vérifiez la validité fiscale des factures fournisseurs.</p>
                      </div>
                    )}
-                   <div className="p-4 bg-emerald-50/50 rounded-2xl border-l-4 border-l-emerald-500 space-y-2">
+                   <div className="p-4 bg-emerald-50/50 rounded-2xl border-s-4 border-s-emerald-500 space-y-2 text-start">
                       <p className="text-[10px] font-black uppercase text-emerald-700">Investissement Pro</p>
                       <p className="text-[11px] text-slate-600 leading-relaxed font-medium">Utiliser le levier de réinvestissement (Art. 150 CIDTA) pour réduire l'IBS de 5%.</p>
                    </div>
@@ -278,7 +276,7 @@ export default function FinancialAnalysisPage() {
           </CardContent>
           <CardFooter className="bg-slate-50 border-t p-4">
              <Button className="w-full bg-primary text-white font-black uppercase text-[10px] tracking-widest h-10" asChild>
-                <Link href={`/dashboard/declarations?tenantId=${currentTenant?.id}`}>Accéder aux G50 <ArrowRight className="h-3 w-3 ml-2" /></Link>
+                <Link href={`/dashboard/declarations?tenantId=${currentTenant?.id}`}>Accéder aux G50 <ArrowRight className={cn("h-3 w-3", isRtl ? "mr-2 rotate-180" : "ml-2")} /></Link>
              </Button>
           </CardFooter>
         </Card>
@@ -289,12 +287,12 @@ export default function FinancialAnalysisPage() {
           <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:rotate-12 transition-transform">
             <Zap className="h-24 w-24 text-accent" />
           </div>
-          <CardHeader>
+          <CardHeader className="text-start">
             <CardTitle className="text-xs font-black uppercase tracking-widest text-accent flex items-center gap-2">
               <Sparkles className="h-4 w-4" /> Décisions Stratégiques
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 text-start">
             <p className="text-sm font-medium leading-relaxed opacity-80">
               Utilisez l'IA pour simuler des scénarios "What-If" basés sur vos données réelles de dossier.
             </p>
@@ -305,19 +303,19 @@ export default function FinancialAnalysisPage() {
               onClick={handleGeneratePlan}
               disabled={isGeneratingPlan}
             >
-              {isGeneratingPlan ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Layers className="h-4 w-4 mr-2" />}
+              {isGeneratingPlan ? <Loader2 className="animate-spin h-4 w-4 me-2" /> : <Layers className="h-4 w-4 me-2" />}
               Lancer Simulation IA
             </Button>
           </CardFooter>
         </Card>
 
         <Card className="border-none shadow-xl ring-1 ring-border bg-white border-t-4 border-t-emerald-500">
-          <CardHeader>
+          <CardHeader className="text-start">
             <CardTitle className="text-xs font-black uppercase tracking-widest text-emerald-600 flex items-center gap-2">
               <Calculator className="h-4 w-4" /> Optimisation Fiscale
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 text-start">
              <p className="text-sm font-bold">Améliorez votre ROI de {(analysis?.margo || 0).toFixed(1)}%</p>
              <div className="p-3 bg-emerald-50 rounded-xl text-[11px] text-emerald-800 italic">
                "Note : Le réinvestissement dans des actifs productifs réduit votre base IBS de 5% à 10% (Art. 150 CIDTA)."
@@ -327,16 +325,16 @@ export default function FinancialAnalysisPage() {
             <Dialog open={isSimModalOpen} onOpenChange={setIsSimModalOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" className="w-full border-emerald-500 text-emerald-600 font-black uppercase tracking-widest text-[10px] h-10">
-                  Comparer Scénarios d'Investissement <ArrowRight className="ml-2 h-3 w-3" />
+                  Comparer Scénarios d'Investissement <ArrowRight className={cn("h-3 w-3", isRtl ? "mr-2 rotate-180" : "ml-2")} />
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-4xl rounded-3xl p-8">
-                <DialogHeader>
+                <DialogHeader className="text-start">
                   <DialogTitle className="text-2xl font-black uppercase tracking-tighter">Simulateur de Scénarios Dynamiques</DialogTitle>
                   <DialogDescription className="uppercase text-[9px] font-bold tracking-widest">Optimisation du mode d'acquisition (Pro Level)</DialogDescription>
                 </DialogHeader>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 py-6">
-                  <div className="space-y-6">
+                  <div className="space-y-6 text-start">
                     <div className="space-y-4">
                       <Label className="text-[10px] font-black uppercase text-slate-400">Valeur de l'actif HT (DA)</Label>
                       <Input type="number" value={simAmount} onChange={e => setSimAmount(parseFloat(e.target.value) || 0)} className="rounded-xl h-12 text-lg font-black" />
@@ -355,14 +353,14 @@ export default function FinancialAnalysisPage() {
                   </div>
                   <div className="space-y-4">
                      <div className="p-6 bg-slate-900 text-white rounded-3xl space-y-6">
-                        <h4 className="text-xs font-black uppercase text-accent border-b border-white/10 pb-2">Verdict Master : Achat vs Leasing</h4>
+                        <h4 className="text-xs font-black uppercase text-accent border-b border-white/10 pb-2 text-start">Verdict Master : Achat vs Leasing</h4>
                         <div className="grid grid-cols-2 gap-4">
-                           <div className="space-y-1">
+                           <div className="space-y-1 text-start">
                               <p className="text-[8px] uppercase font-bold text-slate-400">Scénario Achat Direct</p>
                               <p className="text-lg font-black">-{simResults.purchase.netCost.toLocaleString()} DA</p>
                               <p className="text-[9px] text-emerald-400">Gain fiscal : {simResults.purchase.totalTaxSaving.toLocaleString()} DA</p>
                            </div>
-                           <div className="space-y-1 border-l border-white/10 pl-4">
+                           <div className={cn("space-y-1 border-white/10 ps-4 text-start", isRtl ? "border-e" : "border-s")}>
                               <p className="text-[8px] uppercase font-bold text-slate-400">Scénario Leasing</p>
                               <p className="text-lg font-black">-{simResults.leasing.netCost.toLocaleString()} DA</p>
                               <p className="text-[9px] text-accent">Loyer mensuel : {Math.round(simResults.leasing.monthlyLease).toLocaleString()} DA</p>
@@ -374,27 +372,27 @@ export default function FinancialAnalysisPage() {
                      </div>
                   </div>
                 </div>
-                <DialogFooter><Button className="w-full rounded-2xl h-12" onClick={() => setIsSimModalOpen(false)}>Fermer le Simulateur</Button></DialogFooter>
+                <DialogFooter><Button className="w-full rounded-2xl h-12 font-bold" onClick={() => setIsSimModalOpen(false)}>Fermer le Simulateur</Button></DialogFooter>
               </DialogContent>
             </Dialog>
           </CardFooter>
         </Card>
 
         <Card className="border-none shadow-xl ring-1 ring-border bg-white border-t-4 border-t-blue-500">
-          <CardHeader>
+          <CardHeader className="text-start">
             <CardTitle className="text-xs font-black uppercase tracking-widest text-blue-600 flex items-center gap-2">
               <Building2 className="h-4 w-4" /> Patrimoine & V.N.C
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 text-start">
             <p className="text-sm">Valeur brute immobilisée : <span className="font-black text-blue-600">{analysis?.fixedAssets.toLocaleString()} DA</span></p>
-            <div className="p-3 bg-blue-50 rounded-xl text-[11px] text-blue-800">
+            <div className="p-3 bg-blue-50 rounded-xl text-[11px] text-blue-800 italic">
               Extraction réelle depuis votre registre de classe 2.
             </div>
           </CardContent>
           <CardFooter>
             <Button variant="ghost" className="w-full text-blue-600 font-black uppercase tracking-widest text-[10px] h-10" asChild>
-              <Link href={`/dashboard/accounting/assets?tenantId=${currentTenant?.id}`}>Accéder au Registre Immo <ArrowRight className="ml-2 h-3 w-3" /></Link>
+              <Link href={`/dashboard/accounting/assets?tenantId=${currentTenant?.id}`}>Accéder au Registre Immo <ArrowRight className={cn("h-3 w-3", isRtl ? "mr-2 rotate-180" : "ml-2")} /></Link>
             </Button>
           </CardFooter>
         </Card>
@@ -402,7 +400,7 @@ export default function FinancialAnalysisPage() {
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 border-none shadow-2xl rounded-3xl overflow-hidden">
-           <DialogHeader className="bg-slate-900 text-white p-8 shrink-0">
+           <DialogHeader className={cn("bg-slate-900 text-white p-8 shrink-0", isRtl ? "text-right" : "text-left")}>
              <div className="flex items-center gap-4">
                <div className="h-12 w-12 rounded-2xl bg-accent/20 flex items-center justify-center border border-accent/20 shadow-inner">
                  <Sparkles className="h-6 w-6 text-accent animate-pulse" />
@@ -415,7 +413,7 @@ export default function FinancialAnalysisPage() {
            </DialogHeader>
            
            <ScrollArea className="flex-1 w-full bg-white">
-             <div className="p-8 prose prose-slate max-w-none prose-sm leading-relaxed text-slate-700 whitespace-pre-line">
+             <div className={cn("p-8 prose prose-slate max-w-none prose-sm leading-relaxed text-slate-700 whitespace-pre-line", isRtl ? "text-right" : "text-left")}>
                {recommendation}
              </div>
            </ScrollArea>
@@ -431,7 +429,7 @@ export default function FinancialAnalysisPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-7 gap-8">
         <Card className="lg:col-span-4 shadow-2xl border-none ring-1 ring-border overflow-hidden bg-white">
-          <CardHeader className="bg-slate-50 border-b p-6">
+          <CardHeader className="bg-slate-50 border-b p-6 text-start">
             <CardTitle className="text-lg font-black uppercase tracking-tighter">Analyse Structurelle (DSL Active)</CardTitle>
             <CardDescription className="text-[10px] font-bold uppercase text-slate-400">Extraction temps-réel via Moteur Fiscal Master</CardDescription>
           </CardHeader>
@@ -444,8 +442,8 @@ export default function FinancialAnalysisPage() {
                 { name: 'Cash', value: analysis?.cash },
               ]}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748B', fontWeight: 'bold' }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748B', fontWeight: 'bold' }} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748B', fontWeight: 'bold' }} reversed={isRtl} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748B', fontWeight: 'bold' }} orientation={isRtl ? "right" : "left"} />
                 <Tooltip cursor={{ fill: '#F8FAFC' }} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }} />
                 <Bar dataKey="value" fill="#0C55CC" radius={[4, 4, 0, 0]} barSize={45} />
               </BarChart>
@@ -454,24 +452,24 @@ export default function FinancialAnalysisPage() {
         </Card>
 
         <Card className="lg:col-span-3 shadow-2xl border-none ring-1 ring-border bg-white p-6">
-          <CardHeader className="p-0 mb-6"><CardTitle className="text-lg font-black uppercase tracking-tighter">Scorecard Décisionnel</CardTitle></CardHeader>
+          <CardHeader className="p-0 mb-6 text-start"><CardTitle className="text-lg font-black uppercase tracking-tighter">Scorecard Décisionnel</CardTitle></CardHeader>
           <CardContent className="p-0 space-y-6">
-            <div className="space-y-2">
+            <div className="space-y-2 text-start">
               <div className="flex justify-between items-center text-[10px] font-black uppercase">
                 <span className="text-slate-500">B.F.R (Bilan)</span>
                 <span className="text-primary font-bold">{analysis?.bfr.toLocaleString()} DA</span>
               </div>
               <Progress value={65} className="h-1.5" />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 text-start">
               <div className="flex justify-between items-center text-[10px] font-black uppercase">
-                <span className="text-emerald-600 font-bold">{analysis?.liquidity.toFixed(2)}</span>
+                <span className="text-emerald-600 font-bold">Liquidity Ratio</span>
                 <span className="text-emerald-600 font-bold">{analysis?.liquidity.toFixed(2)}</span>
               </div>
-              <Progress value={analysis ? analysis.liquidity * 50 : 0} className="h-1.5 bg-slate-100" />
+              <Progress value={analysis ? (analysis.liquidity * 50) : 0} className="h-1.5 bg-slate-100" />
             </div>
 
-            <div className="mt-8 p-6 bg-slate-900 rounded-3xl text-white relative overflow-hidden">
+            <div className="mt-8 p-6 bg-slate-900 rounded-3xl text-white relative overflow-hidden text-start">
                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 blur-3xl -mr-16 -mt-16" />
                <h4 className="text-[10px] font-black uppercase text-accent tracking-widest mb-3">{t.Analysis.audit_trace}</h4>
                <p className="text-[11px] leading-relaxed opacity-80 italic">
