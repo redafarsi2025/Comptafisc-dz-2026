@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useFirestore, useUser, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase"
+import { useFirestore, useUser, useCollection, useMemoFirebase, updateDocumentNonBlocking, useDoc } from "@/firebase"
 import { collection, doc, query, where } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -14,6 +14,7 @@ import {
 import { PREMIUM_ADDONS, AddonService } from "@/lib/plans"
 import { toast } from "@/hooks/use-toast"
 import { useSearchParams } from "next/navigation"
+import { cn } from "@/lib/utils"
 
 export default function PremiumMarketplace() {
   const db = useFirestore()
