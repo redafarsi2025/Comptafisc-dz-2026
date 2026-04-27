@@ -375,7 +375,9 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
                     <span className="font-bold text-sidebar-foreground truncate w-32">
                       {user?.displayName || user?.email?.split('@')[0] || "Mon Compte"}
                     </span>
-                    <span className="text-[10px] font-bold text-sidebar-foreground/40 uppercase tracking-tighter">{isRtl ? "خبير محاسب" : "Expert-Comptable"}</span>
+                    <span className={cn("font-bold text-sidebar-foreground/40 uppercase tracking-tighter", isRtl ? "text-[12px]" : "text-[10px]")}>
+                      {isRtl ? "خبير محاسب" : "Expert-Comptable"}
+                    </span>
                   </div>
                   <ChevronDown className={cn("size-4 text-sidebar-foreground/30", isRtl ? "me-auto" : "ms-auto")} />
                 </SidebarMenuButton>

@@ -184,7 +184,7 @@ export default function ChartOfAccountsPage() {
                   <TableCell>
                     <div className="flex flex-col">
                       <span className="text-xs font-bold uppercase text-slate-900">{acc.label}</span>
-                      {acc.labelAr && <span className="text-[10px] text-slate-400 font-bold" dir="rtl">{acc.labelAr}</span>}
+                      {acc.labelAr && <span className="text-[13px] text-slate-500 font-bold mt-1" dir="rtl">{acc.labelAr}</span>}
                     </div>
                   </TableCell>
                   <TableCell>

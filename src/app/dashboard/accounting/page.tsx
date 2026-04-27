@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select"
 import { 
   Plus, Trash2, CheckCircle, Calculator, Loader2, BookOpen, 
-  Search, Briefcase, Sparkles, Library
+  Search, Briefcase, Sparkles, Library, AlertTriangle
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useFirestore, useUser, addDocumentNonBlocking, useCollection, useMemoFirebase } from "@/firebase"
@@ -18,6 +18,7 @@ import { toast } from "@/hooks/use-toast"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useLocale } from "@/context/LocaleContext"
 import { cn } from "@/lib/utils"
+import Link from "next/link"
 
 export default function AccountingJournal() {
   const db = useFirestore()
@@ -130,7 +131,7 @@ export default function AccountingJournal() {
   const groupedAccounts = React.useMemo(() => {
     if (!clientAccounts) return {};
     const search = searchAccount.toLowerCase();
-    const filtered = clientAccounts.filter(a => a.accountNumber.includes(search) || a.label.toLowerCase().includes(search));
+    const filtered = clientAccounts.filter(a => a.accountNumber.includes(search) || a.label.toLowerCase().includes(search) || (a.labelAr && a.labelAr.includes(search)));
     const groups: Record<number, any[]> = {};
     filtered.forEach(acc => {
       if (!groups[acc.class]) groups[acc.class] = [];
@@ -229,7 +230,7 @@ export default function AccountingJournal() {
                 <TableRow key={index} className="hover:bg-muted/5 h-16">
                   <TableCell>
                     <Select value={line.accountCode} onValueChange={(val) => updateLine(index, "accountCode", val)}>
-                      <SelectTrigger className="h-10 font-mono rounded-xl">
+                      <SelectTrigger className="h-12 font-mono rounded-xl">
                         <SelectValue placeholder="Code PCE" />
                       </SelectTrigger>
                       <SelectContent className="max-h-[300px]">
@@ -238,8 +239,13 @@ export default function AccountingJournal() {
                             <SelectLabel className="bg-muted/50 py-1 text-[10px] font-bold uppercase">Classe {cls}</SelectLabel>
                             {accounts.map((acc:any) => (
                               <SelectItem key={acc.accountNumber} value={acc.accountNumber}>
-                                <span className={cn("font-mono font-bold text-primary", isRtl ? "ml-2" : "mr-2")}>{acc.accountNumber}</span>
-                                <span className="text-xs opacity-70">{acc.label}</span>
+                                <div className="flex flex-col gap-0.5">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono font-bold text-primary text-xs">{acc.accountNumber}</span>
+                                    <span className="text-[11px] font-bold">{acc.label}</span>
+                                  </div>
+                                  {acc.labelAr && <span className="text-[13px] text-slate-500 font-bold" dir="rtl">{acc.labelAr}</span>}
+                                </div>
                               </SelectItem>
                             ))}
                           </SelectGroup>
