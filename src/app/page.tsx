@@ -67,10 +67,9 @@ export default function LandingPage() {
         )}
       </nav>
 
-      {/* HERO SECTION - COMPTABILITÉ SEULEMENT */}
+      {/* HERO SECTION */}
       <section className="relative pt-40 pb-20 overflow-hidden bg-white">
         <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-primary/5 blur-[120px] rounded-full -mr-96 -mt-96" />
-        <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-accent/5 blur-[100px] rounded-full -ml-48 -mb-48" />
         
         <div className="max-w-7xl mx-auto px-6 relative text-center md:text-left grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <div className="space-y-8">
@@ -79,9 +78,9 @@ export default function LandingPage() {
               <span className="text-[10px] font-black uppercase tracking-[0.2em]">Conforme Loi de Finances 2026</span>
             </div>
             <h1 className="text-5xl md:text-7xl font-black text-slate-900 tracking-tighter leading-[1.1] uppercase italic text-start">
-              Maîtrisez votre <br /> 
-              <span className="text-primary">Comptabilité</span> <br /> 
-              en Algérie.
+              L'Expertise <br /> 
+              <span className="text-primary">Comptable</span> <br /> 
+              Algérienne.
             </h1>
             <p className="text-xl text-slate-500 max-w-xl leading-relaxed font-medium text-start">
               Le premier ERP dédié à la comptabilité algérienne. Intégrez le SCF, gérez vos écritures et automatisez vos bilans avec une précision certifiée par les experts.
@@ -95,7 +94,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* VISUEL COMPTABILITÉ */}
+          {/* VISUEL COMPTABILITÉ PROFESSIONNELLE */}
           <div className="relative group">
             <div className="absolute inset-0 bg-primary/20 blur-[60px] group-hover:bg-primary/30 transition-all rounded-3xl" />
             <div className="relative bg-white p-2 rounded-3xl shadow-2xl border border-slate-200 ring-1 ring-slate-100 overflow-hidden transform group-hover:scale-[1.01] transition-transform duration-700">
@@ -107,9 +106,9 @@ export default function LandingPage() {
                </div>
                <img 
                 src={heroImage.imageUrl} 
-                data-ai-hint={heroImage.imageHint}
-                alt="Expertise Comptable Algérie" 
-                className="w-full h-auto object-cover aspect-[4/3] shadow-inner"
+                data-ai-hint="accounting ledger"
+                alt="Comptabilité et Finance Algérie" 
+                className="w-full h-auto object-cover aspect-[4/3] shadow-inner grayscale-[0.2] hover:grayscale-0 transition-all duration-500"
                />
                
                <div className="absolute bottom-8 right-8 bg-white/95 backdrop-blur-xl p-4 rounded-2xl border border-slate-200 shadow-xl flex items-center gap-3">
@@ -118,7 +117,7 @@ export default function LandingPage() {
                   </div>
                   <div className="text-start">
                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Plan Comptable</p>
-                    <p className="text-xs font-black text-slate-900 uppercase">Conformité SCF</p>
+                    <p className="text-xs font-black text-slate-900 uppercase">Conformité SCF 2026</p>
                   </div>
                </div>
             </div>
@@ -126,7 +125,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* SECTION SEGMENTS - CIBLAGE MÉTIER PRÉCIS */}
+      {/* SECTION SEGMENTS */}
       <section id="segments" className="py-32 bg-slate-50 text-slate-900">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center space-y-4 mb-20">
@@ -176,7 +175,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* SECTION FEATURES - L'AVANTAGE TECH */}
+      {/* SECTION FEATURES */}
       <section id="features" className="py-32 bg-white relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
@@ -301,25 +300,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* FINAL CTA */}
-      <section className="py-24 bg-primary relative overflow-hidden">
-         <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-primary" />
-         <div className="absolute top-0 right-0 p-20 opacity-10"><Crown className="h-96 w-96 text-white" /></div>
-         <div className="max-w-4xl mx-auto px-6 text-center relative space-y-8">
-            <h2 className="text-4xl md:text-6xl font-black text-white uppercase tracking-tighter italic">Prêt pour la sérénité fiscale ?</h2>
-            <p className="text-xl text-blue-100 font-medium">Rejoignez la nouvelle génération d'entreprises algériennes pilotées par la donnée et la loi.</p>
-            <div className="flex flex-col sm:flex-row gap-6 justify-center pt-4">
-              <Button size="lg" className="bg-white text-primary hover:bg-slate-100 h-16 px-12 rounded-2xl text-xl font-black uppercase tracking-widest shadow-2xl" asChild>
-                 <Link href="/register">Créer mon dossier gratuit</Link>
-              </Button>
-            </div>
-            <p className="text-sm text-blue-200 font-bold uppercase tracking-widest flex items-center justify-center gap-2">
-              <ShieldCheck className="h-4 w-4" /> Solution certifiée conforme DGI & CNAS 2026
-            </p>
-         </div>
-      </section>
-
-      {/* FOOTER PROFESSIONNEL CLAIR */}
+      {/* FOOTER */}
       <footer className="bg-white text-slate-500 py-20 px-8 border-t">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
           <div className="col-span-1 md:col-span-2 space-y-6 text-start">
@@ -333,13 +314,6 @@ export default function LandingPage() {
               Première plateforme SaaS de pilotage financier et fiscal en Algérie. 
               Intégration native du SCF, de la Loi de Finances et des standards RH.
             </p>
-            <div className="flex gap-4">
-               {['Linkedin', 'Twitter', 'Facebook'].map(s => (
-                 <a key={s} href="#" className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center hover:bg-primary transition-colors hover:text-white border border-slate-200">
-                   <Globe className="h-4 w-4" />
-                 </a>
-               ))}
-            </div>
           </div>
           
           <div className="space-y-4 text-start">
@@ -348,7 +322,6 @@ export default function LandingPage() {
               <li><Link href="#" className="hover:text-primary transition-colors">Plateforme</Link></li>
               <li><Link href="#" className="hover:text-primary transition-colors">Tarifs</Link></li>
               <li><Link href="#" className="hover:text-primary transition-colors">Secteurs</Link></li>
-              <li><Link href="#" className="hover:text-primary transition-colors">Guide Fiscal</Link></li>
             </ul>
           </div>
 
@@ -358,7 +331,6 @@ export default function LandingPage() {
               <li><Link href="#" className="hover:text-primary transition-colors">CGU / Mentions</Link></li>
               <li><Link href="#" className="hover:text-primary transition-colors">Confidentialité</Link></li>
               <li><Link href="#" className="hover:text-primary transition-colors">Assistance 24/7</Link></li>
-              <li><Link href="#" className="hover:text-primary transition-colors">Portail Admin</Link></li>
             </ul>
           </div>
         </div>

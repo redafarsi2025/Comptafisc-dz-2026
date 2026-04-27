@@ -3,27 +3,27 @@
   "placeholderImages": [
     {
       "id": "hero-compta",
-      "description": "Vue professionnelle centrée sur la comptabilité et les registres",
-      "imageUrl": "https://picsum.photos/seed/accounting-ledger/1200/800",
-      "imageHint": "accounting"
+      "description": "Vue professionnelle centrée sur les registres comptables et l'expertise financière",
+      "imageUrl": "https://picsum.photos/seed/88/1200/800",
+      "imageHint": "accounting ledger"
     },
     {
       "id": "invoice-sample",
-      "description": "Exemple de facture comptable",
-      "imageUrl": "https://picsum.photos/seed/invoice/800/1000",
+      "description": "Exemple de facture comptable conforme",
+      "imageUrl": "https://picsum.photos/seed/92/800/1000",
       "imageHint": "invoice"
     },
     {
       "id": "user-avatar",
       "description": "Avatar professionnel utilisateur",
-      "imageUrl": "https://picsum.photos/seed/user/200/200",
+      "imageUrl": "https://picsum.photos/seed/12/200/200",
       "imageHint": "professional"
     },
     {
       "id": "algerian-fiscal-hero",
-      "description": "Représentation institutionnelle des textes de loi fiscaux",
-      "imageUrl": "https://picsum.photos/seed/finance-law/1200/900",
-      "imageHint": "accounting"
+      "description": "Textes de lois et documents officiels",
+      "imageUrl": "https://picsum.photos/seed/45/1200/900",
+      "imageHint": "finance law"
     }
   ]
 }
