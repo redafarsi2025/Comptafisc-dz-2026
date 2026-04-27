@@ -18,7 +18,7 @@ import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
-  const heroImage = PlaceHolderImages.find(img => img.id === 'algerian-fiscal-hero');
+  const heroImage = PlaceHolderImages.find(img => img.id === 'algerian-fiscal-hero') || PlaceHolderImages[0];
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-body selection:bg-primary selection:text-white">
@@ -114,8 +114,8 @@ export default function LandingPage() {
             <div className="absolute inset-0 bg-primary/20 blur-[60px] group-hover:bg-primary/30 transition-all rounded-3xl" />
             <div className="relative bg-white p-4 rounded-[40px] shadow-2xl border border-slate-100 ring-1 ring-slate-100 overflow-hidden transform group-hover:scale-[1.02] transition-transform duration-700">
                <img 
-                src={heroImage?.imageUrl} 
-                data-ai-hint={heroImage?.imageHint}
+                src={heroImage.imageUrl} 
+                data-ai-hint={heroImage.imageHint}
                 alt="Corpus Juridique et Fiscal Algérien" 
                 className="rounded-[28px] shadow-inner object-cover w-full h-[500px]"
                />

@@ -21,8 +21,8 @@
     {
       "id": "algerian-fiscal-hero",
       "description": "Representation of Algerian fiscal law and accounting documents",
-      "imageUrl": "https://picsum.photos/seed/algeria-law/1200/900",
-      "imageHint": "Algerian law"
+      "imageUrl": "https://picsum.photos/seed/law-algeria/1200/900",
+      "imageHint": "law accounting"
     }
   ]
 }
