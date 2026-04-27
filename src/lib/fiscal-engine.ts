@@ -27,6 +27,7 @@ export interface RuleTrace {
   category: string;
   impactEstimated?: number;
   recommendation?: string;
+  observation?: string; // Nouvelle observation explicative
   timestamp: string;
 }
 
@@ -96,7 +97,7 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
           }
         }
 
-        // Génération du conseil enrichi
+        // Génération du conseil enrichi avec interpolation
         let advice = rule.message_template || "";
         if (advice) {
           Object.entries(results).forEach(([k, v]) => {
@@ -114,6 +115,7 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
           severity: rule.severity || 'LOW',
           category: rule.category || 'FISCAL',
           recommendation: rule.recommendation || "Vérifier l'imputation comptable.",
+          observation: rule.observation || "Cette règle assure que les charges déclarées sont directement liées à l'intérêt d'exploitation de l'entité.",
           timestamp: new Date().toISOString()
         });
       }
@@ -130,7 +132,7 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
  */
 function evalDSLFormula(formula: string, params: Record<string, any>): any {
   try {
-    let expression = formula
+    let expression = String(formula)
       .replace(/ABS\(/g, 'Math.abs(')
       .replace(/MAX\(/g, 'Math.max(')
       .replace(/MIN\(/g, 'Math.min(')

@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { 
   DatabaseZap, Loader2, RefreshCcw, BrainCircuit, 
   Play, FlaskConical, Beaker, ShieldCheck, Gavel, 
-  Settings2, Activity, Zap, Info, ShieldAlert, AlertTriangle, ListChecks, ShieldCheck as VerifiedIcon
+  Settings2, Activity, Zap, Info, ShieldAlert, AlertTriangle, ListChecks
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -71,7 +71,7 @@ export default function FiscalEngineAdmin() {
       const rulesToInject = [
         {
           id: "CRIT_001",
-          name: "Traçabilité des paiements",
+          name: "Traçabilité des paiements (Cash)",
           priority: 5,
           active: true,
           fiscal_year: 2026,
@@ -81,11 +81,12 @@ export default function FiscalEngineAdmin() {
           then: [{ set: "resultat_fiscal = resultat_fiscal + totalTTC" }],
           message_template: "Paiement en espèces ({totalTTC} DA) non traçable dépassant le seuil légal.",
           recommendation: "Retraiter la charge pour éviter une réintégration d'office.",
+          observation: "L'administration fiscale limite la déductibilité des charges payées en numéraire pour lutter contre l'informel.",
           justify: "Art. 14 LF 2024 - Seuil de déductibilité des charges payées en numéraire."
         },
         {
           id: "CRIT_020",
-          name: "Incohérence TVA / CA",
+          name: "Incohérence TVA / CA (Audit)",
           priority: 50,
           active: true,
           fiscal_year: 2026,
@@ -95,6 +96,7 @@ export default function FiscalEngineAdmin() {
           then: [{ set: "is_credit_tva = 1" }],
           message_template: "Crédit de TVA structurel détecté ({vat_deductible} vs {vat_collected}).",
           recommendation: "Justifier l'origine du crédit pour éviter un audit DGI approfondi.",
+          observation: "Un crédit de TVA permanent attire l'attention des services de vérification car il suggère une minoration des ventes.",
           justify: "Art. 183 CIDTA - Justification obligatoire des crédits de TVA."
         },
         {
@@ -109,6 +111,7 @@ export default function FiscalEngineAdmin() {
           then: [{ set: "risk_level = 'HIGH'" }],
           message_template: "Écart anormal entre résultat comptable et fiscal.",
           recommendation: "Réviser la politique de retraitement fiscal immédiatement.",
+          observation: "Une réintégration trop massive peut être interprétée comme une erreur de comptabilisation initiale ou un abus de droit.",
           justify: "Indicateur d'audit fiscal standard pour détection de fraude."
         }
       ];
@@ -212,7 +215,7 @@ export default function FiscalEngineAdmin() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center">
-                        <VerifiedIcon className={cn("h-4 w-4 mx-auto", rule.active ? "text-emerald-500" : "text-slate-200")} />
+                        <ShieldCheck className={cn("h-4 w-4 mx-auto", rule.active ? "text-emerald-500" : "text-slate-200")} />
                       </TableCell>
                     </TableRow>
                   ))}

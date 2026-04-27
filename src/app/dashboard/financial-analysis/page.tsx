@@ -24,7 +24,7 @@ import {
 import { calculateBFR, calculateLiquidityRatio, simulateInvestmentScenarios, getIBSRate } from "@/lib/calculations"
 import { useSearchParams } from "next/navigation"
 import { getSeadRecommendation } from "@/ai/flows/sead-decision-flow"
-import { executeFiscalPipeline } from "@/lib/fiscal-engine"
+import { executeFiscalPipeline, RuleTrace } from "@/lib/fiscal-engine"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -46,7 +46,7 @@ export default function FinancialAnalysisPage() {
   
   // Fiscal Advisor State
   const [isFiscalLoading, setIsFiscalLoading] = React.useState(false)
-  const [fiscalDiagnostic, setFiscalDiagnostic] = React.useState<any>(null)
+  const [fiscalDiagnostic, setFiscalDiagnostic] = React.useState<{ results: any, traces: RuleTrace[] } | null>(null)
   const [fiscalScore, setFiscalScore] = React.useState(100)
 
   React.useEffect(() => { setMounted(true) }, [])
@@ -163,8 +163,8 @@ export default function FinancialAnalysisPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <Card className="border-none shadow-xl bg-white border-l-4 border-l-primary overflow-hidden relative">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-widest text-start">{t.Analysis.fiscal_score}</CardTitle>
+          <CardHeader className="pb-2 text-start">
+            <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{t.Analysis.fiscal_score}</CardTitle>
           </CardHeader>
           <CardContent className="text-start">
             <div className="flex items-baseline gap-2">
@@ -221,31 +221,64 @@ export default function FinancialAnalysisPage() {
             {isFiscalLoading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
           </CardHeader>
           <CardContent className="p-0">
-             <ScrollArea className="h-[450px]">
+             <ScrollArea className="h-[550px]">
                 <div className="divide-y">
-                   {fiscalDiagnostic?.traces.length > 0 ? fiscalDiagnostic.traces.map((t: any, i: number) => (
-                     <div key={i} className="p-6 hover:bg-slate-50 transition-colors flex gap-6 text-start">
+                   {fiscalDiagnostic?.traces.length ? fiscalDiagnostic.traces.map((trace, i) => (
+                     <div key={i} className="p-6 hover:bg-slate-50 transition-colors flex gap-6 text-start animate-in fade-in slide-in-from-bottom-2 duration-300">
                         <div className={cn(
-                          "h-10 w-10 rounded-xl flex items-center justify-center shrink-0 border",
-                          t.severity === 'CRITIQUE' ? 'bg-red-50 border-red-100 text-red-600' :
-                          t.severity === 'HIGH' ? 'bg-orange-50 border-orange-100 text-orange-600' :
-                          'bg-blue-50 border-blue-100 text-blue-600'
+                          "h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 border-2",
+                          trace.severity === 'CRITIQUE' ? 'bg-red-50 border-red-200 text-red-600' :
+                          trace.severity === 'HIGH' ? 'bg-orange-50 border-orange-200 text-orange-600' :
+                          'bg-blue-50 border-blue-200 text-blue-600'
                         )}>
-                          {t.severity === 'CRITIQUE' ? <ShieldAlert className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
+                          {trace.severity === 'CRITIQUE' ? <ShieldAlert className="h-6 w-6" /> : <AlertCircle className="h-6 w-6" />}
                         </div>
-                        <div className="space-y-1 flex-1">
+                        <div className="space-y-4 flex-1">
                           <div className="flex items-center justify-between">
-                             <span className="text-[10px] font-black uppercase text-slate-400">{t.ruleName}</span>
-                             <Badge variant="outline" className="text-[8px] font-black uppercase">{t.severity}</Badge>
+                             <div className="flex items-center gap-2">
+                               <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{trace.ruleCode}</span>
+                               <Badge variant="outline" className="text-[8px] font-black uppercase tracking-tighter h-4">{trace.category}</Badge>
+                             </div>
+                             <Badge className={cn(
+                               "text-[8px] font-black uppercase tracking-[0.2em] h-5",
+                               trace.severity === 'CRITIQUE' ? 'bg-red-600' : 
+                               trace.severity === 'HIGH' ? 'bg-orange-600' : 'bg-blue-600'
+                             )}>
+                               {trace.severity}
+                             </Badge>
                           </div>
-                          <p className="text-sm font-bold text-slate-900">{t.advice}</p>
-                          <p className="text-[11px] text-primary font-bold mt-2">👉 Recommandation : {t.recommendation}</p>
-                          <p className="text-[9px] text-slate-400 italic mt-1">"Base légale : {t.justification}"</p>
+                          
+                          <div className="space-y-1">
+                            <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight">{trace.ruleName}</h4>
+                            <p className="text-xs text-slate-600 leading-relaxed font-medium italic">"{trace.advice}"</p>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
+                                <p className="text-[9px] font-black text-slate-400 uppercase flex items-center gap-1"><Info className="h-3 w-3" /> Observation de l'Expert</p>
+                                <p className="text-[10px] text-slate-700 leading-relaxed">{trace.observation}</p>
+                             </div>
+                             <div className="p-3 bg-emerald-50/50 rounded-xl border border-emerald-100 space-y-2">
+                                <p className="text-[9px] font-black text-emerald-700 uppercase flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Recommandation Master</p>
+                                <p className="text-[10px] text-emerald-800 font-bold">{trace.recommendation}</p>
+                             </div>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-2">
+                             <p className="text-[9px] text-slate-400 font-bold uppercase flex items-center gap-1">
+                               <Gavel className="h-3 w-3" /> Base Légale : {trace.justification}
+                             </p>
+                          </div>
                         </div>
                      </div>
                    )) : (
-                     <div className="p-20 text-center text-slate-400 italic">
-                       Aucune anomalie critique détectée par le moteur.
+                     <div className="p-20 text-center space-y-4">
+                        <div className="h-16 w-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto border border-emerald-100">
+                          <ShieldCheck className="h-8 w-8 text-emerald-500" />
+                        </div>
+                        <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">
+                          {isFiscalLoading ? "Exécution de l'audit..." : "Aucune anomalie détectée sur ce périmètre."}
+                        </p>
                      </div>
                    )}
                 </div>
@@ -277,11 +310,21 @@ export default function FinancialAnalysisPage() {
 
           <Card className="bg-blue-50 border border-blue-100 rounded-3xl p-6 relative overflow-hidden shadow-inner text-start">
              <Info className="h-6 w-6 text-blue-600 shrink-0 mb-4" />
-             <h4 className="text-[10px] font-black text-blue-800 uppercase tracking-widest mb-2">Audit Structurel</h4>
+             <h4 className="text-[10px] font-black text-blue-800 uppercase tracking-widest mb-2">Note sur la Méthodologie</h4>
              <p className="text-[11px] text-blue-700 leading-relaxed font-medium italic">
-              "Le moteur versionné 2026 applique les règles du CIDTA en temps réel sur vos écritures validées pour garantir l'image fidèle de votre dossier."
+              "Le moteur Master 4.0 analyse chaque compte du SCF selon sa nature fiscale. Les observations générées sont basées sur la jurisprudence et les textes de loi algériens (LF 2026)."
              </p>
           </Card>
+
+          <div className="p-6 bg-slate-900 text-white rounded-3xl space-y-4">
+             <div className="flex items-center gap-2">
+               <ShieldCheck className="h-4 w-4 text-accent" />
+               <span className="text-[10px] font-black uppercase text-accent tracking-widest">Certification Audit</span>
+             </div>
+             <p className="text-[11px] leading-relaxed opacity-70 italic">
+               "L'audit déterministe garantit l'image fidèle. Contrairement aux analyses probabilistes, chaque alerte ici est une règle métier rigoureuse."
+             </p>
+          </div>
         </div>
       </div>
 
