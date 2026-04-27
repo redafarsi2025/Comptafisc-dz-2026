@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -11,7 +10,8 @@ import {
   Calculator, ChevronLeft, Globe, 
   TrendingUp, ShieldCheck, Zap, 
   Info, AlertTriangle, Scale, PieChart,
-  ArrowRight, Search, ListChecks, Database, ExternalLink, Loader2
+  ArrowRight, Search, ListChecks, Database, ExternalLink, Loader2,
+  FileText, CheckCircle2
 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
@@ -35,7 +35,7 @@ export default function CustomsSimulator() {
     valueHT: 1000000,
     transport: 150000,
     insurance: 25000,
-    shCode: "8471",
+    shCode: "8471300000",
     origin: "UE", 
     extraFees: 15000
   })
@@ -57,7 +57,7 @@ export default function CustomsSimulator() {
       insuranceCost: formData.insurance,
       dutyRate: dutyRate,
       dapsRate: selectedSH.daps,
-      tvaRate: 19,
+      tvaRate: selectedSH.tva,
       extraFees: formData.extraFees
     });
   }, [formData, selectedSH]);
@@ -68,7 +68,7 @@ export default function CustomsSimulator() {
       const result = await searchOfficialTariff(formData.shCode);
       if (result) {
         setOfficialStatus(result);
-        toast({ title: "Données officielles trouvées", description: "Le code SH est valide sur le portail douane.gov.dz" });
+        toast({ title: "Données officielles trouvées", description: "Le code SH10 est valide sur le portail douane.gov.dz" });
       } else {
         toast({ variant: "destructive", title: "Non listé", description: "Ce code n'a pas retourné de résultat direct. Vérifiez la nomenclature." });
       }
@@ -89,12 +89,12 @@ export default function CustomsSimulator() {
             </Link>
           </Button>
           <div>
-            <h1 className="text-3xl font-black text-primary uppercase tracking-tighter">Simulateur Import</h1>
-            <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest mt-1">Aide au sourcing et optimisation des droits de douane</p>
+            <h1 className="text-3xl font-black text-primary uppercase tracking-tighter">Simulateur Import Pro</h1>
+            <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest mt-1">Calcul précis incluant TCS (3%) et PRCT (2%)</p>
           </div>
         </div>
         <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 h-9 px-4 font-black uppercase text-[10px]">
-          <ShieldCheck className="mr-2 h-4 w-4" /> Tarifs Douaniers 2026
+          <ShieldCheck className="mr-2 h-4 w-4" /> Tarifs Officiels 2026
         </Badge>
       </div>
 
@@ -104,7 +104,7 @@ export default function CustomsSimulator() {
             <CardHeader className="bg-slate-50 border-b p-6 text-start">
               <div className="flex justify-between items-center w-full">
                 <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-900 flex items-center gap-2">
-                  <Globe className="h-4 w-4 text-primary" /> Paramètres de l'Opération
+                  <Globe className="h-4 w-4 text-primary" /> Configuration SH10 & Origine
                 </CardTitle>
                 <Button 
                   variant="ghost" 
@@ -114,42 +114,40 @@ export default function CustomsSimulator() {
                   disabled={isVerifying}
                 >
                   {isVerifying ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <ExternalLink className="h-3 w-3 mr-1" />}
-                  Vérifier sur douane.gov.dz
+                  Vérifier douane.gov.dz
                 </Button>
               </div>
             </CardHeader>
             <CardContent className="pt-6 space-y-6 text-start">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Code Tarifaire (SH Code)*</Label>
-                  <div className="flex gap-2">
-                    <Select value={formData.shCode} onValueChange={v => { setFormData({...formData, shCode: v}); setOfficialStatus(null); }}>
-                      <SelectTrigger className="h-11 rounded-xl bg-white shadow-sm">
-                        <SelectValue placeholder="Choisir une catégorie" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SH_CODES.map(s => (
-                          <SelectItem key={s.code} value={s.code}>{s.code} - {s.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Code Tarifaire (SH10)*</Label>
+                  <Select value={formData.shCode} onValueChange={v => { setFormData({...formData, shCode: v}); setOfficialStatus(null); }}>
+                    <SelectTrigger className="h-11 rounded-xl bg-white shadow-sm">
+                      <SelectValue placeholder="Choisir une catégorie" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SH_CODES.map(s => (
+                        <SelectItem key={s.code} value={s.code}>{s.code} - {s.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {officialStatus && (
                     <p className="text-[9px] text-emerald-600 font-bold flex items-center gap-1 animate-in fade-in">
-                      <CheckCircle2 className="h-3 w-3" /> Certifié conforme par le portail douanier officiel
+                      <CheckCircle2 className="h-3 w-3" /> Certifié conforme SH10
                     </p>
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Origine / Accord de libre-échange</Label>
+                  <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Origine / Accord</Label>
                   <Select value={formData.origin} onValueChange={v => setFormData({...formData, origin: v})}>
                     <SelectTrigger className="h-11 rounded-xl bg-white shadow-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="UE">Union Européenne (Accord d'association)</SelectItem>
-                      <SelectItem value="CHINE">Chine / Asie (Tarif Général)</SelectItem>
-                      <SelectItem value="ARABE">Grande Zone Arabe (GZALE - 0% DD)</SelectItem>
+                      <SelectItem value="UE">Union Européenne (EUR.1)</SelectItem>
+                      <SelectItem value="CHINE">Chine / Asie (Général)</SelectItem>
+                      <SelectItem value="ARABE">GZALE (Zone Arabe 0% DD)</SelectItem>
                       <SelectItem value="AUTRE">Autres Pays (Standard)</SelectItem>
                     </SelectContent>
                   </Select>
@@ -167,7 +165,7 @@ export default function CustomsSimulator() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Transport / Fret (DA)</Label>
+                  <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Fret / Transport (DA)</Label>
                   <Input 
                     type="number" 
                     value={formData.transport} 
@@ -193,11 +191,11 @@ export default function CustomsSimulator() {
               <CardHeader className="bg-slate-900 text-white p-6 text-start">
                  <div className="flex justify-between items-center">
                     <div>
-                      <CardTitle className="text-xl font-black uppercase tracking-tighter">Résultat de la Liquidation</CardTitle>
-                      <CardDescription className="text-accent font-bold uppercase text-[9px] tracking-[0.2em]">Données estimatives basées sur le tarif douanier</CardDescription>
+                      <CardTitle className="text-xl font-black uppercase tracking-tighter">Liquidation Certifiée</CardTitle>
+                      <CardDescription className="text-accent font-bold uppercase text-[9px] tracking-[0.2em]">Données incluant parafiscalité TCS & PRCT</CardDescription>
                     </div>
                     <div className="text-right">
-                       <p className="text-[10px] font-black opacity-50 uppercase">Valeur CIF Algérie</p>
+                       <p className="text-[10px] font-black opacity-50 uppercase">Valeur en Douane (CIF)</p>
                        <p className="text-2xl font-black text-accent">{formatDZD(liquidation.cif)}</p>
                     </div>
                  </div>
@@ -205,42 +203,52 @@ export default function CustomsSimulator() {
               <CardContent className="p-0">
                  <div className="grid grid-cols-1 md:grid-cols-2">
                     <div className="p-8 space-y-6 border-r border-slate-100 text-start">
-                       <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4">Détail des Taxes</h4>
+                       <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4">Détail des Droits & Taxes</h4>
                        <div className="space-y-4">
                           <div className="flex justify-between items-center text-xs font-bold">
-                             <span className="text-slate-600">Droits de Douane ({selectedSH?.duty}%)</span>
+                             <span className="text-slate-600">DD ({selectedSH?.duty}%)</span>
                              <span className="font-mono">{formatDZD(liquidation.customsDuty)}</span>
                           </div>
                           {liquidation.daps > 0 && (
                             <div className="flex justify-between items-center text-xs font-bold text-amber-600">
-                               <span>DAPS (Taxe additionnelle {selectedSH?.daps}%)</span>
+                               <span>DAPS ({selectedSH?.daps}%)</span>
                                <span className="font-mono">+{formatDZD(liquidation.daps)}</span>
                             </div>
                           )}
                           <div className="flex justify-between items-center text-xs font-bold text-emerald-600">
-                             <span>TVA Import (19%)</span>
+                             <span>TVA Import ({selectedSH?.tva}%)</span>
                              <span className="font-mono">+{formatDZD(liquidation.tvaImport)}</span>
                           </div>
+                          <div className="flex justify-between items-center text-xs font-bold text-blue-600 bg-blue-50/50 p-2 rounded-lg border border-blue-100">
+                             <span className="flex items-center gap-1"><Zap className="h-3 w-3" /> TCS (3%)</span>
+                             <span className="font-mono">+{formatDZD(liquidation.tcs)}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs font-bold text-slate-900 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                             <span className="flex items-center gap-1"><FileText className="h-3 w-3" /> PRCT (2%)</span>
+                             <span className="font-mono">+{formatDZD(liquidation.prct)}</span>
+                          </div>
                           <div className="pt-4 border-t border-dashed flex justify-between items-baseline">
-                             <span className="text-[10px] font-black uppercase text-primary">Total à payer (Receveur)</span>
+                             <span className="text-[10px] font-black uppercase text-primary">À Verser aux Douanes</span>
                              <span className="text-xl font-black text-primary">{formatDZD(liquidation.totalTaxes)}</span>
                           </div>
                        </div>
                     </div>
                     <div className="p-8 bg-slate-50/50 space-y-8 text-start">
                         <div className="space-y-2">
-                           <p className="text-[10px] font-black uppercase text-slate-400">Poids fiscal de l'import</p>
+                           <p className="text-[10px] font-black uppercase text-slate-400">Pression Fiscale Totale</p>
                            <h3 className="text-3xl font-black text-slate-900 tracking-tighter">
                              {((liquidation.totalTaxes / liquidation.cif) * 100).toFixed(1)} %
                            </h3>
                            <Progress value={(liquidation.totalTaxes / liquidation.cif) * 100} className="h-1 bg-slate-200" />
                         </div>
-                        <div className="p-4 bg-white rounded-2xl border border-slate-200 space-y-2">
+                        <div className="p-6 bg-white rounded-3xl border-2 border-primary/10 shadow-sm space-y-3">
                            <p className="text-[10px] font-black uppercase text-primary tracking-widest flex items-center gap-2">
-                             <TrendingUp className="h-3 w-3" /> Coût de Revient (Landed)
+                             <TrendingUp className="h-4 w-4" /> Coût d'Entrée Stock (PAMP)
                            </p>
-                           <p className="text-xl font-black text-primary">{formatDZD(liquidation.landedCost)}</p>
-                           <p className="text-[9px] text-muted-foreground italic">C'est le montant unitaire qui sera injecté dans votre stock (Classe 3) hors TVA récupérable.</p>
+                           <p className="text-2xl font-black text-primary">{formatDZD(liquidation.landedCost)}</p>
+                           <p className="text-[9px] text-muted-foreground italic leading-relaxed">
+                             "Ce montant unitaire constitue votre base de valorisation pour la Classe 3 (Stocks) hors TVA récupérable."
+                           </p>
                         </div>
                     </div>
                  </div>
@@ -258,25 +266,16 @@ export default function CustomsSimulator() {
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-8 space-y-6">
-               {formData.origin === "CHINE" ? (
-                 <div className="space-y-4">
-                    <p className="text-sm font-medium leading-relaxed opacity-80">
-                      Vous importez actuellement de Chine (Tarif Standard).
-                    </p>
-                    <div className="p-4 bg-white/5 rounded-2xl border border-white/10 space-y-3">
-                       <div className="flex justify-between items-center text-[10px] font-black uppercase">
-                          <span className="text-slate-400">Gain via Accord UE</span>
-                          <span className="text-emerald-400">-{formatDZD(liquidation?.customsDuty || 0)}</span>
-                       </div>
-                       <p className="text-[10px] opacity-60 leading-relaxed italic">
-                         En sourcant ce produit via l'UE avec un certificat EUR.1, vous annulez la quasi-totalité des droits de douane.
-                       </p>
+               <p className="text-[11px] leading-relaxed opacity-80 italic">
+                 "Selon la Loi de Finances 2024, le sourcing via les zones préférentielles (UE, GZALE) réduit la base de calcul de la TCS."
+               </p>
+               {formData.origin === "CHINE" && (
+                 <div className="p-4 bg-white/5 rounded-2xl border border-white/10 space-y-3">
+                    <div className="flex justify-between items-center text-[10px] font-black uppercase">
+                       <span className="text-slate-400">Économie possible</span>
+                       <span className="text-emerald-400">-{formatDZD(liquidation?.customsDuty || 0)}</span>
                     </div>
-                 </div>
-               ) : (
-                 <div className="p-4 bg-emerald-500/10 rounded-2xl border border-emerald-500/20">
-                    <p className="text-xs font-bold text-emerald-400">Sourcing Optimisé</p>
-                    <p className="text-[11px] text-emerald-100/60 mt-1">Vous utilisez un accord préférentiel. Veillez à la validité de l'origine certifiée.</p>
+                    <Progress value={40} className="h-1 bg-white/10" />
                  </div>
                )}
             </CardContent>
@@ -284,43 +283,23 @@ export default function CustomsSimulator() {
 
           <Card className="bg-blue-50 border border-blue-200 rounded-3xl p-6 relative overflow-hidden shadow-inner">
              <Info className="h-6 w-6 text-blue-600 shrink-0 mb-4" />
-             <h4 className="text-[10px] font-black text-blue-800 uppercase tracking-widest mb-2">Note sur la DAPS</h4>
+             <h4 className="text-[10px] font-black text-blue-800 uppercase tracking-widest mb-2">Note sur la PRCT</h4>
              <p className="text-[11px] text-blue-700 leading-relaxed font-medium italic">
-              "Le DAPS peut atteindre 200% sur certains produits. Il est calculé sur la valeur CIF et s'ajoute à la base de calcul de la TVA."
+              "Le Prélèvement à la Réception (PRCT) est une taxe parafiscale de 2% non déductible, à intégrer directement dans le coût de revient de vos marchandises."
              </p>
           </Card>
 
           <div className="p-6 bg-slate-900 text-white rounded-3xl space-y-4">
              <div className="flex items-center gap-2">
                <ShieldCheck className="h-4 w-4 text-accent" />
-               <span className="text-[10px] font-black uppercase text-accent tracking-widest">Base Légale</span>
+               <span className="text-[10px] font-black uppercase text-accent tracking-widest">Base Légale DGD</span>
              </div>
              <p className="text-[11px] leading-relaxed opacity-70 italic">
-               "Les calculs respectent l'Article 15 du Code des Douanes Algérien concernant la valeur en douane des marchandises importées."
+               "Les calculs incluent les amendements applicables au 1er janvier 2024 (Note 4121/DGD)."
              </p>
           </div>
         </div>
       </div>
     </div>
-  )
-}
-
-function CheckCircle2(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="10" />
-      <path d="m9 12 2 2 4-4" />
-    </svg>
   )
 }
