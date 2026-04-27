@@ -1,8 +1,9 @@
 "use client"
 
 import * as React from "react"
-import { useFirestore, useUser, useCollection, useMemoFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase"
+import { useFirestore, useUser, useCollection, useMemoFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking, useFirebase } from "@/firebase"
 import { collection, doc, query, orderBy } from "firebase/firestore"
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -22,7 +23,7 @@ import { analyzeFormLayout } from "@/ai/flows/form-layout-analysis"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function DgiFormsEditor() {
-  const db = useFirestore()
+  const { firestore: db, storage } = useFirebase()
   const { user } = useUser()
   const [selectedForm, setSelectedForm] = React.useState<any>(null)
   const [activeTab, setActiveTab] = React.useState("library")
@@ -46,11 +47,19 @@ export default function DgiFormsEditor() {
   };
 
   const handleSmartImport = async () => {
-    if (!smartImport.file || !smartImport.title) return;
+    if (!smartImport.file || !smartImport.title || !db || !storage) return;
     setIsAnalyzing(true);
     setError(null);
     
     try {
+      const templateId = `template_${Date.now()}`;
+      
+      // 1. Upload du fichier vers Firebase Storage (pour supporter les fichiers > 1Mo)
+      const storageRef = ref(storage, `dgi_templates/${templateId}/${smartImport.file.name}`);
+      const uploadResult = await uploadBytes(storageRef, smartImport.file);
+      const downloadUrl = await getDownloadURL(uploadResult.ref);
+
+      // 2. Conversion en base64 temporaire pour l'analyse par l'IA (Vision Gemini)
       const reader = new FileReader();
       const base64Promise = new Promise<string>((resolve, reject) => {
         reader.onload = () => resolve(reader.result as string);
@@ -59,11 +68,8 @@ export default function DgiFormsEditor() {
       });
 
       const fileDataUri = await base64Promise;
-      
-      if (fileDataUri.length > 1048576) {
-        throw new Error("Le document est trop volumineux pour Firestore (limite 1 Mo). Veuillez utiliser un fichier compressé.");
-      }
 
+      // 3. Appel à l'IA pour détecter les champs
       const analysis = await analyzeFormLayout({ 
         fileDataUri, 
         documentTitle: smartImport.title 
@@ -72,14 +78,14 @@ export default function DgiFormsEditor() {
       const isPdf = smartImport.file.type === 'application/pdf';
 
       const newForm = {
-        id: `template_${Date.now()}`,
+        id: templateId,
         type: smartImport.title.toLowerCase().includes('50') ? 'G50' : 'AUTRE',
         name: smartImport.title,
         status: "Draft",
         pages: [
           {
             pageNumber: 1,
-            backgroundImage: fileDataUri,
+            backgroundImage: downloadUrl, // On stocke l'URL Cloud, pas le Base64
             isPdf: isPdf,
             fields: analysis.detectedFields.map(f => ({
               ...f,
@@ -96,7 +102,8 @@ export default function DgiFormsEditor() {
       setActiveTab("editor");
       toast({ title: "Analyse terminée", description: `${analysis.detectedFields.length} champs mappés par l'IA.` });
     } catch (e: any) {
-      setError(e.message);
+      console.error(e);
+      setError(e.message || "Échec de l'importation.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -157,7 +164,7 @@ export default function DgiFormsEditor() {
           <h1 className="text-3xl font-black text-primary flex items-center gap-3">
             <LayoutGrid className="text-accent h-8 w-8" /> Studio de Formulaires
           </h1>
-          <p className="text-muted-foreground font-medium">Capture Vision IA & Publication directe sur Firestore.</p>
+          <p className="text-muted-foreground font-medium">Capture Vision IA & Stockage Cloud Illimité.</p>
         </div>
         <div className="flex gap-2">
           {selectedForm && (
@@ -186,8 +193,8 @@ export default function DgiFormsEditor() {
         <TabsContent value="library" className="space-y-8">
           <Card className="border-primary/20 bg-primary/5 shadow-inner">
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2 text-primary"><Sparkles className="h-5 w-5 text-accent" /> Ingestion Intelligente</CardTitle>
-              <CardDescription>Uploadez un PDF officiel pour extraire automatiquement les zones de saisie.</CardDescription>
+              <CardTitle className="text-lg flex items-center gap-2 text-primary"><Sparkles className="h-5 w-5 text-accent" /> Ingestion Haute Définition</CardTitle>
+              <CardDescription>Uploadez un PDF/JPG (jusqu'à 20 Mo). L'IA extrait la structure et le fichier est stocké sur Firebase Storage.</CardDescription>
             </CardHeader>
             <CardContent className="grid md:grid-cols-2 gap-6">
               <div className="space-y-4">
@@ -205,7 +212,7 @@ export default function DgiFormsEditor() {
                     <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-white hover:bg-muted/50 transition-colors border-primary/20">
                       <div className="flex flex-col items-center justify-center pt-5 pb-6">
                         <UploadCloud className="w-8 h-8 mb-2 text-primary opacity-50" />
-                        <p className="text-xs text-muted-foreground">{smartImport.file ? smartImport.file.name : "Cliquez pour sélectionner (Max 1 Mo)"}</p>
+                        <p className="text-xs text-muted-foreground">{smartImport.file ? smartImport.file.name : "Cliquez pour sélectionner (Max 20 Mo)"}</p>
                       </div>
                       <input type="file" className="hidden" accept="application/pdf,image/*" onChange={handleFileChange} />
                     </label>
@@ -214,20 +221,20 @@ export default function DgiFormsEditor() {
               </div>
               <div className="flex flex-col justify-center bg-white/50 p-6 rounded-xl border border-dashed text-center">
                 <Database className="h-12 w-12 text-primary mx-auto mb-4 opacity-20" />
-                <h4 className="font-bold text-sm">Stockage Firestore Cloud</h4>
-                <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed">Les templates sont persistés avec leur fond graphique d'origine. Les clients utilisent ces fonds réels pour leurs déclarations.</p>
+                <h4 className="font-bold text-sm">Gestion Hybride Firestore/Storage</h4>
+                <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed">Les templates lourds sont désormais acceptés. L'image est stockée sur Storage et les métadonnées sur Firestore pour une performance optimale.</p>
               </div>
             </CardContent>
             {error && <div className="px-6 pb-4"><Alert variant="destructive"><AlertTitle>Erreur d'importation</AlertTitle><AlertDescription>{error}</AlertDescription></Alert></div>}
             <CardFooter className="flex justify-end border-t bg-white/50 p-4">
               <Button onClick={handleSmartImport} disabled={isAnalyzing || !smartImport.file || !smartImport.title} className="bg-accent text-primary font-bold">
-                {isAnalyzing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyse Vision...</> : <><Send className="mr-2 h-4 w-4" /> Lancer l'IA</>}
+                {isAnalyzing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyse & Upload...</> : <><Send className="mr-2 h-4 w-4" /> Lancer l'IA</>}
               </Button>
             </CardFooter>
           </Card>
 
           <div className="space-y-4">
-            <h3 className="text-lg font-bold flex items-center gap-2"><History className="h-5 w-5 text-primary" /> Bibliothèque Firestore</h3>
+            <h3 className="text-lg font-bold flex items-center gap-2"><History className="h-5 w-5 text-primary" /> Bibliothèque Cloud</h3>
             {isTemplatesLoading ? (
               <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
             ) : (
