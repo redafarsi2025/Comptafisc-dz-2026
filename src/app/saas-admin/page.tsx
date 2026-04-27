@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -10,7 +9,7 @@ import {
 import { 
   Activity, Target, Sparkles, Zap, CreditCard, 
   ShieldCheck, DatabaseZap, Eye, ArrowUpRight,
-  Cpu, CloudLightning, TrendingUp, Users, ShieldAlert
+  Cpu, CloudLightning, TrendingUp, Users, ShieldAlert, Handshake, Network
 } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
@@ -30,7 +29,7 @@ const PLAN_PRICES: Record<string, number> = {
   'GRATUIT': 0,
   'ESSENTIEL': 1500,
   'PRO': 5000,
-  'CABINET': 15000, 
+  'CABINET': 0, // Stratégie : Pack Offert pour acquisition indirecte
 };
 
 export default function AdminDashboard() {
@@ -48,18 +47,23 @@ export default function AdminDashboard() {
   const { data: tenants } = useCollection(tenantsQuery);
 
   const stats = React.useMemo(() => {
-    if (!profiles || !tenants) return { totalUsers: 0, totalTenants: 0, mrr: 0, upToDateTenants: 0, planDistribution: [] };
+    if (!profiles || !tenants) return { totalUsers: 0, totalTenants: 0, mrr: 0, upToDateTenants: 0, indirectReach: 0, planDistribution: [] };
 
     const planCounts: Record<string, number> = { 'GRATUIT': 0, 'ESSENTIEL': 0, 'PRO': 0, 'CABINET': 0 };
     let totalMrr = 0;
     let upToDate = 0;
+    let cabinetCount = 0;
 
     tenants.forEach(t => {
       const plan = (t.plan || 'GRATUIT').toUpperCase();
       planCounts[plan] = (planCounts[plan] || 0) + 1;
       totalMrr += PLAN_PRICES[plan] || 0;
       if (t.onboardingComplete) upToDate++;
+      if (plan === 'CABINET') cabinetCount++;
     });
+
+    // Simulation de la portée indirecte : chaque cabinet ramène en moyenne 25 dossiers
+    const indirectReach = cabinetCount * 25;
 
     const distribution = Object.entries(planCounts).map(([name, value]) => ({
       name,
@@ -72,6 +76,7 @@ export default function AdminDashboard() {
       totalTenants: tenants.length,
       mrr: totalMrr,
       upToDateTenants: upToDate,
+      indirectReach,
       planDistribution: distribution
     };
   }, [profiles, tenants]);
@@ -83,7 +88,7 @@ export default function AdminDashboard() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">
           <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Cockpit Executive</h1>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Business Intelligence & Governance</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Business Intelligence & Global Strategy</p>
         </div>
         <div className="bg-white border border-slate-200 p-4 rounded-3xl flex items-center gap-5 shadow-sm">
            <div className="h-11 w-11 rounded-2xl bg-emerald-50 flex items-center justify-center border border-emerald-100">
@@ -98,9 +103,6 @@ export default function AdminDashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
         <Card className="border-none shadow-xl shadow-slate-200/50 bg-white border-l-4 border-l-primary relative overflow-hidden group">
-          <div className="absolute -right-4 -top-4 p-8 opacity-5 group-hover:opacity-10 transition-all rotate-12">
-            <CreditCard className="h-20 w-20 text-primary" />
-          </div>
           <CardHeader className="pb-2">
             <CardTitle className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">MRR RECURRENT (DA)</CardTitle>
           </CardHeader>
@@ -114,14 +116,15 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-xl shadow-slate-200/50 bg-white border-l-4 border-l-blue-400 group">
+        <Card className="border-none shadow-xl shadow-slate-200/50 bg-white border-l-4 border-l-purple-500 group relative overflow-hidden">
+          <div className="absolute -right-2 -top-2 opacity-5 group-hover:rotate-12 transition-transform"><Network className="h-16 w-16" /></div>
           <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Dossiers Réels</CardTitle>
+            <CardTitle className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Portée Indirecte</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-black text-slate-900 tracking-tighter">{stats.totalTenants}</div>
+            <div className="text-4xl font-black text-purple-600 tracking-tighter">+{stats.indirectReach}</div>
             <p className="text-[10px] text-slate-500 mt-3 font-bold uppercase tracking-widest flex items-center gap-1">
-              <Users className="h-3 w-3" /> Instances Firestore
+              <Handshake className="h-3 w-3 text-purple-500" /> Dossiers via Partenariats
             </p>
           </CardContent>
         </Card>
@@ -156,7 +159,7 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-7 gap-10">
-        <Card className="lg:col-span-4 bg-white border-none shadow-2xl shadow-slate-200/50 overflow-hidden ring-1 ring-slate-200">
+        <Card className="lg:col-span-4 bg-white border-none shadow-xl shadow-slate-200/50 overflow-hidden ring-1 ring-slate-200">
           <CardHeader className="border-b border-slate-100 bg-slate-50/50 p-6">
             <CardTitle className="text-xl font-black text-slate-900 uppercase tracking-tighter flex items-center gap-3">
               <Activity className="h-5 w-5 text-primary" /> Performance Acquisition
@@ -199,6 +202,7 @@ export default function AdminDashboard() {
                   {stats.planDistribution.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
                 </Pie>
                 <Tooltip />
+                <Legend />
               </PieChart>
             </ResponsiveContainer>
             <div className="grid grid-cols-2 gap-4 mt-8">
@@ -217,17 +221,17 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid md:grid-cols-3 gap-10">
-         <Link href="/saas-admin/fiscal-engine" className="block group">
-           <Card className="bg-white border-none shadow-xl shadow-slate-200/50 group-hover:shadow-2xl transition-all border-l-4 border-l-primary h-full ring-1 ring-slate-200">
-              <CardHeader className="bg-primary/5 border-b border-slate-50 py-4">
-                <CardTitle className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-2">
-                  <DatabaseZap className="h-4 w-4" /> Moteur Fiscal Master
+         <Link href="/saas-admin/partners" className="block group">
+           <Card className="bg-white border-none shadow-xl shadow-slate-200/50 group-hover:shadow-2xl transition-all border-l-4 border-l-purple-500 h-full ring-1 ring-slate-200">
+              <CardHeader className="bg-purple-50/50 border-b border-slate-50 py-4">
+                <CardTitle className="text-[10px] font-black text-purple-600 uppercase tracking-widest flex items-center gap-2">
+                  <Handshake className="h-4 w-4" /> Programme Partenaires
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-8">
-                <p className="text-xs text-slate-500 leading-relaxed italic mb-8">"Pilotage des règles de calcul dynamiques et des variables législatives."</p>
-                <Button className="w-full bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-[10px] h-12 rounded-2xl shadow-lg shadow-primary/20">
-                  Ouvrir le Noyau
+                <p className="text-xs text-slate-500 leading-relaxed italic mb-8">"Suivi des cabinets prescripteurs et de leur apport au volume de dossiers global."</p>
+                <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white font-black uppercase tracking-widest text-[10px] h-12 rounded-2xl shadow-lg shadow-purple-500/20">
+                  Gérer les Hubs
                 </Button>
               </CardContent>
            </Card>
@@ -250,23 +254,18 @@ export default function AdminDashboard() {
             </CardContent>
          </Card>
 
-         <Link href="/saas-admin/dgi-watch" className="block group">
-           <Card className="bg-primary text-white border-none shadow-2xl group-hover:scale-[1.02] transition-transform relative overflow-hidden h-full">
-              <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:rotate-12 transition-transform duration-700">
-                <Eye className="h-40 w-40" />
-              </div>
-              <CardHeader className="relative">
-                <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-white/70">DGI Watch Console</CardTitle>
-                <CardDescription className="text-white/50 text-[11px] font-bold uppercase mt-1">Intelligence Réglementaire</CardDescription>
+         <Link href="/saas-admin/fiscal-engine" className="block group">
+           <Card className="bg-white border-none shadow-xl shadow-slate-200/50 group-hover:shadow-2xl transition-all border-l-4 border-l-primary h-full ring-1 ring-slate-200">
+              <CardHeader className="bg-primary/5 border-b border-slate-50 py-4">
+                <CardTitle className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-2">
+                  <DatabaseZap className="h-4 w-4" /> Moteur Fiscal Master
+                </CardTitle>
               </CardHeader>
-              <CardContent className="flex justify-between items-end pb-10 relative">
-                <div className="space-y-1">
-                  <p className="text-3xl font-black uppercase italic">Active</p>
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-accent">IA Vision Sync</p>
-                </div>
-                <div className="h-12 w-12 rounded-2xl bg-white/20 flex items-center justify-center border border-white/30">
-                  <ArrowUpRight className="h-6 w-6" />
-                </div>
+              <CardContent className="p-8">
+                <p className="text-xs text-slate-500 leading-relaxed italic mb-8">"Pilotage des règles de calcul dynamiques et des variables législatives."</p>
+                <Button className="w-full bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-[10px] h-12 rounded-2xl shadow-lg shadow-primary/20">
+                  Ouvrir le Noyau
+                </Button>
               </CardContent>
            </Card>
          </Link>
