@@ -28,6 +28,7 @@ export type PlanDefinition = {
     companies: string;
     storage: string;
     support: string;
+    vehicles: string;
   };
 };
 
@@ -44,7 +45,8 @@ export const PLANS: PlanDefinition[] = [
       users: '1',
       companies: '1',
       storage: '500 MB',
-      support: 'Email'
+      support: 'Email',
+      vehicles: '1 véhicule'
     },
     categories: [
       {
@@ -53,15 +55,13 @@ export const PLANS: PlanDefinition[] = [
           { name: 'Facturation clients', included: 'yes' },
           { name: 'Scan OCR (IA)', included: 'limited', detail: '5 max' },
           { name: 'Gestion achats/ventes', included: 'limited' },
-          { name: 'Relevé bancaire manuel', included: 'no' },
         ]
       },
       {
-        title: 'FISCALITÉ',
+        title: 'LOGISTIQUE & FLOTTE',
         features: [
-          { name: 'Calcul TVA auto', included: 'no' },
-          { name: 'G50 pré-remplie', included: 'no' },
-          { name: 'Alertes échéances', included: 'limited' },
+          { name: 'Suivi véhicule unique', included: 'yes' },
+          { name: 'Alertes maintenance', included: 'no' },
         ]
       }
     ]
@@ -78,24 +78,24 @@ export const PLANS: PlanDefinition[] = [
       users: '2',
       companies: '1',
       storage: '5 GB',
-      support: 'Email + Chat'
+      support: 'Email + Chat',
+      vehicles: '5 véhicules'
     },
     categories: [
-      {
-        title: 'COMPTABILITÉ',
-        features: [
-          { name: 'Facturation clients', included: 'yes' },
-          { name: 'Scan OCR (IA)', included: 'yes', detail: '50 / mois' },
-          { name: 'Gestion achats/ventes', included: 'yes' },
-          { name: 'Relevé bancaire manuel', included: 'yes' },
-        ]
-      },
       {
         title: 'FISCALITÉ',
         features: [
           { name: 'Calcul TVA auto', included: 'yes' },
           { name: 'G50 pré-remplie', included: 'yes' },
           { name: 'Alertes échéances', included: 'yes' },
+        ]
+      },
+      {
+        title: 'LOGISTIQUE & FLOTTE',
+        features: [
+          { name: 'Suivi multi-véhicules', included: 'yes' },
+          { name: 'Carnet d\'entretien', included: 'yes' },
+          { name: 'Saisie carburant', included: 'yes' },
         ]
       }
     ]
@@ -112,24 +112,24 @@ export const PLANS: PlanDefinition[] = [
       users: '5',
       companies: '1',
       storage: '20 GB',
-      support: 'Prioritaire'
+      support: 'Prioritaire',
+      vehicles: 'Illimité'
     },
     categories: [
-      {
-        title: 'COMPTABILITÉ',
-        features: [
-          { name: 'Scan OCR (IA)', included: 'yes', detail: 'Illimité' },
-          { name: 'Calcul IBS annuel', included: 'yes' },
-          { name: 'Calcul TAP', included: 'yes' },
-          { name: 'Trésorerie temps réel', included: 'yes' },
-        ]
-      },
       {
         title: 'PILOTAGE',
         features: [
           { name: 'Rapport mensuel auto', included: 'yes' },
           { name: 'Rentabilité projet', included: 'yes' },
           { name: 'Archivage sécurisé', included: 'yes' },
+        ]
+      },
+      {
+        title: 'LOGISTIQUE AVANCÉE',
+        features: [
+          { name: 'Analyse d\'efficience (L/100)', included: 'yes' },
+          { name: 'Rentabilité par véhicule', included: 'yes' },
+          { name: 'Gestion des missions', included: 'yes' },
         ]
       }
     ]
@@ -146,7 +146,8 @@ export const PLANS: PlanDefinition[] = [
       users: 'Illimité',
       companies: 'Illimité',
       storage: '100 GB',
-      support: 'Dédié'
+      support: 'Dédié',
+      vehicles: 'Illimité'
     },
     categories: [
       {
@@ -154,8 +155,7 @@ export const PLANS: PlanDefinition[] = [
         features: [
           { name: 'Portail multi-sociétés', included: 'yes' },
           { name: 'Déclarations groupées', included: 'yes' },
-          { name: 'Collaboration client', included: 'yes' },
-          { name: 'Rapprochement auto', included: 'yes' },
+          { name: 'Audit de flotte client', included: 'yes' },
         ]
       }
     ]

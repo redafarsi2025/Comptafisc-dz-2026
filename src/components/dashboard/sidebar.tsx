@@ -327,7 +327,10 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
         <NavGroup label={isRtl ? "العلاقات" : "Relations & CRM"} items={relationsNav} />
         
         <NavGroup label={isRtl ? "المبيعات" : "Ventes & Clients"} items={salesNav} visible={secteur === "COMMERCE" || secteur === "INDUSTRIE" || secteur === "TRANSPORT"} />
-        <NavGroup label={isRtl ? "اللوجستيك" : "Gestion Flotte"} items={logisticsNav} visible={secteur === "TRANSPORT"} />
+        
+        {/* LOGISTIQUE : Visible pour TOUS les secteurs (sauf Profession libérale pure sans véhicule) */}
+        <NavGroup label={isRtl ? "اللوجستيك" : "Gestion Flotte & Véhicules"} items={logisticsNav} visible={secteur !== "PRO_LIBERALE"} />
+        
         <NavGroup label={isRtl ? "الأشغال" : "Gestion Chantiers"} items={btpNav} visible={secteur === "BTP"} />
         <NavGroup label={isRtl ? "التصنيع" : "Production"} items={industryNav} visible={secteur === "INDUSTRIE"} />
         <NavGroup label={isRtl ? "الصحة" : "Gestion Santé"} items={healthNav} visible={secteur === "SANTE"} />

@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch"
 import { 
   Layers, Plus, Save, Trash2, Edit3, Check, X, 
   Info, Users as UsersIcon, Database, Zap, RefreshCcw, Sparkles, 
-  FileText, Loader2, CheckCircle2, AlertCircle, HardHat, TrendingUp
+  FileText, Loader2, CheckCircle2, AlertCircle, HardHat, TrendingUp, Truck
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -25,15 +25,16 @@ const MODULES = [
   { key: 'ocr', label: 'Scan OCR (IA)', category: 'COMPTABILITÉ' },
   { key: 'accounting', label: 'Gestion Achats/Ventes', category: 'COMPTABILITÉ' },
   { key: 'bank', label: 'Relevé Bancaire', category: 'COMPTABILITÉ' },
+  { key: 'fleet', label: 'Gestion Flotte (Logistique)', category: 'LOGISTIQUE' },
+  { key: 'fuel', label: 'Consommation Carburant', category: 'LOGISTIQUE' },
+  { key: 'maintenance', label: 'Carnet d\'entretien', category: 'LOGISTIQUE' },
   { key: 'tva', label: 'Calcul TVA Auto', category: 'FISCALITÉ' },
   { key: 'g50', label: 'G50 Pré-remplie', category: 'FISCALITÉ' },
   { key: 'alerts', label: 'Alertes Échéances', category: 'FISCALITÉ' },
   { key: 'ibs', label: 'Calcul IBS Annuel', category: 'FISCALITÉ' },
-  { key: 'tap', label: 'Calcul TAP', category: 'FISCALITÉ' },
   { key: 'analytics', label: 'Tableau de Bord', category: 'PILOTAGE' },
   { key: 'cashflow', label: 'Trésorerie Temps Réel', category: 'PILOTAGE' },
-  { key: 'reports', label: 'Rapports Mensuels', category: 'PILOTAGE' },
-  { key: 'efatura', label: 'e-Fatura (API DGI)', category: 'MODERNE' },
+  { key: 'transport', label: 'Facturation Spécifique Transport', category: 'TRANSPORT' },
   { key: 'cabinet', label: 'Portail Cabinet Multi-client', category: 'CABINET' },
 ]
 
@@ -57,7 +58,7 @@ export default function PlansManagement() {
     description: "",
     isActive: true,
     modules: MODULES.reduce((acc, m) => ({ ...acc, [m.key]: 'excluded' }), {}),
-    limits: { invoices: "15", users: "1", companies: "1", storage: "500 MB", support: "Email" }
+    limits: { invoices: "15", users: "1", companies: "1", storage: "500 MB", support: "Email", vehicles: "1" }
   }
 
   const [currentPlan, setCurrentPlan] = React.useState(initialPlanState)
@@ -179,6 +180,14 @@ export default function PlansManagement() {
                   <div className="space-y-2"><Label>Période</Label><Input value={currentPlan.period} onChange={e => setCurrentPlan({...currentPlan, period: e.target.value})} /></div>
                   <div className="flex items-end pb-2 space-x-2"><Switch checked={currentPlan.isActive} onCheckedChange={v => setCurrentPlan({...currentPlan, isActive: v})} /><Label>Actif</Label></div>
                 </div>
+                
+                <div className="grid grid-cols-4 gap-4 border-t pt-4">
+                   <div className="space-y-2"><Label>Limite Invoices</Label><Input value={currentPlan.limits.invoices} onChange={e => setCurrentPlan({...currentPlan, limits: {...currentPlan.limits, invoices: e.target.value}})} /></div>
+                   <div className="space-y-2"><Label>Limite Véhicules</Label><Input value={currentPlan.limits.vehicles} onChange={e => setCurrentPlan({...currentPlan, limits: {...currentPlan.limits, vehicles: e.target.value}})} /></div>
+                   <div className="space-y-2"><Label>Limite Users</Label><Input value={currentPlan.limits.users} onChange={e => setCurrentPlan({...currentPlan, limits: {...currentPlan.limits, users: e.target.value}})} /></div>
+                   <div className="space-y-2"><Label>Stockage Cloud</Label><Input value={currentPlan.limits.storage} onChange={e => setCurrentPlan({...currentPlan, limits: {...currentPlan.limits, storage: e.target.value}})} /></div>
+                </div>
+
                 <div className="space-y-4 pt-4 border-t">
                   <Label className="font-bold flex items-center gap-2 text-primary"><Zap className="h-4 w-4" /> Modules fonctionnels</Label>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -188,7 +197,10 @@ export default function PlansManagement() {
                         onClick={() => toggleModule(m.key)} 
                         className={`p-3 rounded-lg border text-left transition-all ${currentPlan.modules[m.key] === 'included' ? 'bg-emerald-50 border-emerald-500' : currentPlan.modules[m.key] === 'limited' ? 'bg-amber-50 border-amber-500' : 'bg-muted border-transparent opacity-60'}`}
                       >
-                        <p className="text-xs font-bold">{m.label}</p>
+                        <div className="flex items-center gap-2">
+                           {m.key === 'fleet' || m.key === 'fuel' || m.key === 'maintenance' ? <Truck className="h-3 w-3 text-blue-600" /> : null}
+                           <p className="text-xs font-bold">{m.label}</p>
+                        </div>
                         <p className="text-[10px] opacity-60">{m.category}</p>
                       </button>
                     ))}
@@ -250,15 +262,15 @@ export default function PlansManagement() {
                     </div>
                     <div className="flex items-center justify-between p-2 bg-slate-50 rounded-xl border border-slate-100">
                       <div className="flex items-center gap-2 text-[10px] font-bold">
-                        <FileText className="h-3 w-3 text-emerald-500" /> Factures / mois
+                        <Truck className="h-3 w-3 text-amber-600" /> Max Véhicules
                       </div>
-                      <span className="text-[10px] font-black">{p.limits?.invoices || '15'}</span>
+                      <span className="text-[10px] font-black">{p.limits?.vehicles || '1'}</span>
                     </div>
                     <div className="flex items-center justify-between p-2 bg-slate-50 rounded-xl border border-slate-100">
                       <div className="flex items-center gap-2 text-[10px] font-bold">
-                        <Database className="h-3 w-3 text-amber-500" /> Stockage
+                        <FileText className="h-3 w-3 text-emerald-500" /> Factures / mois
                       </div>
-                      <span className="text-[10px] font-black">{p.limits?.storage || '500 MB'}</span>
+                      <span className="text-[10px] font-black">{p.limits?.invoices || '15'}</span>
                     </div>
                   </div>
                 </div>
@@ -280,9 +292,6 @@ export default function PlansManagement() {
                         </div>
                       );
                     })}
-                    {Object.values(p.modules).every(s => s === 'excluded') && (
-                      <p className="text-[10px] text-muted-foreground italic">Aucun module spécifique.</p>
-                    )}
                   </div>
                 </div>
               </CardContent>
@@ -310,16 +319,15 @@ export default function PlansManagement() {
         </div>
       )}
 
-      <div className="p-6 bg-blue-50 border border-blue-100 rounded-3xl flex items-start gap-4">
+      <div className="p-6 bg-blue-50 border border-blue-200 rounded-3xl flex items-start gap-4 shadow-xl">
         <div className="h-10 w-10 rounded-2xl bg-white border border-blue-200 flex items-center justify-center shrink-0 shadow-sm">
           <Info className="h-5 w-5 text-blue-600" />
         </div>
         <div className="text-xs text-blue-900 leading-relaxed">
-          <p className="font-bold uppercase tracking-tight mb-1">Architecture Commerciale & Multi-tenancy :</p>
+          <p className="font-bold uppercase tracking-tight mb-1">Stratégie Logistique Master :</p>
           <p className="opacity-80">
-            Les plans configurés ici définissent les barrières logicielles pour chaque dossier client. 
-            Le passage d'un module du statut <strong>"Inclus"</strong> à <strong>"Exclu"</strong> désactive instantanément la fonctionnalité correspondante dans le dashboard de l'abonné. 
-            Toute modification est tracée dans l'historique d'audit du Command Center.
+            La gestion de flotte est désormais un module transverse. Les plans limitent le nombre d'unités traçables. 
+            Le passage au plan **PRO** débloque l'analyse d'efficience (calcul automatique L/100km via les odomètres) et le calcul de rentabilité par véhicule basé sur le Grand Livre.
           </p>
         </div>
       </div>
