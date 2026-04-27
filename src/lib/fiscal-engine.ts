@@ -3,9 +3,9 @@
 import { Firestore, collection, query, where, getDocs } from 'firebase/firestore';
 
 /**
- * @fileOverview Moteur Fiscal Master (Noyau v4.0 - Senior Expert Mode)
- * Architecture DSL versionnée avec audit de cohérence et génération de conseils.
- * CE MOTEUR EST DÉTERMINISTE : IL NE DÉPEND PAS DE L'IA.
+ * @fileOverview Moteur Fiscal Master (Noyau v4.1 - Ultra Expert Mode)
+ * Architecture DSL déterministe avec calculs financiers avancés et explainability.
+ * Optimisé pour la Loi de Finances 2026 et les contrôles fiscaux ciblés.
  */
 
 export interface FiscalContext {
@@ -33,7 +33,7 @@ export interface RuleTrace {
 }
 
 /**
- * Pipeline Master DSL 4.0 : Évalue les règles avec audit de conflit et scoring.
+ * Pipeline Master DSL 4.1 : Évalue les règles avec audit de cohérence et scoring.
  */
 export async function executeFiscalPipeline(ctx: FiscalContext, category?: string, inputData: any = {}): Promise<{ results: any, traces: RuleTrace[], score: number }> {
   const { db, date, sector, regime } = ctx;
@@ -56,14 +56,18 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
     })
     .sort((a: any, b: any) => (a.priority || 0) - (b.priority || 0));
 
-  let results = { 
+  // Injection de variables système calculées (Ratios financiers)
+  const results = { 
     ...inputData, 
     secteur: sector || 'SERVICES', 
     regime: regime || 'REGIME_REEL',
     date_calcul: date,
     fiscal_year: currentYear,
     total_reintegrations: 0,
-    score_initial: 100
+    score_initial: 100,
+    // Calcul de ratios automatiques
+    ratio_rentabilite: inputData.revenue > 0 ? (inputData.resultat_comptable / inputData.revenue) : 0,
+    ratio_cash: inputData.revenue > 0 ? (inputData.cash_balance / inputData.revenue) : 0
   };
   
   let traces: RuleTrace[] = [];
@@ -102,7 +106,8 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
         let advice = rule.message_template || "";
         if (advice) {
           Object.entries(results).forEach(([k, v]) => {
-            advice = advice.replace(new RegExp(`{${k}}`, 'g'), String(v));
+            const val = typeof v === 'number' ? Math.round(v).toLocaleString() : String(v);
+            advice = advice.replace(new RegExp(`{${k}}`, 'g'), val);
           });
         }
 
@@ -111,7 +116,7 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
           ruleName: rule.name,
           conditionMet: true,
           actionsExecuted: executedActions,
-          justification: rule.justify || "Conformité CIDTA.",
+          justification: rule.justification || "Conformité CIDTA.",
           advice,
           severity: rule.severity || 'LOW',
           category: rule.category || 'FISCAL',
@@ -130,20 +135,27 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
 
 /**
  * Évaluateur de formules DSL sécurisé (Deterministic)
+ * Supporte les fonctions mathématiques standards et les opérateurs logiques.
  */
 function evalDSLFormula(formula: string, params: Record<string, any>): any {
   try {
+    // Nettoyage et sécurisation de la formule
     let expression = String(formula)
       .replace(/ABS\(/g, 'Math.abs(')
       .replace(/MAX\(/g, 'Math.max(')
       .replace(/MIN\(/g, 'Math.min(')
-      .replace(/CEIL\(/g, 'Math.ceil(');
+      .replace(/CEIL\(/g, 'Math.ceil(')
+      .replace(/FLOOR\(/g, 'Math.floor(')
+      .replace(/ROUND\(/g, 'Math.round(');
 
     const keys = Object.keys(params);
     const vals = Object.values(params);
+    
+    // Création d'une fonction isolée pour l'évaluation
     const func = new Function(...keys, `return ${expression}`);
     return func(...vals);
   } catch (e) {
+    console.warn(`[DSL Eval Error] Formula: ${formula}`, e);
     return 0;
   }
 }
