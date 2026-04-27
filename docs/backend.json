@@ -1,6 +1,34 @@
 
 {
   "entities": {
+    "AccountTemplate": {
+      "title": "AccountTemplate",
+      "type": "object",
+      "description": "Modèle de plan comptable par secteur d'activité.",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "sector": { "type": "string", "enum": ["COMMERCE", "INDUSTRIE", "SERVICES", "BTP", "TRANSPORT", "AGRICULTURE"] },
+        "description": { "type": "string" },
+        "version": { "type": "string" }
+      }
+    },
+    "ClientAccount": {
+      "title": "ClientAccount",
+      "type": "object",
+      "description": "Instance d'un compte comptable pour un dossier spécifique.",
+      "properties": {
+        "id": { "type": "string" },
+        "accountNumber": { "type": "string" },
+        "label": { "type": "string" },
+        "type": { "type": "string", "enum": ["ACTIF", "PASSIF", "CHARGE", "PRODUIT"] },
+        "class": { "type": "number" },
+        "templateOriginId": { "type": "string" },
+        "isCustom": { "type": "boolean" },
+        "isActive": { "type": "boolean" },
+        "parentNumber": { "type": "string" }
+      }
+    },
     "FiscalLaw": {
       "title": "FiscalLaw",
       "type": "object",
@@ -77,6 +105,7 @@
     "/fiscal_laws/{lawId}": { "schema": "#/backend/entities/FiscalLaw", "description": "Versions législatives" },
     "/fiscal_variable_types/{typeId}": { "schema": "#/backend/entities/FiscalVariableType", "description": "Référentiel variables" },
     "/fiscal_variable_values/{valId}": { "schema": "#/backend/entities/FiscalVariableValue", "description": "Valeurs versionnées" },
+    "/tenants/{tenantId}/accounts/{accId}": { "schema": "#/backend/entities/ClientAccount", "description": "Plan comptable personnalisé du client" },
     "/tenants/{tenantId}/employees/{empId}": { "schema": "#/backend/entities/Employee", "description": "Dossier personnel" },
     "/tenants/{tenantId}/payroll/{payId}": { "schema": "#/backend/entities/Payroll", "description": "Journal de paie" }
   }

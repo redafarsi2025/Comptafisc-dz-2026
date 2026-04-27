@@ -44,7 +44,8 @@ import {
   Target,
   FileBadge,
   Package,
-  ChevronRight
+  ChevronRight,
+  Landmark
 } from "lucide-react"
 
 import {
@@ -257,6 +258,7 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
   ]
   const accountingNav = [
     { name: t.Navigation.journal, href: "/dashboard/accounting", icon: BookText },
+    { name: "Plan Comptable (PCE)", href: "/dashboard/accounting/chart", icon: Library },
     { name: t.Navigation.ledger, href: "/dashboard/accounting/ledger", icon: Library },
     { name: t.Navigation.financial_statements, href: "/dashboard/accounting/financial-statements", icon: FileBarChart },
   ]
