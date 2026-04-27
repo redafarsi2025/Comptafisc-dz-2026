@@ -5,6 +5,7 @@ import { Firestore, collection, query, where, getDocs } from 'firebase/firestore
 /**
  * @fileOverview Moteur Fiscal Master (Noyau v4.0 - Senior Expert Mode)
  * Architecture DSL versionnée avec audit de cohérence et génération de conseils.
+ * CE MOTEUR EST DÉTERMINISTE : IL NE DÉPEND PAS DE L'IA.
  */
 
 export interface FiscalContext {
@@ -27,7 +28,7 @@ export interface RuleTrace {
   category: string;
   impactEstimated?: number;
   recommendation?: string;
-  observation?: string; // Nouvelle observation explicative
+  observation?: string;
   timestamp: string;
 }
 
@@ -68,7 +69,7 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
   let traces: RuleTrace[] = [];
   let currentScore = 100;
 
-  // 2. Évaluation séquentielle avec gestion d'erreurs
+  // 2. Évaluation séquentielle
   for (const rule of filteredRules as any[]) {
     try {
       const isMet = rule.when ? evalDSLFormula(rule.when, results) : true;
@@ -115,7 +116,7 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
           severity: rule.severity || 'LOW',
           category: rule.category || 'FISCAL',
           recommendation: rule.recommendation || "Vérifier l'imputation comptable.",
-          observation: rule.observation || "Cette règle assure que les charges déclarées sont directement liées à l'intérêt d'exploitation de l'entité.",
+          observation: rule.observation || "Audit de conformité automatique.",
           timestamp: new Date().toISOString()
         });
       }
@@ -128,7 +129,7 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
 }
 
 /**
- * Évaluateur de formules DSL sécurisé.
+ * Évaluateur de formules DSL sécurisé (Deterministic)
  */
 function evalDSLFormula(formula: string, params: Record<string, any>): any {
   try {

@@ -1,7 +1,3 @@
-/**
- * @fileOverview Analyse Financière & Pilotage Stratégique (SEAD) + Conseiller Fiscal Master.
- */
-
 "use client"
 
 import * as React from "react"
@@ -13,25 +9,15 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
-} from "recharts"
-import { 
   Activity, Landmark, Wallet, AlertTriangle, 
   ShieldCheck, ArrowUpRight, Calculator, PieChart,
   BarChart3, HeartPulse, Zap, Info, Loader2, Lightbulb, Target, ArrowRight,
   TrendingDown, CheckCircle2, Sparkles, ScrollText, Building2, Layers, Gavel, Scale, AlertCircle, ShieldAlert
 } from "lucide-react"
-import { calculateBFR, calculateLiquidityRatio, simulateInvestmentScenarios, getIBSRate } from "@/lib/calculations"
 import { useSearchParams } from "next/navigation"
-import { getSeadRecommendation } from "@/ai/flows/sead-decision-flow"
 import { executeFiscalPipeline, RuleTrace } from "@/lib/fiscal-engine"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useLocale } from "@/context/LocaleContext"
 import { cn } from "@/lib/utils"
-import Link from "next/link"
 
 export default function FinancialAnalysisPage() {
   const db = useFirestore()
@@ -40,9 +26,6 @@ export default function FinancialAnalysisPage() {
   const searchParams = useSearchParams()
   const tenantIdFromUrl = searchParams.get('tenantId')
   const [mounted, setMounted] = React.useState(false)
-  const [isGeneratingPlan, setIsGeneratingPlan] = React.useState(false)
-  const [recommendation, setRecommendation] = React.useState<string | null>(null)
-  const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   
   // Fiscal Advisor State
   const [isFiscalLoading, setIsFiscalLoading] = React.useState(false)
@@ -90,11 +73,11 @@ export default function FinancialAnalysisPage() {
       cash,
       vatCollected: Math.abs(balances['4457'] || 0),
       vatDeductible: Math.abs(balances['4456'] || 0),
-      paymentMethod: cash > 1000000 ? 'Espèces' : 'Virement' // Simulation heuristique
+      paymentMethod: cash > 1000000 ? 'Espèces' : 'Virement' 
     };
   }, [entries]);
 
-  // EXECUTION DU MOTEUR FISCAL MASTER 4.0
+  // EXECUTION DU NOYAU DÉTERMINISTE MASTER 4.0
   React.useEffect(() => {
     const runDiagnostic = async () => {
       if (!db || !analysis || !currentTenant) return;
@@ -128,19 +111,6 @@ export default function FinancialAnalysisPage() {
     runDiagnostic();
   }, [db, analysis, currentTenant]);
 
-  const handleGeneratePlan = async () => {
-    if (!analysis || !currentTenant) return;
-    setIsGeneratingPlan(true);
-    try {
-      const result = await getSeadRecommendation({
-        promptKey: 'FISCAL_DECISION_CORE',
-        variables: { ca: analysis.revenue, resultat: analysis.netProfit, cash: analysis.cash, secteur: currentTenant.secteurActivite }
-      });
-      setRecommendation(result);
-      setIsDialogOpen(true);
-    } finally { setIsGeneratingPlan(false); }
-  };
-
   if (!mounted || isLoading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary h-10 w-10" /></div>
 
   const grade = fiscalScore > 85 ? 'A+' : fiscalScore > 65 ? 'B' : fiscalScore > 40 ? 'C' : 'RISQUE';
@@ -148,15 +118,15 @@ export default function FinancialAnalysisPage() {
   return (
     <div className="space-y-8 pb-20" dir={isRtl ? "rtl" : "ltr"}>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className={cn("text-start")}>
+        <div className="text-start">
           <h1 className="text-3xl font-black text-primary tracking-tighter uppercase flex items-center gap-3">
             <BarChart3 className="text-accent h-8 w-8" /> {t.Navigation.analytics}
           </h1>
-          <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest mt-1">Audit Expert v4.0 • Dossier : {currentTenant?.raisonSociale}</p>
+          <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest mt-1">Audit Déterministe v4.0 • Dossier : {currentTenant?.raisonSociale}</p>
         </div>
         <div className="flex gap-2">
           <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 px-4 py-2 font-black uppercase text-[10px]">
-            <ShieldCheck className="h-3 w-3 mr-2" /> Moteur LF 2026 Certifié
+            <ShieldCheck className="h-3 w-3 mr-2" /> Moteur LF 2026 Actif
           </Badge>
         </div>
       </div>
@@ -183,7 +153,7 @@ export default function FinancialAnalysisPage() {
             <div className="text-3xl font-black text-amber-600 tracking-tighter">
               {fiscalDiagnostic ? Math.round(fiscalDiagnostic.results.IBS || 0).toLocaleString() : '...'} DA
             </div>
-            <p className="text-[9px] text-muted-foreground mt-2 font-bold uppercase">Simulation au taux sectoriel</p>
+            <p className="text-[9px] text-muted-foreground mt-2 font-bold uppercase">Simulation déterministe</p>
           </CardContent>
         </Card>
 
@@ -195,14 +165,14 @@ export default function FinancialAnalysisPage() {
             <div className="text-3xl font-black text-blue-600 tracking-tighter">
               {analysis ? Math.round(analysis.netProfit).toLocaleString() : '...'} DA
             </div>
-            <p className="text-[9px] text-muted-foreground mt-2 font-bold uppercase">Résultat après retraitements</p>
+            <p className="text-[9px] text-muted-foreground mt-2 font-bold uppercase">Résultat audité</p>
           </CardContent>
         </Card>
 
         <Card className="bg-slate-900 text-white border-none shadow-2xl relative overflow-hidden flex flex-col justify-center p-6">
            <Landmark className="absolute -right-4 -top-4 h-24 w-24 opacity-10 text-accent" />
            <p className="text-[10px] uppercase font-black text-accent tracking-widest mb-1 text-start">Validation Node</p>
-           <h2 className="text-lg font-black uppercase text-start">AUDIT READY</h2>
+           <h2 className="text-lg font-black uppercase text-start italic">AUDIT READY</h2>
         </Card>
       </div>
 
@@ -215,7 +185,7 @@ export default function FinancialAnalysisPage() {
               </div>
               <div className="text-start">
                 <CardTitle className="text-lg font-black uppercase tracking-tighter">{t.Analysis.diagnostic}</CardTitle>
-                <CardDescription className="text-[10px] font-bold uppercase text-slate-400">Analyse déterministe basée sur le pack 350+ règles</CardDescription>
+                <CardDescription className="text-[10px] font-bold uppercase text-slate-400">Analyse logique basée sur 350+ règles métier</CardDescription>
               </div>
             </div>
             {isFiscalLoading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
@@ -255,11 +225,11 @@ export default function FinancialAnalysisPage() {
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
-                                <p className="text-[9px] font-black text-slate-400 uppercase flex items-center gap-1"><Info className="h-3 w-3" /> Observation de l'Expert</p>
+                                <p className="text-[9px] font-black text-slate-400 uppercase flex items-center gap-1"><Info className="h-3 w-3" /> Pourquoi cet écart ?</p>
                                 <p className="text-[10px] text-slate-700 leading-relaxed">{trace.observation}</p>
                              </div>
                              <div className="p-3 bg-emerald-50/50 rounded-xl border border-emerald-100 space-y-2">
-                                <p className="text-[9px] font-black text-emerald-700 uppercase flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Recommandation Master</p>
+                                <p className="text-[9px] font-black text-emerald-700 uppercase flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Recommandation</p>
                                 <p className="text-[10px] text-emerald-800 font-bold">{trace.recommendation}</p>
                              </div>
                           </div>
@@ -277,7 +247,7 @@ export default function FinancialAnalysisPage() {
                           <ShieldCheck className="h-8 w-8 text-emerald-500" />
                         </div>
                         <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">
-                          {isFiscalLoading ? "Exécution de l'audit..." : "Aucune anomalie détectée sur ce périmètre."}
+                          {isFiscalLoading ? "Exécution de l'audit..." : "Dossier 100% conforme."}
                         </p>
                      </div>
                    )}
@@ -287,73 +257,35 @@ export default function FinancialAnalysisPage() {
         </Card>
 
         <div className="space-y-6">
-          <Card className="bg-slate-900 text-white border-none shadow-xl rounded-3xl overflow-hidden flex flex-col group">
-            <CardHeader className="bg-primary/20 border-b border-white/5 p-6 text-start">
-              <CardTitle className={cn("text-sm font-black uppercase tracking-widest text-accent flex items-center gap-2", isRtl && "flex-row-reverse")}>
-                <Sparkles className="h-4 w-4" /> Simulation IA Strategique
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex-1 p-8 space-y-6 text-start">
-                <p className="text-sm font-medium leading-relaxed opacity-80">
-                  Améliorez votre score fiscal en simulant des optimisations personnalisées via notre IA SEAD.
-                </p>
-                <Button 
-                  className="w-full bg-accent text-primary font-black uppercase tracking-widest text-[10px] h-12 rounded-2xl shadow-xl"
-                  onClick={handleGeneratePlan}
-                  disabled={isGeneratingPlan}
-                >
-                  {isGeneratingPlan ? <Loader2 className="animate-spin h-4 w-4 me-2" /> : <Layers className="h-4 w-4 me-2" />}
-                  Lancer Simulation Stratégique
-                </Button>
-            </CardContent>
+          <Card className="bg-slate-900 text-white border-none shadow-xl rounded-3xl p-8 text-start relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 blur-[100px] -mr-32 -mt-32" />
+            <div className="relative space-y-6">
+              <h4 className="text-xl font-black uppercase tracking-tighter">L'Intelligence Expert</h4>
+              <p className="text-sm text-slate-400 leading-relaxed font-medium">
+                Contrairement à une IA générative, notre moteur d'audit est **déterministe**. Il scanne chaque écriture comptable et vérifie sa conformité aux articles du CIDTA.
+              </p>
+              <div className="grid grid-cols-1 gap-3">
+                 <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
+                    <p className="text-[10px] font-black text-accent uppercase mb-1">0% Hallucination</p>
+                    <p className="text-[10px] opacity-60">Basé sur des règles métier rigoureuses.</p>
+                 </div>
+                 <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
+                    <p className="text-[10px] font-black text-emerald-400 uppercase mb-1">Audit-Ready</p>
+                    <p className="text-[10px] opacity-60">Justification légale pour chaque alerte.</p>
+                 </div>
+              </div>
+            </div>
           </Card>
 
-          <Card className="bg-blue-50 border border-blue-100 rounded-3xl p-6 relative overflow-hidden shadow-inner text-start">
+          <Card className="bg-blue-50 border border-blue-200 rounded-3xl p-6 relative overflow-hidden shadow-inner text-start">
              <Info className="h-6 w-6 text-blue-600 shrink-0 mb-4" />
              <h4 className="text-[10px] font-black text-blue-800 uppercase tracking-widest mb-2">Note sur la Méthodologie</h4>
              <p className="text-[11px] text-blue-700 leading-relaxed font-medium italic">
-              "Le moteur Master 4.0 analyse chaque compte du SCF selon sa nature fiscale. Les observations générées sont basées sur la jurisprudence et les textes de loi algériens (LF 2026)."
+              "Le moteur Master 4.0 analyse les soldes de vos comptes SCF. Un score de 100/100 garantit que vos documents de synthèse (Bilan, TCR) sont prêts pour le commissariat aux comptes."
              </p>
           </Card>
-
-          <div className="p-6 bg-slate-900 text-white rounded-3xl space-y-4">
-             <div className="flex items-center gap-2">
-               <ShieldCheck className="h-4 w-4 text-accent" />
-               <span className="text-[10px] font-black uppercase text-accent tracking-widest">Certification Audit</span>
-             </div>
-             <p className="text-[11px] leading-relaxed opacity-70 italic">
-               "L'audit déterministe garantit l'image fidèle. Contrairement aux analyses probabilistes, chaque alerte ici est une règle métier rigoureuse."
-             </p>
-          </div>
         </div>
       </div>
-
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 border-none shadow-2xl rounded-3xl overflow-hidden">
-           <DialogHeader className={cn("bg-slate-900 text-white p-8 shrink-0", isRtl ? "text-right" : "text-left")}>
-             <div className="flex items-center gap-4">
-               <div className="h-12 w-12 rounded-2xl bg-accent/20 flex items-center justify-center border border-accent/20 shadow-inner">
-                 <Sparkles className="h-6 w-6 text-accent animate-pulse" />
-               </div>
-               <div>
-                 <DialogTitle className="text-2xl font-black tracking-tighter uppercase">Plan de Route Stratégique SEAD</DialogTitle>
-                 <DialogDescription className="text-accent font-bold uppercase text-[10px] tracking-widest">IA Prescriptive ComptaFisc-DZ v4.0</DialogDescription>
-               </div>
-             </div>
-           </DialogHeader>
-           <ScrollArea className="flex-1 w-full bg-white">
-             <div className={cn("p-8 prose prose-slate max-w-none prose-sm leading-relaxed text-slate-700 whitespace-pre-line text-start", isRtl ? "text-right" : "text-left")}>
-               {recommendation}
-             </div>
-           </ScrollArea>
-           <CardFooter className="bg-slate-50 border-t p-6 flex justify-between items-center shrink-0">
-             <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-               <ShieldCheck className="h-4 w-4 text-emerald-500" /> Audit certifié conforme 2026
-             </div>
-             <Button variant="outline" className="rounded-xl font-bold h-10" onClick={() => setIsDialogOpen(false)}>Fermer l'Analyse</Button>
-           </CardFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
