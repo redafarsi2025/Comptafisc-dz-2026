@@ -9,7 +9,7 @@ import {
 import { 
   Activity, Target, Sparkles, Zap, CreditCard, 
   ShieldCheck, DatabaseZap, Eye, ArrowUpRight,
-  Cpu, CloudLightning, TrendingUp, Users, ShieldAlert, Handshake, Network
+  Cpu, CloudLightning, TrendingUp, Users, ShieldAlert, Handshake, Network, ShoppingBag
 } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge"
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { collection } from "firebase/firestore"
 import Link from "next/link"
+import { PREMIUM_ADDONS } from "@/lib/plans"
 
 const PLAN_COLORS: Record<string, string> = {
   'GRATUIT': '#94a3b8',
@@ -29,7 +30,7 @@ const PLAN_PRICES: Record<string, number> = {
   'GRATUIT': 0,
   'ESSENTIEL': 1500,
   'PRO': 5000,
-  'CABINET': 0, // Stratégie : Pack Offert pour acquisition indirecte
+  'CABINET': 0, 
 };
 
 export default function AdminDashboard() {
@@ -47,22 +48,30 @@ export default function AdminDashboard() {
   const { data: tenants } = useCollection(tenantsQuery);
 
   const stats = React.useMemo(() => {
-    if (!profiles || !tenants) return { totalUsers: 0, totalTenants: 0, mrr: 0, upToDateTenants: 0, indirectReach: 0, planDistribution: [] };
+    if (!profiles || !tenants) return { totalUsers: 0, totalTenants: 0, mrr: 0, upsellRevenue: 0, upToDateTenants: 0, indirectReach: 0, planDistribution: [] };
 
     const planCounts: Record<string, number> = { 'GRATUIT': 0, 'ESSENTIEL': 0, 'PRO': 0, 'CABINET': 0 };
-    let totalMrr = 0;
+    let totalPlanMrr = 0;
+    let totalUpsellMrr = 0;
     let upToDate = 0;
     let cabinetCount = 0;
 
     tenants.forEach(t => {
       const plan = (t.plan || 'GRATUIT').toUpperCase();
       planCounts[plan] = (planCounts[plan] || 0) + 1;
-      totalMrr += PLAN_PRICES[plan] || 0;
+      totalPlanMrr += PLAN_PRICES[plan] || 0;
       if (t.onboardingComplete) upToDate++;
       if (plan === 'CABINET') cabinetCount++;
+
+      // Calculer les revenus d'upsell (Addons Premium)
+      if (t.activeAddons && Array.isArray(t.activeAddons)) {
+        t.activeAddons.forEach((addonId: string) => {
+          const addon = PREMIUM_ADDONS.find(a => a.id === addonId);
+          if (addon) totalUpsellMrr += addon.price;
+        });
+      }
     });
 
-    // Simulation de la portée indirecte : chaque cabinet ramène en moyenne 25 dossiers
     const indirectReach = cabinetCount * 25;
 
     const distribution = Object.entries(planCounts).map(([name, value]) => ({
@@ -74,7 +83,8 @@ export default function AdminDashboard() {
     return {
       totalUsers: profiles.length,
       totalTenants: tenants.length,
-      mrr: totalMrr,
+      mrr: totalPlanMrr,
+      upsellRevenue: totalUpsellMrr,
       upToDateTenants: upToDate,
       indirectReach,
       planDistribution: distribution
@@ -104,11 +114,11 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
         <Card className="border-none shadow-xl shadow-slate-200/50 bg-white border-l-4 border-l-primary relative overflow-hidden group">
           <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">MRR RECURRENT (DA)</CardTitle>
+            <CardTitle className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">MRR RECURRENT (Plans)</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-4xl font-black text-primary tracking-tighter">
-              {stats.mrr.toLocaleString()}
+              {stats.mrr.toLocaleString()} <span className="text-xs font-normal">DA</span>
             </div>
             <div className="flex items-center gap-1 text-emerald-600 text-[10px] font-black mt-3">
               <TrendingUp className="h-3 w-3" /> +14.2% VS MOIS N-1
@@ -116,8 +126,22 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-xl shadow-slate-200/50 bg-white border-l-4 border-l-purple-500 group relative overflow-hidden">
-          <div className="absolute -right-2 -top-2 opacity-5 group-hover:rotate-12 transition-transform"><Network className="h-16 w-16" /></div>
+        <Card className="border-none shadow-xl shadow-slate-200/50 bg-white border-l-4 border-l-accent group relative overflow-hidden">
+          <div className="absolute -right-2 -top-2 opacity-5 group-hover:rotate-12 transition-transform"><ShoppingBag className="h-16 w-16" /></div>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Revenu Upsell (Add-ons)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-4xl font-black text-accent tracking-tighter">
+              {stats.upsellRevenue.toLocaleString()} <span className="text-xs font-normal">DA</span>
+            </div>
+            <p className="text-[10px] text-slate-500 mt-3 font-bold uppercase tracking-widest flex items-center gap-1">
+              <Sparkles className="h-3 w-3 text-accent" /> Monétisation Indirecte Active
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-none shadow-xl shadow-slate-200/50 bg-white border-l-4 border-l-purple-500">
           <CardHeader className="pb-2">
             <CardTitle className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Portée Indirecte</CardTitle>
           </CardHeader>
@@ -129,30 +153,16 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-xl shadow-slate-200/50 bg-white border-l-4 border-l-emerald-400">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">NIF Validés</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-4xl font-black text-emerald-600 tracking-tighter">
-              {Math.round((stats.upToDateTenants / stats.totalTenants || 0) * 100)}%
-            </div>
-            <div className="mt-4 space-y-1">
-              <Progress value={(stats.upToDateTenants / stats.totalTenants || 0) * 100} className="h-1.5 bg-slate-100" />
-            </div>
-          </CardContent>
-        </Card>
-
         <Card className="bg-slate-900 text-white border-none shadow-2xl relative overflow-hidden group">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent" />
           <CardHeader className="pb-2 relative">
-            <CardTitle className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Health Status</CardTitle>
+            <CardTitle className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">MRR TOTAL</CardTitle>
           </CardHeader>
           <CardContent className="relative">
-            <div className="text-4xl font-black tracking-tighter text-accent">99.9%</div>
+            <div className="text-4xl font-black tracking-tighter text-white">{(stats.mrr + stats.upsellRevenue).toLocaleString()}</div>
             <div className="flex items-center gap-2 mt-3">
                <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)] animate-pulse" />
-               <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Nodes Operational</span>
+               <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Global Ecosystem Yield</span>
             </div>
           </CardContent>
         </Card>

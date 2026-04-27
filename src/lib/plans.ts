@@ -1,5 +1,5 @@
 /**
- * Référentiel des Plans de ComptaFisc-DZ
+ * Référentiel des Plans et Add-ons de ComptaFisc-DZ
  * Basé sur la philosophie : "Nous vendons la tranquillité d'esprit fiscale".
  */
 
@@ -137,9 +137,9 @@ export const PLANS: PlanDefinition[] = [
   {
     id: 'CABINET',
     name: 'CABINET',
-    price: 'Sur devis',
-    period: '',
-    description: 'Gérer tous les clients efficacement.',
+    price: '0', // Stratégie Trojan Horse : Gratuit pour l'expert
+    period: 'DA/mois',
+    description: 'Le Hub gratuit pour gérer tous vos clients.',
     color: 'bg-purple-700',
     limits: {
       invoices: 'Illimité',
@@ -159,5 +159,44 @@ export const PLANS: PlanDefinition[] = [
         ]
       }
     ]
+  }
+];
+
+export interface AddonService {
+  id: string;
+  name: string;
+  price: number;
+  description: string;
+  icon: string;
+}
+
+export const PREMIUM_ADDONS: AddonService[] = [
+  {
+    id: 'OCR_UNLIMITED',
+    name: 'OCR Vision Illimité',
+    price: 1500,
+    description: 'Capturez toutes vos factures sans limite via Gemini Vision.',
+    icon: 'Zap'
+  },
+  {
+    id: 'STORAGE_100GB',
+    name: 'Archivage Légal 100 Go',
+    price: 900,
+    description: 'Stockage sécurisé pour 10 ans de pièces comptables.',
+    icon: 'Database'
+  },
+  {
+    id: 'PAYROLL_PRO',
+    name: 'Module Paie Avancé',
+    price: 2000,
+    description: 'Génération DAS, DAC et fichiers XML Jibayatic/CNAS.',
+    icon: 'Users'
+  },
+  {
+    id: 'SEAD_STRATEGIC',
+    name: 'IA SEAD Predictive',
+    price: 3500,
+    description: 'Analyses prospectives et simulations d\'optimisation IBS.',
+    icon: 'Brain'
   }
 ];

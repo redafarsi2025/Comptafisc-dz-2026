@@ -12,19 +12,20 @@ import {
   Banknote, TrendingUp, TrendingDown, Info, 
   Database, ShieldCheck, Zap, Loader2, 
   ArrowUpRight, Download, Filter, Search,
-  Server, HardDrive, Cpu, Calculator, Save, X, AlertTriangle
+  Server, HardDrive, Cpu, Calculator, Save, X, AlertTriangle, Sparkles
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/hooks/use-toast"
+import { PREMIUM_ADDONS } from "@/lib/plans"
 
 // Fallback constants if Firestore is empty
 const FALLBACK_PRICING = {
-  firestore_read_price: 0.0000006,  // $0.06 per 100k
-  firestore_write_price: 0.0000018, // $0.18 per 100k
-  storage_gb_price: 0.18,           // $0.18 per GB/month
-  dzd_exchange_rate: 210            // DZD per USD
+  firestore_read_price: 0.0000006,  
+  firestore_write_price: 0.0000018, 
+  storage_gb_price: 0.18,           
+  dzd_exchange_rate: 210            
 };
 
 const calculatePseudoUsage = (tenant: any, params: typeof FALLBACK_PRICING) => {
@@ -43,9 +44,19 @@ const calculatePseudoUsage = (tenant: any, params: typeof FALLBACK_PRICING) => {
   
   const costDZD = costUSD * params.dzd_exchange_rate;
   
-  // Si le plan est gratuit (ou promo cabinet), le prix est 0, donc la marge est négative (coût d'infra)
-  const planPriceDZD = plan === 'ESSENTIEL' ? 1500 : plan === 'PRO' ? 5000 : plan === 'CABINET' ? 0 : 0;
-  const margin = planPriceDZD - costDZD;
+  const planPriceDZD = plan === 'ESSENTIEL' ? 1500 : plan === 'PRO' ? 5000 : 0;
+  
+  // Ajouter les revenus d'Upsell
+  let upsellRevenue = 0;
+  if (tenant.activeAddons && Array.isArray(tenant.activeAddons)) {
+    tenant.activeAddons.forEach((addonId: string) => {
+      const addon = PREMIUM_ADDONS.find(a => a.id === addonId);
+      if (addon) upsellRevenue += addon.price;
+    });
+  }
+
+  const totalRevenue = planPriceDZD + upsellRevenue;
+  const margin = totalRevenue - costDZD;
 
   return {
     reads,
@@ -53,8 +64,10 @@ const calculatePseudoUsage = (tenant: any, params: typeof FALLBACK_PRICING) => {
     storageMB,
     costUSD,
     costDZD,
+    upsellRevenue,
+    totalRevenue,
     margin,
-    marginPercent: planPriceDZD > 0 ? (margin / planPriceDZD) * 100 : (margin < 0 ? -100 : 100)
+    marginPercent: totalRevenue > 0 ? (margin / totalRevenue) * 100 : (margin < 0 ? -100 : 100)
   };
 };
 
@@ -90,7 +103,7 @@ export default function BillingControlPage() {
     return tenants.map(t => ({
       ...t,
       ...calculatePseudoUsage(t, currentParams)
-    })).sort((a, b) => b.costUSD - a.costUSD);
+    })).sort((a, b) => b.totalRevenue - a.totalRevenue);
   }, [tenants, currentParams]);
 
   const filteredData = React.useMemo(() => {
@@ -101,6 +114,7 @@ export default function BillingControlPage() {
   }, [billingData, searchTerm]);
 
   const totalMonthlyCost = billingData.reduce((acc, curr) => acc + curr.costDZD, 0);
+  const totalMonthlyRevenue = billingData.reduce((acc, curr) => acc + curr.totalRevenue, 0);
 
   if (!mounted) return null;
 
@@ -126,56 +140,43 @@ export default function BillingControlPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="border-none shadow-xl ring-1 ring-border bg-white border-l-4 border-l-primary">
           <CardHeader className="pb-2">
+            <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Revenu Global (MRR)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-black text-primary tracking-tighter">{Math.round(totalMonthlyRevenue).toLocaleString()} DA</div>
+            <p className="text-[10px] text-muted-foreground mt-2 font-bold uppercase tracking-widest">Plans + Upsells actifs</p>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-xl ring-1 ring-border bg-white border-l-4 border-l-accent">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Part de l'Upsell</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-black text-accent tracking-tighter">
+              {Math.round(billingData.reduce((acc, curr) => acc + curr.upsellRevenue, 0)).toLocaleString()} DA
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-2 font-bold uppercase tracking-widest italic">Revenu généré par les add-ons</p>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-xl ring-1 ring-border bg-white border-l-4 border-l-red-500">
+          <CardHeader className="pb-2">
             <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Investissement Infra</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-black text-primary tracking-tighter">{Math.round(totalMonthlyCost).toLocaleString()} DA</div>
+            <div className="text-3xl font-black text-red-600 tracking-tighter">{Math.round(totalMonthlyCost).toLocaleString()} DA</div>
             <p className="text-[10px] text-muted-foreground mt-2 font-bold uppercase tracking-widest">Coût global des ressources Cloud</p>
-          </CardContent>
-        </Card>
-        <Card className="border-none shadow-xl ring-1 ring-border bg-white border-l-4 border-l-amber-500">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Coût moyen par Cabinet</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-black text-amber-600 tracking-tighter">
-              {Math.round(billingData.filter(b => b.plan === 'CABINET').reduce((acc, curr) => acc + curr.costDZD, 0) / (billingData.filter(b => b.plan === 'CABINET').length || 1)).toLocaleString()} DA
-            </div>
-            <p className="text-[10px] text-muted-foreground mt-2 font-bold uppercase tracking-widest italic">Coût d'infrastructure pour un Hub gratuit</p>
-          </CardContent>
-        </Card>
-        <Card className="border-none shadow-xl ring-1 ring-border bg-white border-l-4 border-l-emerald-500">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">ROI Indirect Estimé</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-black text-emerald-600 tracking-tighter">x12.5</div>
-            <p className="text-[10px] text-muted-foreground mt-2 font-bold uppercase tracking-widest">Multiplicateur de croissance via Cabinets</p>
           </CardContent>
         </Card>
         <Card className="bg-slate-900 text-white border-none shadow-2xl relative overflow-hidden flex flex-col justify-center p-6">
            <Zap className="absolute -right-4 -top-4 h-24 w-24 opacity-10 text-accent animate-pulse" />
            <p className="text-[10px] uppercase font-black text-accent tracking-widest mb-1">Stratégie</p>
-           <h2 className="text-lg font-black uppercase">Scaling Mode</h2>
+           <h2 className="text-lg font-black uppercase">Monétisation Indirecte</h2>
         </Card>
       </div>
 
-      <div className="p-6 bg-emerald-50 border border-emerald-100 rounded-3xl flex items-start gap-4">
-        <div className="h-10 w-10 rounded-xl bg-white border border-emerald-200 flex items-center justify-center shrink-0 shadow-sm">
-          <ShieldCheck className="h-5 w-5 text-emerald-600" />
-        </div>
-        <div className="text-[11px] text-emerald-900 leading-relaxed font-medium">
-          <p className="font-bold uppercase tracking-tight mb-1">Optimisation des Bénéfices :</p>
-          <p className="opacity-80">
-            Bien que les comptes CABINET affichent une marge directe négative (car offerts gratuitement), ils sont les catalyseurs de votre **croissance virale**. 
-            Leur présence réduit votre CAC (Coût d'Acquisition Client) global car chaque dossier d'entreprise invité par un cabinet ne vous coûte rien en marketing.
-          </p>
-        </div>
-      </div>
-
-      <Card className="shadow-2xl border-none ring-1 ring-border overflow-hidden bg-white">
+      <Card className="shadow-2xl border-none ring-1 ring-border overflow-hidden bg-white rounded-3xl">
         <CardHeader className="bg-slate-50 border-b p-6 flex flex-row items-center justify-between">
-           <CardTitle className="text-xl font-black text-slate-900 uppercase tracking-tighter">Journal de Consommation Billing</CardTitle>
+           <CardTitle className="text-xl font-black text-slate-900 uppercase tracking-tighter italic">Moniteur de Yield par Dossier</CardTitle>
            <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
               <Input 
@@ -191,9 +192,9 @@ export default function BillingControlPage() {
             <TableHeader className="bg-slate-50 border-b border-slate-100">
               <TableRow>
                 <TableHead className="font-black text-[10px] uppercase tracking-widest py-6 px-8">Client / Plan</TableHead>
-                <TableHead className="font-black text-[10px] uppercase tracking-widest py-6">Ressources (Read/Write)</TableHead>
-                <TableHead className="font-black text-[10px] uppercase tracking-widest py-6 text-right">Coût Infra (DA)</TableHead>
-                <TableHead className="font-black text-[10px] uppercase tracking-widest py-6 text-right px-8">Marge Directe</TableHead>
+                <TableHead className="font-black text-[10px] uppercase tracking-widest py-6">Upsells Actifs</TableHead>
+                <TableHead className="font-black text-[10px] uppercase tracking-widest py-6 text-right">Revenu Total (DA)</TableHead>
+                <TableHead className="font-black text-[10px] uppercase tracking-widest py-6 text-right px-8">Net Margin</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -211,33 +212,27 @@ export default function BillingControlPage() {
                     </div>
                   </TableCell>
                   <TableCell className="py-6">
-                    <div className="flex items-center gap-3">
-                      <div className="flex flex-col">
-                        <span className="text-[9px] font-bold text-slate-400">R: {b.reads.toLocaleString()}</span>
-                        <span className="text-[9px] font-bold text-slate-400">W: {b.writes.toLocaleString()}</span>
-                      </div>
-                      <Progress value={Math.min(100, (b.reads / 5000) * 100)} className="w-16 h-1 bg-slate-100" />
+                    <div className="flex flex-wrap gap-1">
+                      {b.activeAddons?.length > 0 ? b.activeAddons.map((aid: string) => (
+                        <Badge key={aid} className="bg-accent/10 text-accent border-accent/20 text-[7px] font-black uppercase h-4">
+                          {aid.split('_')[0]}
+                        </Badge>
+                      )) : <span className="text-[10px] text-slate-300 italic">Aucun upsell</span>}
                     </div>
                   </TableCell>
                   <TableCell className="py-6 text-right font-mono text-sm font-black text-primary">
-                    {Math.round(b.costDZD).toLocaleString()} DA
+                    {Math.round(b.totalRevenue).toLocaleString()} DA
                   </TableCell>
                   <TableCell className="py-6 text-right px-8">
-                    {b.plan === 'CABINET' ? (
-                      <div className="flex flex-col items-end">
-                         <span className="text-[9px] font-black text-purple-600 uppercase tracking-widest flex items-center gap-1">
-                           <TrendingUp className="h-3 w-3" /> Hub Strategique
+                    <div className="flex flex-col items-end">
+                      <div className="flex items-center gap-1">
+                         <span className={cn("text-xs font-black", b.marginPercent > 0 ? "text-emerald-600" : "text-red-500")}>
+                           {b.marginPercent.toFixed(1)}%
                          </span>
-                         <span className="text-[8px] text-slate-400 font-bold uppercase italic">Rentabilité Indirecte</span>
+                         {b.upsellRevenue > 0 && <Sparkles className="h-3 w-3 text-accent animate-pulse" />}
                       </div>
-                    ) : (
-                      <div className="flex flex-col items-end">
-                        <span className={cn("text-xs font-black", b.marginPercent > 0 ? "text-emerald-600" : "text-red-500")}>
-                          {b.marginPercent.toFixed(1)}%
-                        </span>
-                        <span className="text-[8px] font-bold text-slate-400 uppercase">Marge brute directe</span>
-                      </div>
-                    )}
+                      <span className="text-[8px] font-bold text-slate-400 uppercase">Marge nette vs Infra</span>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -245,30 +240,6 @@ export default function BillingControlPage() {
           </Table>
         </CardContent>
       </Card>
-
-      <Dialog open={isParamsOpen} onOpenChange={setIsParamsOpen}>
-        <DialogContent className="max-w-md rounded-3xl p-8">
-           <DialogHeader>
-             <DialogTitle className="text-2xl font-black tracking-tighter uppercase">Paramètres Billing</DialogTitle>
-             <DialogDescription className="text-xs font-bold text-slate-400 uppercase">Coûts unitaires de l'infrastructure Cloud</DialogDescription>
-           </DialogHeader>
-           <div className="grid gap-6 py-6 text-foreground">
-             <div className="space-y-2">
-               <Label className="text-[10px] font-black uppercase text-slate-400">Taux de Change USD/DZD</Label>
-               <Input type="number" value={editParams.dzd_exchange_rate} onChange={e => setEditParams({...editParams, dzd_exchange_rate: parseFloat(e.target.value)})} className="rounded-xl font-black text-primary" />
-             </div>
-             <div className="p-4 bg-muted/20 rounded-2xl border border-dashed text-center">
-                <p className="text-[10px] text-muted-foreground leading-relaxed italic">
-                  "Ces paramètres influencent le calcul de marge affiché dans le tableau. Ils n'affectent pas la facturation réelle de Firebase."
-                </p>
-             </div>
-           </div>
-           <DialogFooter>
-             <Button variant="ghost" onClick={() => setIsParamsOpen(false)} className="rounded-xl font-bold">Fermer</Button>
-             <Button className="bg-primary rounded-xl font-black uppercase tracking-widest text-[10px] h-11 px-8">Enregistrer</Button>
-           </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

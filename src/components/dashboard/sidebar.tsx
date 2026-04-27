@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -48,7 +47,8 @@ import {
   Landmark,
   MessagesSquare,
   Repeat,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Crown
 } from "lucide-react"
 
 import {
@@ -228,6 +228,7 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
   const pilotageNav = [
     { name: t.Navigation.dashboard, href: "/dashboard", icon: LayoutDashboard },
     { name: t.Navigation.analytics, href: "/dashboard/financial-analysis", icon: BarChart3 },
+    { name: "Services Premium", href: "/dashboard/premium", icon: Crown },
   ]
   const relationsNav = [
     { name: t.Navigation.contacts, href: "/dashboard/contacts", icon: Users },
