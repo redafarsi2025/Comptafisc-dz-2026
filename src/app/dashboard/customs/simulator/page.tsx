@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -10,13 +11,16 @@ import {
   Calculator, ChevronLeft, Globe, 
   TrendingUp, ShieldCheck, Zap, 
   Info, AlertTriangle, Scale, PieChart,
-  ArrowRight, Search, ListChecks, Database
+  ArrowRight, Search, ListChecks, Database, ExternalLink, Loader2
 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { SH_CODES, calculateCustomsLiquidation } from "@/lib/customs-engine"
 import { formatDZD } from "@/utils/fiscalAlgerie"
 import { Progress } from "@/components/ui/progress"
+import { Badge } from "@/components/ui/badge"
+import { searchOfficialTariff } from "@/services/customs/douane-scraper"
+import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 
 export default function CustomsSimulator() {
@@ -24,13 +28,15 @@ export default function CustomsSimulator() {
   const searchParams = useSearchParams()
   const tenantId = searchParams.get('tenantId')
   const [mounted, setMounted] = React.useState(false)
+  const [isVerifying, setIsVerifying] = React.useState(false)
+  const [officialStatus, setOfficialStatus] = React.useState<any>(null)
 
   const [formData, setFormData] = React.useState({
     valueHT: 1000000,
     transport: 150000,
     insurance: 25000,
     shCode: "8471",
-    origin: "UE", // UE, CHINE, ARABE, AUTRE
+    origin: "UE", 
     extraFees: 15000
   })
 
@@ -41,10 +47,9 @@ export default function CustomsSimulator() {
   const liquidation = React.useMemo(() => {
     if (!selectedSH) return null;
     
-    // Logique simplifiée des accords
     let dutyRate = selectedSH.duty;
-    if (formData.origin === "UE") dutyRate = dutyRate * 0.5; // Abattement fictif UE
-    if (formData.origin === "ARABE") dutyRate = 0; // Zone Arabe (GZALE)
+    if (formData.origin === "UE") dutyRate = dutyRate * 0.5; 
+    if (formData.origin === "ARABE") dutyRate = 0; 
 
     return calculateCustomsLiquidation({
       invoiceValue: formData.valueHT,
@@ -56,6 +61,21 @@ export default function CustomsSimulator() {
       extraFees: formData.extraFees
     });
   }, [formData, selectedSH]);
+
+  const handleVerifyOfficial = async () => {
+    setIsVerifying(true);
+    try {
+      const result = await searchOfficialTariff(formData.shCode);
+      if (result) {
+        setOfficialStatus(result);
+        toast({ title: "Données officielles trouvées", description: "Le code SH est valide sur le portail douane.gov.dz" });
+      } else {
+        toast({ variant: "destructive", title: "Non listé", description: "Ce code n'a pas retourné de résultat direct. Vérifiez la nomenclature." });
+      }
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   if (!mounted) return null;
 
@@ -82,24 +102,43 @@ export default function CustomsSimulator() {
         <div className="lg:col-span-2 space-y-6">
           <Card className="shadow-xl border-none ring-1 ring-border rounded-3xl overflow-hidden bg-white">
             <CardHeader className="bg-slate-50 border-b p-6 text-start">
-              <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-900 flex items-center gap-2">
-                <Globe className="h-4 w-4 text-primary" /> Paramètres de l'Opération
-              </CardTitle>
+              <div className="flex justify-between items-center w-full">
+                <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-900 flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-primary" /> Paramètres de l'Opération
+                </CardTitle>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-[9px] font-black text-blue-600 uppercase border border-blue-200 bg-blue-50/50 hover:bg-blue-100"
+                  onClick={handleVerifyOfficial}
+                  disabled={isVerifying}
+                >
+                  {isVerifying ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <ExternalLink className="h-3 w-3 mr-1" />}
+                  Vérifier sur douane.gov.dz
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="pt-6 space-y-6 text-start">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Code Tarifaire (SH Code)*</Label>
-                  <Select value={formData.shCode} onValueChange={v => setFormData({...formData, shCode: v})}>
-                    <SelectTrigger className="h-11 rounded-xl bg-white shadow-sm">
-                      <SelectValue placeholder="Choisir une catégorie" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SH_CODES.map(s => (
-                        <SelectItem key={s.code} value={s.code}>{s.code} - {s.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex gap-2">
+                    <Select value={formData.shCode} onValueChange={v => { setFormData({...formData, shCode: v}); setOfficialStatus(null); }}>
+                      <SelectTrigger className="h-11 rounded-xl bg-white shadow-sm">
+                        <SelectValue placeholder="Choisir une catégorie" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SH_CODES.map(s => (
+                          <SelectItem key={s.code} value={s.code}>{s.code} - {s.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {officialStatus && (
+                    <p className="text-[9px] text-emerald-600 font-bold flex items-center gap-1 animate-in fade-in">
+                      <CheckCircle2 className="h-3 w-3" /> Certifié conforme par le portail douanier officiel
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Origine / Accord de libre-échange</Label>
@@ -210,15 +249,15 @@ export default function CustomsSimulator() {
           )}
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-6 text-start">
           <Card className="bg-slate-900 text-white border-none shadow-2xl rounded-3xl overflow-hidden relative group">
             <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 blur-[100px] -mr-32 -mt-32" />
-            <CardHeader className="bg-primary/20 border-b border-white/5 text-start">
+            <CardHeader className="bg-primary/20 border-b border-white/5">
               <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-accent flex items-center gap-2">
                 <Zap className="h-4 w-4" /> Optimisation Sourcing
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-8 space-y-6 text-start">
+            <CardContent className="pt-8 space-y-6">
                {formData.origin === "CHINE" ? (
                  <div className="space-y-4">
                     <p className="text-sm font-medium leading-relaxed opacity-80">
@@ -243,7 +282,7 @@ export default function CustomsSimulator() {
             </CardContent>
           </Card>
 
-          <Card className="bg-blue-50 border border-blue-200 rounded-3xl p-6 relative overflow-hidden shadow-inner text-start">
+          <Card className="bg-blue-50 border border-blue-200 rounded-3xl p-6 relative overflow-hidden shadow-inner">
              <Info className="h-6 w-6 text-blue-600 shrink-0 mb-4" />
              <h4 className="text-[10px] font-black text-blue-800 uppercase tracking-widest mb-2">Note sur la DAPS</h4>
              <p className="text-[11px] text-blue-700 leading-relaxed font-medium italic">
@@ -251,7 +290,7 @@ export default function CustomsSimulator() {
              </p>
           </Card>
 
-          <div className="p-6 bg-slate-900 text-white rounded-3xl space-y-4 text-start">
+          <div className="p-6 bg-slate-900 text-white rounded-3xl space-y-4">
              <div className="flex items-center gap-2">
                <ShieldCheck className="h-4 w-4 text-accent" />
                <span className="text-[10px] font-black uppercase text-accent tracking-widest">Base Légale</span>
@@ -263,5 +302,25 @@ export default function CustomsSimulator() {
         </div>
       </div>
     </div>
+  )
+}
+
+function CheckCircle2(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
   )
 }
