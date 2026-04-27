@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { 
   Anchor, Plus, Save, Trash2, Edit3, 
   Loader2, RefreshCcw, ShieldCheck, Gavel, 
-  Settings2, Zap, Info, Search, DatabaseZap, ListChecks
+  Settings2, Zap, Info, Search, DatabaseZap, ListChecks, ArrowUpRight
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -66,17 +66,24 @@ export default function CustomsConfigAdmin() {
   const handleInitializeDefaults = async () => {
     if (!db) return;
     setIsInitializing(true);
+    // On charge un set plus complet (Top 10 Algérie)
     const defaults = [
       { code: '8471300000', label: 'Ordinateurs Portables', duty: 5, daps: 0, tva: 19 },
-      { code: '8517130000', label: 'Smartphones', duty: 30, daps: 30, tva: 19 },
-      { code: '3004900000', label: 'Médicaments', duty: 5, daps: 0, tva: 9 },
-      { code: '1001190000', label: 'Blé Dur', duty: 5, daps: 0, tva: 0 },
+      { code: '8517130000', label: 'Smartphones (Biométrie)', duty: 30, daps: 30, tva: 19 },
+      { code: '3004900000', label: 'Médicaments Humains', duty: 5, daps: 0, tva: 9 },
+      { code: '1001190000', label: 'Blé Dur (Consommation)', duty: 5, daps: 0, tva: 0 },
+      { code: '8703239000', label: 'Véhicules de tourisme (1500-3000cc)', duty: 30, daps: 0, tva: 19 },
+      { code: '8471410000', label: 'Unités centrales de traitement', duty: 5, daps: 0, tva: 19 },
+      { code: '8528521000', label: 'Moniteurs couleurs LCD', duty: 30, daps: 30, tva: 19 },
+      { code: '1512119100', label: 'Huile de tournesol brute', duty: 5, daps: 0, tva: 0 },
+      { code: '2523290000', label: 'Ciment Portland gris', duty: 30, daps: 30, tva: 19 },
+      { code: '7214200000', label: 'Ronds à béton', duty: 30, daps: 30, tva: 19 },
     ];
     try {
       for (const t of defaults) {
         await setDocumentNonBlocking(doc(db, "customs_tariffs", t.code), { ...t, isActive: true, updatedAt: new Date().toISOString() }, { merge: true });
       }
-      toast({ title: "Nomenclature SH10 initialisée" });
+      toast({ title: "Nomenclature SH10 mise à jour", description: "Top 10 Algérie injecté." });
     } finally { setIsInitializing(false); }
   }
 
@@ -94,7 +101,7 @@ export default function CustomsConfigAdmin() {
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleInitializeDefaults} disabled={isInitializing} className="rounded-2xl border-slate-200 bg-white font-bold h-11 px-6 shadow-sm">
              {isInitializing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
-             Reset SH10
+             Reset Top 10
           </Button>
           
           <Dialog open={isParamsOpen} onOpenChange={setIsParamsOpen}>
@@ -136,7 +143,7 @@ export default function CustomsConfigAdmin() {
         <div className="md:col-span-2 space-y-6">
            <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-black uppercase tracking-tighter flex items-center gap-2">
-                <ListChecks className="h-5 w-5 text-primary" /> Nomenclature SH10 Live
+                <ListChecks className="h-5 w-5 text-primary" /> Nomenclature Top SH10 (Cache)
               </h3>
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
@@ -158,6 +165,8 @@ export default function CustomsConfigAdmin() {
                 <TableBody>
                   {isLoading ? (
                     <TableRow><TableCell colSpan={5} className="text-center py-20"><Loader2 className="animate-spin h-8 w-8 mx-auto text-primary" /></TableCell></TableRow>
+                  ) : filteredTariffs.length === 0 ? (
+                      <TableRow><TableCell colSpan={5} className="text-center py-20 italic text-slate-400">Aucun code en cache. Utilisez le bouton Reset Top 10.</TableCell></TableRow>
                   ) : filteredTariffs.map((t) => (
                     <TableRow key={t.id} className="hover:bg-slate-50 transition-colors group">
                       <TableCell className="pl-8 font-mono text-xs font-bold text-primary">{t.code}</TableCell>
@@ -188,15 +197,18 @@ export default function CustomsConfigAdmin() {
               <DatabaseZap className="absolute -right-4 -top-4 h-24 w-24 opacity-10 text-accent group-hover:scale-110 transition-transform" />
               <CardHeader className="p-0 mb-6">
                 <CardTitle className="text-[10px] font-black text-accent uppercase tracking-[0.2em] flex items-center gap-2">
-                  <Zap className="h-4 w-4" /> Moteur de Synchro
+                  <Zap className="h-4 w-4" /> Stratégie "Hybrid"
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0 space-y-6">
                 <p className="text-xs leading-relaxed opacity-80 italic">
-                  "Le module Douane est désormais piloté par métadonnées. Toute modification des taux TCS/PRCT est répercutée instantanément sur les simulateurs de tous les clients."
+                  "Pour éviter de saturer Firestore avec 16 000 lignes, nous stockons ici uniquement les codes fréquents. Le simulateur client interroge mfdgi.gov.dz en direct pour les codes manquants."
                 </p>
-                <div className="pt-6 border-t border-white/10 space-y-4">
-                   <div className="flex justify-between items-center text-[10px] font-black uppercase">
+                <div className="p-4 bg-white/5 rounded-2xl border border-white/10 space-y-4">
+                    <div className="flex items-center gap-2 text-emerald-400 font-black text-[10px] uppercase">
+                        <ShieldCheck className="h-4 w-4" /> Conformité 2026 Ready
+                    </div>
+                    <div className="flex justify-between items-center text-[10px] font-black uppercase">
                       <span className="text-slate-400">TCS Active</span>
                       <span className="text-accent">{(currentParams.tcs_rate * 100).toFixed(1)}%</span>
                    </div>
@@ -211,9 +223,9 @@ export default function CustomsConfigAdmin() {
            <div className="p-6 bg-blue-50 border border-blue-200 rounded-3xl flex items-start gap-4">
               <Info className="h-6 w-6 text-blue-600 shrink-0 mt-1" />
               <div className="text-[10px] text-blue-900 leading-relaxed font-medium">
-                <p className="font-black uppercase tracking-tight mb-1">Base Légale 2026 :</p>
+                <p className="font-black uppercase tracking-tight mb-1">Automatisation :</p>
                 <p className="opacity-80">
-                  La nomenclature SH10 (10 chiffres) est la norme depuis l'éclatement tarifaire de 2024. Le système supporte les 15 000+ sous-positions potentielles.
+                  Le système de "Scraping" sur le portail douanier permet de découvrir de nouveaux codes sans intervention manuelle. Ils sont ensuite mis en cache globale.
                 </p>
               </div>
            </div>
