@@ -1,5 +1,5 @@
 /**
- * @fileOverview Analyse Financière & Pilotage Stratégique (SEAD).
+ * @fileOverview Analyse Financière & Pilotage Stratégique (SEAD) + Conseiller Fiscal Master.
  */
 
 "use client"
@@ -19,20 +19,24 @@ import {
   Activity, Landmark, Wallet, AlertTriangle, 
   ShieldCheck, ArrowUpRight, Calculator, PieChart,
   BarChart3, HeartPulse, Zap, Info, Loader2, Lightbulb, Target, ArrowRight,
-  TrendingDown, CheckCircle2, Sparkles, ScrollText, Building2, Layers
+  TrendingDown, CheckCircle2, Sparkles, ScrollText, Building2, Layers, Gavel, Scale
 } from "lucide-react"
 import { calculateBFR, calculateLiquidityRatio, simulateInvestmentScenarios, getIBSRate } from "@/lib/calculations"
 import { useSearchParams } from "next/navigation"
 import { getSeadRecommendation } from "@/ai/flows/sead-decision-flow"
+import { executeFiscalPipeline } from "@/lib/fiscal-engine"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useLocale } from "@/context/LocaleContext"
+import { cn } from "@/lib/utils"
 import Link from "next/link"
 
 export default function FinancialAnalysisPage() {
   const db = useFirestore()
   const { user } = useUser()
+  const { t, isRtl } = useLocale()
   const searchParams = useSearchParams()
   const tenantIdFromUrl = searchParams.get('tenantId')
   const [mounted, setMounted] = React.useState(false)
@@ -40,6 +44,10 @@ export default function FinancialAnalysisPage() {
   const [recommendation, setRecommendation] = React.useState<string | null>(null)
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   
+  // Fiscal Advisor State
+  const [isFiscalLoading, setIsFiscalLoading] = React.useState(false)
+  const [fiscalDiagnostic, setFiscalDiagnostic] = React.useState<any>(null)
+
   // Scenarios Simulation State
   const [isSimModalOpen, setIsSimModalOpen] = React.useState(false)
   const [simAmount, setSimAmount] = React.useState(2500000)
@@ -98,8 +106,41 @@ export default function FinancialAnalysisPage() {
     const bfr = calculateBFR(stocks, receivables, payables);
     const liquidity = calculateLiquidityRatio(stocks + receivables + cash, payables + 50000);
 
-    return { fixedAssets, stocks, receivables, payables, cash, bfr, liquidity, revenue, netProfit, margo: revenue > 0 ? (netProfit / revenue) * 100 : 0 };
+    // Extraction des charges non déductibles (Compte 671)
+    const reintegrations = Math.abs(getBalance('671'));
+    const vatCollected = Math.abs(getBalance('4457'));
+    const vatDeductible = Math.abs(getBalance('4456'));
+
+    return { fixedAssets, stocks, receivables, payables, cash, bfr, liquidity, revenue, netProfit, reintegrations, vatCollected, vatDeductible, margo: revenue > 0 ? (netProfit / revenue) * 100 : 0 };
   }, [entries, assets]);
+
+  // EXECUTION DU MOTEUR FISCAL MASTER (DÉTERMINISTE)
+  React.useEffect(() => {
+    const runDiagnostic = async () => {
+      if (!db || !analysis || !currentTenant) return;
+      setIsFiscalLoading(true);
+      try {
+        const { results, traces } = await executeFiscalPipeline(
+          { 
+            db, 
+            date: new Date().toISOString().split('T')[0], 
+            sector: currentTenant.secteurActivite, 
+            regime: currentTenant.regimeFiscal 
+          },
+          'FISCAL',
+          { 
+            resultat_fiscal: analysis.netProfit + analysis.reintegrations,
+            totalTTC: analysis.revenue * 1.19, // Simulation simplifiée
+            paymentMethod: 'Virement'
+          }
+        );
+        setFiscalDiagnostic({ results, traces });
+      } finally {
+        setIsFiscalLoading(false);
+      }
+    };
+    runDiagnostic();
+  }, [db, analysis, currentTenant]);
 
   const handleGeneratePlan = async () => {
     if (!analysis || !currentTenant) return;
@@ -126,7 +167,7 @@ export default function FinancialAnalysisPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-primary tracking-tighter uppercase flex items-center gap-3">
-            <BarChart3 className="text-accent h-8 w-8" /> Pilotage & Simulation
+            <BarChart3 className="text-accent h-8 w-8" /> {t.Navigation.analytics}
           </h1>
           <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest mt-1">Niveau Master - Jumeau Numérique Financier</p>
         </div>
@@ -135,6 +176,112 @@ export default function FinancialAnalysisPage() {
             <ShieldCheck className="h-3 w-3 mr-2" /> Analyse d'Efficience : Active
           </Badge>
         </div>
+      </div>
+
+      {/* DASHBOARD CONSEILLER FISCAL (DÉTERMINISTE) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <Card className="lg:col-span-2 border-none shadow-2xl ring-1 ring-border bg-white rounded-3xl overflow-hidden">
+          <CardHeader className="bg-slate-50 border-b p-6 flex flex-row items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="h-10 w-10 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
+                <Gavel className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-lg font-black uppercase tracking-tighter">{t.Analysis.diagnostic}</CardTitle>
+                <CardDescription className="text-[10px] font-bold uppercase text-slate-400">Audit automatique basé sur le Livre-Journal</CardDescription>
+              </div>
+            </div>
+            {isFiscalLoading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+          </CardHeader>
+          <CardContent className="p-8 grid md:grid-cols-2 gap-12">
+             <div className="space-y-6">
+                <div className="flex justify-between items-center border-b pb-4">
+                  <span className="text-xs font-bold text-slate-500 uppercase">{t.Analysis.accounting_profit}</span>
+                  <span className="text-sm font-black text-slate-900">{analysis?.netProfit.toLocaleString()} DA</span>
+                </div>
+                <div className="flex justify-between items-center border-b pb-4">
+                  <span className="text-xs font-bold text-amber-600 uppercase flex items-center gap-2">
+                    <TrendingDown className="h-3 w-3" /> {t.Analysis.reintegrations}
+                  </span>
+                  <span className="text-sm font-black text-amber-600">+{analysis?.reintegrations.toLocaleString()} DA</span>
+                </div>
+                <div className="flex justify-between items-center pt-2">
+                  <span className="text-sm font-black text-primary uppercase">{t.Analysis.fiscal_profit}</span>
+                  <Badge className="h-8 px-4 text-sm font-black bg-primary text-white">
+                    {(analysis?.netProfit || 0 + (analysis?.reintegrations || 0)).toLocaleString()} DA
+                  </Badge>
+                </div>
+                <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex items-start gap-3">
+                   <Info className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+                   <p className="text-[10px] text-blue-800 leading-relaxed font-medium italic">
+                    "Les réintégrations incluent automatiquement les montants portés au débit du compte 671 (Amendes et pénalités) conformément à l'Art. 141 du CIDTA."
+                   </p>
+                </div>
+             </div>
+
+             <div className="bg-slate-900 rounded-3xl p-6 text-white relative overflow-hidden flex flex-col justify-center">
+                <div className="absolute top-0 right-0 p-4 opacity-5"><Scale className="h-20 w-20" /></div>
+                <div className="space-y-6">
+                   <div className="space-y-2">
+                      <div className="flex justify-between items-center text-[10px] font-black uppercase text-accent">
+                        <span>{t.Analysis.tax_pressure}</span>
+                        <span>{fiscalDiagnostic ? ((fiscalDiagnostic.results.IBS / analysis?.netProfit) * 100).toFixed(1) : '...'}%</span>
+                      </div>
+                      <Progress value={fiscalDiagnostic ? (fiscalDiagnostic.results.IBS / analysis?.netProfit) * 100 : 0} className="h-1 bg-white/10" />
+                   </div>
+                   <div className="space-y-2">
+                      <div className="flex justify-between items-center text-[10px] font-black uppercase text-blue-400">
+                        <span>{t.Analysis.vat_ratio}</span>
+                        <span>{analysis ? ((analysis.vatDeductible / analysis.vatCollected) * 100).toFixed(1) : '...'}%</span>
+                      </div>
+                      <Progress value={analysis ? (analysis.vatDeductible / analysis.vatCollected) * 100 : 0} className="h-1 bg-white/10" />
+                   </div>
+                   <div className="pt-4 border-t border-white/5">
+                      <Badge className={cn("w-full h-8 flex justify-center text-[10px] font-black tracking-widest", analysis?.reintegrations > (analysis?.netProfit * 0.05) ? "bg-red-500" : "bg-emerald-500")}>
+                        <ShieldCheck className="h-3 w-3 mr-2" /> 
+                        {analysis?.reintegrations > (analysis?.netProfit * 0.05) ? t.Analysis.risk_medium : t.Analysis.risk_low}
+                      </Badge>
+                   </div>
+                </div>
+             </div>
+          </CardContent>
+        </Card>
+
+        {/* RECOMMANDATIONS D'OPTIMISATION */}
+        <Card className="lg:col-span-1 border-none shadow-xl ring-1 ring-border bg-white rounded-3xl overflow-hidden flex flex-col">
+          <CardHeader className="bg-emerald-50 border-b border-emerald-100 p-6">
+            <CardTitle className="text-sm font-black uppercase tracking-widest text-emerald-900 flex items-center gap-2">
+              <Lightbulb className="h-4 w-4" /> {t.Analysis.recommendations}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex-1 p-6 space-y-4">
+             <ScrollArea className="h-[300px] pr-4">
+                <div className="space-y-4">
+                   {analysis?.reintegrations > 0 && (
+                     <div className="p-4 bg-slate-50 rounded-2xl border-l-4 border-l-amber-500 space-y-2">
+                        <p className="text-[10px] font-black uppercase text-amber-700">Optimisation IBS</p>
+                        <p className="text-[11px] text-slate-600 leading-relaxed font-medium">Réduire les charges non déductibles (671) pour abaisser le résultat fiscal.</p>
+                     </div>
+                   )}
+                   {analysis && analysis.vatDeductible < analysis.vatCollected * 0.2 && (
+                     <div className="p-4 bg-slate-50 rounded-2xl border-l-4 border-l-primary space-y-2">
+                        <p className="text-[10px] font-black uppercase text-primary">Gestion de TVA</p>
+                        <p className="text-[11px] text-slate-600 leading-relaxed font-medium">Récupération de TVA faible. Vérifiez la validité fiscale des factures fournisseurs.</p>
+                     </div>
+                   )}
+                   <div className="p-4 bg-emerald-50/50 rounded-2xl border-l-4 border-l-emerald-500 space-y-2">
+                      <p className="text-[10px] font-black uppercase text-emerald-700">Investissement Pro</p>
+                      <p className="text-[11px] text-slate-600 leading-relaxed font-medium">Utiliser le levier de réinvestissement (Art. 150 CIDTA) pour réduire l'IBS de 5%.</p>
+                   </div>
+                </div>
+             </ScrollArea>
+          </CardContent>
+          <CardFooter className="bg-slate-50 border-t p-4">
+             <Button className="w-full bg-primary text-white font-black uppercase text-[10px] tracking-widest h-10" asChild>
+                <Link href={`/dashboard/declarations?tenantId=${currentTenant?.id}`}>Accéder aux G50 <ArrowRight className="h-3 w-3 ml-2" /></Link>
+             </Button>
+          </CardFooter>
+        </Card>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -318,7 +465,7 @@ export default function FinancialAnalysisPage() {
             </div>
             <div className="space-y-2">
               <div className="flex justify-between items-center text-[10px] font-black uppercase">
-                <span className="text-slate-500">Liquidité</span>
+                <span className="text-emerald-600 font-bold">{analysis?.liquidity.toFixed(2)}</span>
                 <span className="text-emerald-600 font-bold">{analysis?.liquidity.toFixed(2)}</span>
               </div>
               <Progress value={analysis ? analysis.liquidity * 50 : 0} className="h-1.5 bg-slate-100" />
@@ -326,9 +473,9 @@ export default function FinancialAnalysisPage() {
 
             <div className="mt-8 p-6 bg-slate-900 rounded-3xl text-white relative overflow-hidden">
                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 blur-3xl -mr-16 -mt-16" />
-               <h4 className="text-[10px] font-black uppercase text-accent tracking-widest mb-3">Master Strategy Insight</h4>
+               <h4 className="text-[10px] font-black uppercase text-accent tracking-widest mb-3">{t.Analysis.audit_trace}</h4>
                <p className="text-[11px] leading-relaxed opacity-80 italic">
-                "Votre ratio de liquidité est {analysis && analysis.liquidity > 1 ? 'favorable' : 'tendu'}. Le moteur recommande d'optimiser le DSO (délai client) pour libérer du cash-flow immédiat."
+                {fiscalDiagnostic?.traces?.[0]?.justification || "Audit Master Node en attente de données."}
                </p>
             </div>
           </CardContent>
