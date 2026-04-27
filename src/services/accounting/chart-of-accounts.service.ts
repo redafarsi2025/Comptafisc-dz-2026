@@ -1,11 +1,12 @@
 
 'use client';
 
-import { Firestore, collection, doc, writeBatch, getDocs, query, where } from 'firebase/firestore';
+import { Firestore, collection, doc, writeBatch, getDocs, query, where, addDoc } from 'firebase/firestore';
 import { getCompletePlanForSector, AccountTemplateLine } from '@/lib/scf-templates';
 
 /**
  * Service de gestion du Plan Comptable Client.
+ * Initialise le plan bilingue en fonction du secteur d'activité.
  */
 export async function initializeClientChartOfAccounts(db: Firestore, tenantId: string, sector: string) {
   const accountsRef = collection(db, "tenants", tenantId, "accounts");
@@ -19,12 +20,13 @@ export async function initializeClientChartOfAccounts(db: Firestore, tenantId: s
   const batch = writeBatch(db);
   const plan = getCompletePlanForSector(sector);
 
-  // 2. Cloner le modèle vers l'instance client
+  // 2. Cloner le modèle vers l'instance client (Bilingue)
   plan.forEach((acc) => {
     const newAccRef = doc(accountsRef);
     batch.set(newAccRef, {
       accountNumber: acc.number,
       label: acc.label,
+      labelAr: acc.labelAr,
       type: acc.type,
       class: acc.class,
       isCustom: false,
@@ -38,12 +40,12 @@ export async function initializeClientChartOfAccounts(db: Firestore, tenantId: s
   return plan.length;
 }
 
-export async function addCustomAccount(db: Firestore, tenantId: string, account: Omit<AccountTemplateLine, 'class'>) {
+export async function addCustomAccount(db: Firestore, tenantId: string, account: { number: string, label: string, type: any }) {
   const accountsRef = collection(db, "tenants", tenantId, "accounts");
   await addDoc(accountsRef, {
     accountNumber: account.number,
-    label: acc.label,
-    type: acc.type,
+    label: account.label,
+    type: account.type,
     class: parseInt(account.number.charAt(0)),
     isCustom: true,
     isActive: true,

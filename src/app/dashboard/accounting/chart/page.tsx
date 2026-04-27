@@ -13,19 +13,21 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { 
-  Library, Plus, Search, Filter, Loader2, 
-  ShieldCheck, RefreshCcw, Sparkles, DatabaseZap,
-  Info, Landmark, Layers, ChevronRight
+  Library, Plus, Search, Loader2, 
+  ShieldCheck, Sparkles, DatabaseZap,
+  Landmark, ChevronRight
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useSearchParams } from "next/navigation"
 import { initializeClientChartOfAccounts } from "@/services/accounting/chart-of-accounts.service"
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { useLocale } from "@/context/LocaleContext"
 
 export default function ChartOfAccountsPage() {
   const db = useFirestore()
   const { user } = useUser()
+  const { locale, isRtl } = useLocale()
   const searchParams = useSearchParams()
   const tenantId = searchParams.get('tenantId')
   const [mounted, setMounted] = React.useState(false)
@@ -48,7 +50,8 @@ export default function ChartOfAccountsPage() {
     if (!accounts) return [];
     return accounts.filter(a => 
       a.accountNumber.includes(searchTerm) || 
-      a.label.toLowerCase().includes(searchTerm.toLowerCase())
+      a.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (a.labelAr && a.labelAr.includes(searchTerm))
     );
   }, [accounts, searchTerm]);
 
@@ -135,11 +138,11 @@ export default function ChartOfAccountsPage() {
           <Table>
             <TableHeader className="bg-slate-50">
               <TableRow className="text-[9px] uppercase font-black px-6 border-b h-12">
-                <TableHead className="pl-8">Numéro de Compte</TableHead>
-                <TableHead>Libellé SCF</TableHead>
+                <TableHead className="ps-8">Numéro de Compte</TableHead>
+                <TableHead>Libellé SCF (Bilingue)</TableHead>
                 <TableHead>Type de Solde</TableHead>
                 <TableHead className="text-center">Origine</TableHead>
-                <TableHead className="text-right pr-8">Actions</TableHead>
+                <TableHead className="text-right pe-8">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -151,8 +154,13 @@ export default function ChartOfAccountsPage() {
                 </TableCell></TableRow>
               ) : filteredAccounts.map((acc) => (
                 <TableRow key={acc.id} className="hover:bg-muted/5 group transition-colors h-16">
-                  <TableCell className="pl-8 font-mono text-sm font-black text-primary">{acc.accountNumber}</TableCell>
-                  <TableCell className="text-xs font-bold uppercase text-slate-900">{acc.label}</TableCell>
+                  <TableCell className="ps-8 font-mono text-sm font-black text-primary">{acc.accountNumber}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold uppercase text-slate-900">{acc.label}</span>
+                      {acc.labelAr && <span className="text-[10px] text-slate-400 font-bold" dir="rtl">{acc.labelAr}</span>}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <Badge variant="outline" className={cn(
                       "text-[8px] font-black uppercase h-5",
@@ -171,7 +179,7 @@ export default function ChartOfAccountsPage() {
                       <Badge className="bg-primary/5 text-primary border-primary/20 text-[8px] font-black h-5 uppercase">Pack {tenant?.secteurActivite}</Badge>
                     )}
                   </TableCell>
-                  <TableCell className="text-right pr-8">
+                  <TableCell className="text-right pe-8">
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-primary transition-colors opacity-0 group-hover:opacity-100">
                       <ChevronRight className="h-4 w-4" />
                     </Button>
