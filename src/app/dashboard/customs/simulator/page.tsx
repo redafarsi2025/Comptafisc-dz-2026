@@ -15,21 +15,31 @@ import {
 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { SH_CODES, calculateCustomsLiquidation } from "@/lib/customs-engine"
+import { calculateCustomsLiquidation } from "@/lib/customs-engine"
 import { formatDZD } from "@/utils/fiscalAlgerie"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { searchOfficialTariff } from "@/services/customs/douane-scraper"
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
+import { collection, query, where, doc } from "firebase/firestore"
 
 export default function CustomsSimulator() {
-  const router = useRouter()
+  const db = useFirestore()
   const searchParams = useSearchParams()
   const tenantId = searchParams.get('tenantId')
   const [mounted, setMounted] = React.useState(false)
   const [isVerifying, setIsVerifying] = React.useState(false)
   const [officialStatus, setOfficialStatus] = React.useState<any>(null)
+
+  // 1. Charger les tarifs depuis Firestore (Découplé)
+  const tariffsQuery = useMemoFirebase(() => db ? query(collection(db, "customs_tariffs"), where("isActive", "==", true)) : null, [db]);
+  const { data: tariffs, isLoading: isTariffsLoading } = useCollection(tariffsQuery);
+
+  // 2. Charger les paramètres globaux (TCS, PRCT)
+  const paramsRef = useMemoFirebase(() => db ? doc(db, "system_config", "customs_params") : null, [db]);
+  const { data: liveParams } = useDoc(paramsRef);
 
   const [formData, setFormData] = React.useState({
     valueHT: 1000000,
@@ -42,10 +52,10 @@ export default function CustomsSimulator() {
 
   React.useEffect(() => { setMounted(true) }, [])
 
-  const selectedSH = React.useMemo(() => SH_CODES.find(s => s.code === formData.shCode), [formData.shCode]);
+  const selectedSH = React.useMemo(() => tariffs?.find(t => t.code === formData.shCode), [tariffs, formData.shCode]);
 
   const liquidation = React.useMemo(() => {
-    if (!selectedSH) return null;
+    if (!selectedSH || !liveParams) return null;
     
     let dutyRate = selectedSH.duty;
     if (formData.origin === "UE") dutyRate = dutyRate * 0.5; 
@@ -58,9 +68,11 @@ export default function CustomsSimulator() {
       dutyRate: dutyRate,
       dapsRate: selectedSH.daps,
       tvaRate: selectedSH.tva,
+      tcsRate: liveParams.tcs_rate || 0.03,
+      prctRate: liveParams.prct_rate || 0.02,
       extraFees: formData.extraFees
     });
-  }, [formData, selectedSH]);
+  }, [formData, selectedSH, liveParams]);
 
   const handleVerifyOfficial = async () => {
     setIsVerifying(true);
@@ -80,9 +92,9 @@ export default function CustomsSimulator() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-20">
+    <div className="space-y-6 max-w-6xl mx-auto pb-20 text-start">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4 text-start">
+        <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
             <Link href={`/dashboard/customs?tenantId=${tenantId}`}>
               <ChevronLeft className="h-5 w-5" />
@@ -90,18 +102,18 @@ export default function CustomsSimulator() {
           </Button>
           <div>
             <h1 className="text-3xl font-black text-primary uppercase tracking-tighter">Simulateur Import Pro</h1>
-            <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest mt-1">Calcul précis incluant TCS (3%) et PRCT (2%)</p>
+            <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest mt-1">Calcul basé sur les tarifs Cloud mis à jour le 01/01/2026</p>
           </div>
         </div>
         <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 h-9 px-4 font-black uppercase text-[10px]">
-          <ShieldCheck className="mr-2 h-4 w-4" /> Tarifs Officiels 2026
+          <ShieldCheck className="mr-2 h-4 w-4" /> Noyau Live v4.0
         </Badge>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           <Card className="shadow-xl border-none ring-1 ring-border rounded-3xl overflow-hidden bg-white">
-            <CardHeader className="bg-slate-50 border-b p-6 text-start">
+            <CardHeader className="bg-slate-50 border-b p-6">
               <div className="flex justify-between items-center w-full">
                 <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-900 flex items-center gap-2">
                   <Globe className="h-4 w-4 text-primary" /> Configuration SH10 & Origine
@@ -118,16 +130,16 @@ export default function CustomsSimulator() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="pt-6 space-y-6 text-start">
+            <CardContent className="pt-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Code Tarifaire (SH10)*</Label>
+                  <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Produit / Code SH10*</Label>
                   <Select value={formData.shCode} onValueChange={v => { setFormData({...formData, shCode: v}); setOfficialStatus(null); }}>
                     <SelectTrigger className="h-11 rounded-xl bg-white shadow-sm">
-                      <SelectValue placeholder="Choisir une catégorie" />
+                      <SelectValue placeholder={isTariffsLoading ? "Chargement nomenclature..." : "Choisir une catégorie"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {SH_CODES.map(s => (
+                      {tariffs?.map(s => (
                         <SelectItem key={s.code} value={s.code}>{s.code} - {s.label}</SelectItem>
                       ))}
                     </SelectContent>
@@ -188,11 +200,11 @@ export default function CustomsSimulator() {
 
           {liquidation && (
             <Card className="shadow-2xl border-none ring-1 ring-border rounded-3xl overflow-hidden bg-white animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <CardHeader className="bg-slate-900 text-white p-6 text-start">
+              <CardHeader className="bg-slate-900 text-white p-6">
                  <div className="flex justify-between items-center">
                     <div>
                       <CardTitle className="text-xl font-black uppercase tracking-tighter">Liquidation Certifiée</CardTitle>
-                      <CardDescription className="text-accent font-bold uppercase text-[9px] tracking-[0.2em]">Données incluant parafiscalité TCS & PRCT</CardDescription>
+                      <CardDescription className="text-accent font-bold uppercase text-[9px] tracking-[0.2em]">Données Cloud incluant TCS & PRCT</CardDescription>
                     </div>
                     <div className="text-right">
                        <p className="text-[10px] font-black opacity-50 uppercase">Valeur en Douane (CIF)</p>
@@ -200,9 +212,9 @@ export default function CustomsSimulator() {
                     </div>
                  </div>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="p-0 text-start">
                  <div className="grid grid-cols-1 md:grid-cols-2">
-                    <div className="p-8 space-y-6 border-r border-slate-100 text-start">
+                    <div className="p-8 space-y-6 border-r border-slate-100">
                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4">Détail des Droits & Taxes</h4>
                        <div className="space-y-4">
                           <div className="flex justify-between items-center text-xs font-bold">
@@ -220,11 +232,11 @@ export default function CustomsSimulator() {
                              <span className="font-mono">+{formatDZD(liquidation.tvaImport)}</span>
                           </div>
                           <div className="flex justify-between items-center text-xs font-bold text-blue-600 bg-blue-50/50 p-2 rounded-lg border border-blue-100">
-                             <span className="flex items-center gap-1"><Zap className="h-3 w-3" /> TCS (3%)</span>
+                             <span className="flex items-center gap-1"><Zap className="h-3 w-3" /> TCS ({(liveParams.tcs_rate * 100).toFixed(1)}%)</span>
                              <span className="font-mono">+{formatDZD(liquidation.tcs)}</span>
                           </div>
                           <div className="flex justify-between items-center text-xs font-bold text-slate-900 bg-slate-50 p-2 rounded-lg border border-slate-100">
-                             <span className="flex items-center gap-1"><FileText className="h-3 w-3" /> PRCT (2%)</span>
+                             <span className="flex items-center gap-1"><FileText className="h-3 w-3" /> PRCT ({(liveParams.prct_rate * 100).toFixed(1)}%)</span>
                              <span className="font-mono">+{formatDZD(liquidation.prct)}</span>
                           </div>
                           <div className="pt-4 border-t border-dashed flex justify-between items-baseline">
@@ -233,7 +245,7 @@ export default function CustomsSimulator() {
                           </div>
                        </div>
                     </div>
-                    <div className="p-8 bg-slate-50/50 space-y-8 text-start">
+                    <div className="p-8 bg-slate-50/50 space-y-8">
                         <div className="space-y-2">
                            <p className="text-[10px] font-black uppercase text-slate-400">Pression Fiscale Totale</p>
                            <h3 className="text-3xl font-black text-slate-900 tracking-tighter">
@@ -257,47 +269,38 @@ export default function CustomsSimulator() {
           )}
         </div>
 
-        <div className="space-y-6 text-start">
+        <div className="space-y-6">
           <Card className="bg-slate-900 text-white border-none shadow-2xl rounded-3xl overflow-hidden relative group">
             <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 blur-[100px] -mr-32 -mt-32" />
             <CardHeader className="bg-primary/20 border-b border-white/5">
               <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-accent flex items-center gap-2">
-                <Zap className="h-4 w-4" /> Optimisation Sourcing
+                <Zap className="h-4 w-4" /> Paramètres Cloud
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-8 space-y-6">
-               <p className="text-[11px] leading-relaxed opacity-80 italic">
-                 "Selon la Loi de Finances 2024, le sourcing via les zones préférentielles (UE, GZALE) réduit la base de calcul de la TCS."
+               <div className="space-y-3">
+                  <div className="flex justify-between items-center text-[10px] font-black uppercase">
+                     <span className="text-slate-400">Taux TCS</span>
+                     <span className="text-accent">{(liveParams?.tcs_rate * 100).toFixed(1)}%</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[10px] font-black uppercase">
+                     <span className="text-slate-400">Taux PRCT</span>
+                     <span className="text-accent">{(liveParams?.prct_rate * 100).toFixed(1)}%</span>
+                  </div>
+               </div>
+               <p className="text-[10px] leading-relaxed opacity-60 italic border-t border-white/10 pt-4">
+                 "Les taux de liquidation sont synchronisés en temps réel avec le Noyau Fiscal SaaS. Toute mise à jour de la Loi de Finances est répercutée ici."
                </p>
-               {formData.origin === "CHINE" && (
-                 <div className="p-4 bg-white/5 rounded-2xl border border-white/10 space-y-3">
-                    <div className="flex justify-between items-center text-[10px] font-black uppercase">
-                       <span className="text-slate-400">Économie possible</span>
-                       <span className="text-emerald-400">-{formatDZD(liquidation?.customsDuty || 0)}</span>
-                    </div>
-                    <Progress value={40} className="h-1 bg-white/10" />
-                 </div>
-               )}
             </CardContent>
           </Card>
 
           <Card className="bg-blue-50 border border-blue-200 rounded-3xl p-6 relative overflow-hidden shadow-inner">
              <Info className="h-6 w-6 text-blue-600 shrink-0 mb-4" />
-             <h4 className="text-[10px] font-black text-blue-800 uppercase tracking-widest mb-2">Note sur la PRCT</h4>
-             <p className="text-[11px] text-blue-700 leading-relaxed font-medium italic">
+             <h4 className="text-[10px] font-black text-blue-800 uppercase tracking-widest mb-2 text-start">Note sur la PRCT</h4>
+             <p className="text-[11px] text-blue-700 leading-relaxed font-medium italic text-start">
               "Le Prélèvement à la Réception (PRCT) est une taxe parafiscale de 2% non déductible, à intégrer directement dans le coût de revient de vos marchandises."
              </p>
           </Card>
-
-          <div className="p-6 bg-slate-900 text-white rounded-3xl space-y-4">
-             <div className="flex items-center gap-2">
-               <ShieldCheck className="h-4 w-4 text-accent" />
-               <span className="text-[10px] font-black uppercase text-accent tracking-widest">Base Légale DGD</span>
-             </div>
-             <p className="text-[11px] leading-relaxed opacity-70 italic">
-               "Les calculs incluent les amendements applicables au 1er janvier 2024 (Note 4121/DGD)."
-             </p>
-          </div>
         </div>
       </div>
     </div>

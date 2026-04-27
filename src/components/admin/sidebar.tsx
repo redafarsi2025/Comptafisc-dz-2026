@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -19,7 +18,8 @@ import {
   LayoutGrid,
   Zap,
   ChevronRight,
-  Banknote
+  Banknote,
+  Anchor
 } from "lucide-react"
 
 import {
@@ -40,6 +40,7 @@ const adminNavigation = [
   { name: "Utilisateurs & Abos", href: "/saas-admin/users", icon: Users2 },
   { name: "Contrôle des Coûts", href: "/saas-admin/billing-control", icon: Banknote },
   { name: "Moteur Fiscal Master", href: "/saas-admin/fiscal-engine", icon: DatabaseZap },
+  { name: "Paramètres Douane", href: "/saas-admin/customs-config", icon: Anchor },
   { name: "DGI Watch AI", href: "/saas-admin/dgi-watch", icon: Eye },
   { name: "Studio Formulaires", href: "/saas-admin/forms", icon: LayoutGrid },
   { name: "Règles de Conformité", href: "/saas-admin/rules", icon: ShieldAlert },
