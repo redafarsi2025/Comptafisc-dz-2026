@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -11,13 +10,15 @@ import {
   ArrowRight, Landmark, Truck, Factory, Pickaxe, 
   FlaskConical, CircleDollarSign, BarChart3, Calculator, 
   Globe, Users, Star, Crown, ChevronRight, PlayCircle,
-  Menu, X, MousePointer2
+  Menu, X, MousePointer2, DatabaseZap, ScrollText, BookOpen
 } from 'lucide-react';
 import { PLANS } from '@/lib/plans';
 import { cn } from "@/lib/utils";
+import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const heroImage = PlaceHolderImages.find(img => img.id === 'algerian-fiscal-hero');
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-body selection:bg-primary selection:text-white">
@@ -76,14 +77,14 @@ export default function LandingPage() {
               <ShieldCheck className="h-4 w-4" />
               <span className="text-[10px] font-black uppercase tracking-[0.2em]">Conforme Loi de Finances 2026</span>
             </div>
-            <h1 className="text-5xl md:text-7xl font-black text-slate-900 tracking-tighter leading-[1.1] uppercase italic">
+            <h1 className="text-5xl md:text-7xl font-black text-slate-900 tracking-tighter leading-[1.1] uppercase italic text-start">
               L'excellence <br /> 
               <span className="text-primary">Fiscale & RH</span> <br /> 
               Algérienne.
             </h1>
-            <p className="text-xl text-slate-500 max-w-xl leading-relaxed font-medium">
+            <p className="text-xl text-slate-500 max-w-xl leading-relaxed font-medium text-start">
               Plus qu'un ERP, ComptaFisc-DZ est votre **Master Node** de gestion. 
-              Automatisez vos déclarations G50, pilotez vos chantiers et sécurisez votre paie avec une intelligence déterministe de pointe.
+              Automatisez vos déclarations G50, pilotez vos chantiers et sécurisez votre paie avec une intelligence déterministe de pointe basée sur le CIDTA.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Button size="lg" className="bg-primary hover:bg-blue-700 h-14 px-10 rounded-2xl text-lg font-black uppercase tracking-widest shadow-2xl shadow-primary/30 group" asChild>
@@ -105,7 +106,7 @@ export default function LandingPage() {
                   </div>
                 ))}
               </div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">+2 500 entreprises auditées ce mois</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-start">+2 500 entreprises auditées ce mois</p>
             </div>
           </div>
 
@@ -113,14 +114,20 @@ export default function LandingPage() {
             <div className="absolute inset-0 bg-primary/20 blur-[60px] group-hover:bg-primary/30 transition-all rounded-3xl" />
             <div className="relative bg-white p-4 rounded-[40px] shadow-2xl border border-slate-100 ring-1 ring-slate-100 overflow-hidden transform group-hover:scale-[1.02] transition-transform duration-700">
                <img 
-                src="https://picsum.photos/seed/erp-dash/1200/900" 
-                alt="Interface ComptaFisc-DZ" 
-                className="rounded-[28px] shadow-inner"
+                src={heroImage?.imageUrl} 
+                data-ai-hint={heroImage?.imageHint}
+                alt="Corpus Juridique et Fiscal Algérien" 
+                className="rounded-[28px] shadow-inner object-cover w-full h-[500px]"
                />
-               <div className="absolute bottom-10 left-10 right-10 bg-white/90 backdrop-blur-xl p-6 rounded-3xl border border-slate-200 shadow-2xl flex items-center justify-between">
-                  <div>
-                    <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-1">Status Moteur</p>
-                    <p className="text-lg font-black text-slate-900 uppercase italic">Audit Master 4.0 Prêt</p>
+               <div className="absolute bottom-10 left-10 right-10 bg-white/95 backdrop-blur-xl p-6 rounded-3xl border border-slate-200 shadow-2xl flex items-center justify-between">
+                  <div className="flex items-center gap-4 text-start">
+                    <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+                      <ScrollText className="text-primary h-6 w-6" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-1">Veille Réglementaire</p>
+                      <p className="text-sm font-black text-slate-900 uppercase italic">Base CIDTA & CTCA Live</p>
+                    </div>
                   </div>
                   <div className="h-12 w-12 rounded-2xl bg-primary flex items-center justify-center animate-pulse">
                     <Zap className="text-white h-6 w-6" />
@@ -419,27 +426,5 @@ function FeatureRow({ icon: Icon, title, desc }: any) {
         <p className="text-sm text-slate-500 leading-relaxed font-medium">{desc}</p>
       </div>
     </div>
-  )
-}
-
-function DatabaseZap(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <ellipse cx="12" cy="5" rx="9" ry="3" />
-      <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-      <path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3" />
-      <path d="m13 18-3 3h3v3" />
-    </svg>
   )
 }

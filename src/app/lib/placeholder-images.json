@@ -1,0 +1,28 @@
+{
+  "placeholderImages": [
+    {
+      "id": "hero-compta",
+      "description": "Professional accounting dashboard view",
+      "imageUrl": "https://picsum.photos/seed/accounting/1200/600",
+      "imageHint": "accounting dashboard"
+    },
+    {
+      "id": "invoice-sample",
+      "description": "Sample Algerian invoice image",
+      "imageUrl": "https://picsum.photos/seed/invoice/800/1000",
+      "imageHint": "invoice document"
+    },
+    {
+      "id": "user-avatar",
+      "description": "Profile picture of a user",
+      "imageUrl": "https://picsum.photos/seed/user/200/200",
+      "imageHint": "professional avatar"
+    },
+    {
+      "id": "algerian-fiscal-hero",
+      "description": "Representation of Algerian fiscal law and accounting documents",
+      "imageUrl": "https://picsum.photos/seed/algeria-law/1200/900",
+      "imageHint": "Algerian law"
+    }
+  ]
+}
