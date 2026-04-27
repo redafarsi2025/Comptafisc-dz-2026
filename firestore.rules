@@ -34,6 +34,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // --- Customs Tariffs & Configuration ---
+    match /customs_tariffs/{code} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
     // --- DGI Publications & Templates ---
     match /dgi_publications/{pubId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
     match /dgi_templates/{templateId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
