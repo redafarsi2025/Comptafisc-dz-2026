@@ -45,7 +45,10 @@ import {
   FileBadge,
   Package,
   ChevronRight,
-  Landmark
+  Landmark,
+  MessagesSquare,
+  Repeat,
+  ArrowRightLeft
 } from "lucide-react"
 
 import {
@@ -213,8 +216,15 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
   if (!mounted) return null;
 
   const secteur = currentTenant?.secteurActivite || "COMMERCE";
+  const isCabinetPlan = currentTenant?.plan === "CABINET";
 
   // Navigation Items
+  const cabinetNav = [
+    { name: t.Navigation.cabinet_dashboard, href: "/dashboard/cabinet", icon: Target },
+    { name: t.Navigation.collaboration, href: "/dashboard/cabinet/collaboration", icon: MessagesSquare },
+    { name: t.Navigation.bulk_filing, href: "/dashboard/cabinet/bulk-g50", icon: Repeat },
+    { name: t.Navigation.bank_recon, href: "/dashboard/cabinet/bank-recon", icon: ArrowRightLeft },
+  ]
   const pilotageNav = [
     { name: t.Navigation.dashboard, href: "/dashboard", icon: LayoutDashboard },
     { name: t.Navigation.analytics, href: "/dashboard/financial-analysis", icon: BarChart3 },
@@ -323,20 +333,16 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
       </SidebarHeader>
 
       <SidebarContent className="px-2">
+        <NavGroup label={isRtl ? "أدوات المكتب" : "Expert Cabinet Tools"} items={cabinetNav} visible={isCabinetPlan} />
         <NavGroup label={isRtl ? "التوجيه والقرار" : t.Navigation.global_ops} items={pilotageNav} />
         <NavGroup label={isRtl ? "العلاقات" : "Relations & CRM"} items={relationsNav} />
         
         <NavGroup label={isRtl ? "المبيعات" : "Ventes & Clients"} items={salesNav} visible={secteur === "COMMERCE" || secteur === "INDUSTRIE" || secteur === "TRANSPORT"} />
-        
-        {/* LOGISTIQUE : Visible pour TOUS les secteurs (sauf Profession libérale pure sans véhicule) */}
         <NavGroup label={isRtl ? "اللوجستيك" : "Gestion Flotte & Véhicules"} items={logisticsNav} visible={secteur !== "PRO_LIBERALE"} />
-        
         <NavGroup label={isRtl ? "الأشغال" : "Gestion Chantiers"} items={btpNav} visible={secteur === "BTP"} />
         <NavGroup label={isRtl ? "التصنيع" : "Production"} items={industryNav} visible={secteur === "INDUSTRIE"} />
         <NavGroup label={isRtl ? "الصحة" : "Gestion Santé"} items={healthNav} visible={secteur === "SANTE"} />
-
         <NavGroup label={isRtl ? "المخزون" : "Stocks & Patrimoine"} items={inventoryNav} visible={secteur !== "SERVICES" && secteur !== "PRO_LIBERALE"} />
-
         <NavGroup label={isRtl ? "المشتريات" : "Achats & Dépenses"} items={purchaseNav} visible={secteur !== "PRO_LIBERALE"} />
         <NavGroup label={isRtl ? "المحاسبة" : "Comptabilité SCF"} items={accountingNav} />
         <NavGroup label={isRtl ? "التحليل" : "Comptabilité Analytique"} items={analyticNav} />

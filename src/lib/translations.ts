@@ -68,6 +68,10 @@ export const TRANSLATIONS = {
       settings: "Paramètres Dossier",
       config_section: "Support & Config",
       global_ops: "Opérations Globales",
+      cabinet_dashboard: "Dashboard Expert",
+      collaboration: "Hub Client",
+      bulk_filing: "Déclarations Bulk",
+      bank_recon: "Rapprochement Bancaire",
     },
     Dashboard: {
       overview: "Vue d'ensemble",
@@ -150,6 +154,16 @@ export const TRANSLATIONS = {
       payment_method: "Mode de règlement",
       cash_mention: "Droit de timbre acquitté en numéraire (Art. 200 du Code du Timbre).",
       scriptural_mention: "Facture dispensée du droit de timbre (Paiement scriptural).",
+    },
+    Cabinet: {
+      master_dashboard: "Pilotage Cabinet",
+      client_portfolio: "Parc Clients & Conformité",
+      active_folders: "Dossiers Actifs",
+      audit_ready: "Prêt pour Audit",
+      compliance_alerts: "Alertes Critiques",
+      request_doc: "Demander justificatif",
+      client_chat: "Échanges Sécurisés",
+      bulk_g50: "Statut G50 Portefeuille",
     }
   },
   ar: {
@@ -214,6 +228,10 @@ export const TRANSLATIONS = {
       settings: "إعدادات الملف",
       config_section: "الدعم والإعدادات",
       global_ops: "العمليات العالمية",
+      cabinet_dashboard: "لوحة قيادة الخبير",
+      collaboration: "مركز التواصل",
+      bulk_filing: "التصريحات الجماعية",
+      bank_recon: "التقارب البنكي",
     },
     Dashboard: {
       overview: "نظرة عامة",
@@ -296,6 +314,16 @@ export const TRANSLATIONS = {
       payment_method: "طريقة الدفع",
       cash_mention: "حق الطابع مسدد نقدا (المادة 200 من قانون الطابع).",
       scriptural_mention: "فاتورة معفاة من حق الطابع (دفع غير نقدي).",
+    },
+    Cabinet: {
+      master_dashboard: "توجيه المكتب",
+      client_portfolio: "محفظة الزبائن والمطابقة",
+      active_folders: "الملفات النشطة",
+      audit_ready: "جاهز للتدقيق",
+      compliance_alerts: "تنبيهات حرجة",
+      request_doc: "طلب وثيقة تبريرية",
+      client_chat: "تبادلات آمنة",
+      bulk_g50: "حالة G50 للمحفظة",
     }
   }
 };
