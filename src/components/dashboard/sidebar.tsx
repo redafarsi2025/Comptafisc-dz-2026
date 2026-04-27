@@ -48,7 +48,8 @@ import {
   MessagesSquare,
   Repeat,
   ArrowRightLeft,
-  Crown
+  Crown,
+  Anchor
 } from "lucide-react"
 
 import {
@@ -230,6 +231,10 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
     { name: t.Navigation.analytics, href: "/dashboard/financial-analysis", icon: BarChart3 },
     { name: "Services Premium", href: "/dashboard/premium", icon: Crown },
   ]
+  const customsNav = [
+    { name: t.Customs.customs_hub, href: "/dashboard/customs", icon: Anchor },
+    { name: t.Customs.simulator, href: "/dashboard/customs/simulator", icon: Calculator },
+  ]
   const relationsNav = [
     { name: t.Navigation.contacts, href: "/dashboard/contacts", icon: Users },
     { name: t.Navigation.crm, href: "/dashboard/crm", icon: Target },
@@ -336,6 +341,7 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
       <SidebarContent className="px-2">
         <NavGroup label={isRtl ? "أدوات المكتب" : "Expert Cabinet Tools"} items={cabinetNav} visible={isCabinetPlan} />
         <NavGroup label={isRtl ? "التوجيه والقرار" : t.Navigation.global_ops} items={pilotageNav} />
+        <NavGroup label={isRtl ? "الجمارك" : "Commerce Extérieur"} items={customsNav} visible={secteur === "COMMERCE" || secteur === "INDUSTRIE"} />
         <NavGroup label={isRtl ? "العلاقات" : "Relations & CRM"} items={relationsNav} />
         
         <NavGroup label={isRtl ? "المبيعات" : "Ventes & Clients"} items={salesNav} visible={secteur === "COMMERCE" || secteur === "INDUSTRIE" || secteur === "TRANSPORT"} />

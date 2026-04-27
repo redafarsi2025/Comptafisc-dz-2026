@@ -72,6 +72,7 @@ export const TRANSLATIONS = {
       collaboration: "Hub Client",
       bulk_filing: "Déclarations Bulk",
       bank_recon: "Rapprochement Bancaire",
+      customs: "Douane & Import",
     },
     Dashboard: {
       overview: "Vue d'ensemble",
@@ -164,6 +165,19 @@ export const TRANSLATIONS = {
       request_doc: "Demander justificatif",
       client_chat: "Échanges Sécurisés",
       bulk_g50: "Statut G50 Portefeuille",
+    },
+    Customs: {
+      customs_hub: "Noyau Douanier",
+      imports: "Registre des Imports",
+      simulator: "Simulateur Sourcing",
+      cif_value: "Valeur CIF (Débarqué)",
+      duties: "Droits de Douane",
+      daps: "DAPS (Additionnel)",
+      tva_import: "TVA Import",
+      landed_cost: "Coût de Revient (Stock)",
+      risk_valuation: "Risque Sous-évaluation",
+      sh_code: "Code SH (Tarif)",
+      origin: "Pays d'Origine",
     }
   },
   ar: {
@@ -232,6 +246,7 @@ export const TRANSLATIONS = {
       collaboration: "مركز التواصل",
       bulk_filing: "التصريحات الجماعية",
       bank_recon: "التقارب البنكي",
+      customs: "الجمارك والاستيراد",
     },
     Dashboard: {
       overview: "نظرة عامة",
@@ -324,6 +339,19 @@ export const TRANSLATIONS = {
       request_doc: "طلب وثيقة تبريرية",
       client_chat: "تبادلات آمنة",
       bulk_g50: "حالة G50 للمحفظة",
+    },
+    Customs: {
+      customs_hub: "نظام الجمارك",
+      imports: "سجل الاستيراد",
+      simulator: "محاكي التوريد",
+      cif_value: "قيمة CIF",
+      duties: "الحقوق الجمركية",
+      daps: "الرسم الإضافي (DAPS)",
+      tva_import: "الرسم على القيمة المضافة",
+      landed_cost: "تكلفة المخزون",
+      risk_valuation: "خطر نقص القيمة",
+      sh_code: "رمز التعريفة (SH)",
+      origin: "بلد المنشأ",
     }
   }
 };
