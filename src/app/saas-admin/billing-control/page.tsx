@@ -47,7 +47,6 @@ const calculatePseudoUsage = (tenant: any, params: typeof FALLBACK_PRICING) => {
   
   const planPriceDZD = plan === 'ESSENTIEL' ? 1500 : plan === 'PRO' ? 5000 : 0;
   
-  // Ajouter les revenus d'Upsell
   let upsellRevenue = 0;
   if (tenant.activeAddons && Array.isArray(tenant.activeAddons)) {
     tenant.activeAddons.forEach((addonId: string) => {
@@ -96,6 +95,10 @@ export default function BillingControlPage() {
 
   const [editParams, setEditParams] = React.useState(currentParams);
 
+  React.useEffect(() => {
+    setEditParams(currentParams);
+  }, [currentParams]);
+
   const tenantsQuery = useMemoFirebase(() => (db) ? collection(db, "tenants") : null, [db]);
   const { data: tenants, isLoading } = useCollection(tenantsQuery);
 
@@ -117,6 +120,24 @@ export default function BillingControlPage() {
   const totalMonthlyCost = billingData.reduce((acc, curr) => acc + curr.costDZD, 0);
   const totalMonthlyRevenue = billingData.reduce((acc, curr) => acc + curr.totalRevenue, 0);
 
+  const handleSaveParams = async () => {
+    if (!db) return;
+    setIsSaving(true);
+    try {
+      await setDocumentNonBlocking(doc(db, "system_config", "billing_params"), {
+        ...editParams,
+        updatedAt: new Date().toISOString(),
+        updatedBy: user?.uid
+      }, { merge: true });
+      toast({ title: "Paramètres mis à jour", description: "Les calculs de rentabilité ont été actualisés." });
+      setIsParamsOpen(false);
+    } catch (e) {
+      toast({ variant: "destructive", title: "Erreur de sauvegarde" });
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   if (!mounted) return null;
 
   return (
@@ -132,9 +153,78 @@ export default function BillingControlPage() {
           <Button variant="outline" className="rounded-2xl border-slate-200 bg-white font-bold h-11 px-6 shadow-sm">
             <Download className="mr-2 h-4 w-4" /> Rapport LTV CSV
           </Button>
-          <Button onClick={() => setIsParamsOpen(true)} className="bg-primary shadow-lg shadow-primary/20 rounded-2xl h-11 px-8 font-black uppercase text-[10px] tracking-widest">
-            <Calculator className="mr-2 h-4 w-4" /> Calibrer Coûts
-          </Button>
+          
+          <Dialog open={isParamsOpen} onOpenChange={setIsParamsOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary shadow-lg shadow-primary/20 rounded-2xl h-11 px-8 font-black uppercase text-[10px] tracking-widest">
+                <Calculator className="mr-2 h-4 w-4" /> Calibrer Coûts
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-xl">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5 text-primary" /> Configuration des Coûts Cloud
+                </DialogTitle>
+                <DialogDescription>
+                  Définissez les prix unitaires de l'infrastructure Firebase pour calculer la marge brute par dossier.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-6 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase">Lecture Firestore ($/unit)</Label>
+                    <Input 
+                      type="number" 
+                      step="0.0000001" 
+                      value={editParams.firestore_read_price} 
+                      onChange={e => setEditParams({...editParams, firestore_read_price: parseFloat(e.target.value)})} 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase">Écriture Firestore ($/unit)</Label>
+                    <Input 
+                      type="number" 
+                      step="0.0000001" 
+                      value={editParams.firestore_write_price} 
+                      onChange={e => setEditParams({...editParams, firestore_write_price: parseFloat(e.target.value)})} 
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase">Stockage Cloud ($/Go)</Label>
+                    <Input 
+                      type="number" 
+                      step="0.01" 
+                      value={editParams.storage_gb_price} 
+                      onChange={e => setEditParams({...editParams, storage_gb_price: parseFloat(e.target.value)})} 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-primary">Taux de Change (1$ = X DZD)</Label>
+                    <Input 
+                      type="number" 
+                      value={editParams.dzd_exchange_rate} 
+                      onChange={e => setEditParams({...editParams, dzd_exchange_rate: parseFloat(e.target.value)})} 
+                      className="font-black border-primary/20"
+                    />
+                  </div>
+                </div>
+                <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 flex items-start gap-3">
+                  <Info className="h-4 w-4 text-blue-600 mt-0.5" />
+                  <p className="text-[10px] text-blue-800 leading-relaxed italic">
+                    Note : Les prix par défaut sont basés sur le plan Google Cloud "Pay-as-you-go" (Blaze). La marge nette par dossier est recalculée en temps réel.
+                  </p>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button onClick={handleSaveParams} disabled={isSaving} className="w-full bg-primary h-12 shadow-xl shadow-primary/10">
+                  {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  Appliquer les nouveaux tarifs
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -242,5 +332,25 @@ export default function BillingControlPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+function Settings(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
   )
 }
