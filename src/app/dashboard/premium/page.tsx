@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -9,16 +10,17 @@ import { Badge } from "@/components/ui/badge"
 import { 
   Sparkles, Zap, Database, Users, 
   CheckCircle2, Loader2, ArrowRight, ShieldCheck,
-  ShoppingBag, Star, Crown, Info, Landmark
+  ShoppingBag, Star, Crown, Info, Landmark, PlusCircle
 } from "lucide-react"
 import { PREMIUM_ADDONS, AddonService } from "@/lib/plans"
 import { toast } from "@/hooks/use-toast"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 
 export default function PremiumMarketplace() {
   const db = useFirestore()
   const { user } = useUser()
+  const router = useRouter()
   const searchParams = useSearchParams()
   const tenantId = searchParams.get('tenantId')
   const [mounted, setMounted] = React.useState(false)
@@ -47,8 +49,10 @@ export default function PremiumMarketplace() {
 
       toast({ 
         title: "Service activé", 
-        description: `${addon.name} est maintenant disponible.`,
+        description: `${addon.name} est maintenant disponible immédiatement dans votre menu.`,
       });
+      
+      // La sidebar se mettra à jour automatiquement via le hook useDoc/useCollection
     } catch (e) {
       console.error(e);
       toast({ variant: "destructive", title: "Erreur d'activation" });
@@ -182,26 +186,5 @@ export default function PremiumMarketplace() {
          </div>
       </div>
     </div>
-  )
-}
-
-function PlusCircle(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="10" />
-      <path d="M8 12h8" />
-      <path d="M12 8v8" />
-    </svg>
   )
 }

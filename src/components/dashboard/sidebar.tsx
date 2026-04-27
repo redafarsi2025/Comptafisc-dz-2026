@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -50,7 +51,10 @@ import {
   ArrowRightLeft,
   Crown,
   Anchor,
-  Zap
+  Zap,
+  Bot,
+  Sparkles,
+  ShieldAlert
 } from "lucide-react"
 
 import {
@@ -138,6 +142,11 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
     return tenants[0];
   }, [tenants, tenantIdFromUrl]);
 
+  const activeAddons = currentTenant?.activeAddons || [];
+  const hasOcrPro = activeAddons.includes('OCR_UNLIMITED');
+  const hasPayrollPro = activeAddons.includes('PAYROLL_PRO');
+  const hasSeadPro = activeAddons.includes('SEAD_STRATEGIC');
+
   const handleTenantSelect = (id: string) => {
     const params = new URLSearchParams(searchParams.toString())
     params.set('tenantId', id)
@@ -169,6 +178,7 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
       members: { [user.uid]: 'owner' },
       onboardingComplete: false,
       plan: 'GRATUIT',
+      activeAddons: [],
       assujettissementTva: newTenantData.regimeFiscal === 'REGIME_REEL'
     };
 
@@ -193,6 +203,8 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
         </SidebarGroupLabel>
         <SidebarMenu className="gap-0.5">
           {items.map((item: any) => {
+            if (item.requireAddon && !activeAddons.includes(item.requireAddon) && currentTenant?.plan !== 'PRO') return null;
+            
             const href = currentTenant ? `${item.href}?tenantId=${currentTenant.id}` : item.href
             const active = pathname === item.href;
             return (
@@ -206,12 +218,13 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
                     active ? "bg-primary/10 text-primary border-primary/10 shadow-sm" : "hover:bg-slate-50 text-slate-600 hover:text-primary"
                   )}
                 >
-                  <Link href={href} className="flex items-center gap-3">
+                  <Link href={href} className="flex items-center gap-3 w-full">
                     <item.icon className={cn(
                       "h-4 w-4 shrink-0 transition-transform duration-300", 
                       active ? "text-primary scale-110" : "text-slate-400 group-hover:text-primary",
                     )} />
-                    <span className="font-bold text-[11px] uppercase tracking-tight truncate">{item.name}</span>
+                    <span className="font-bold text-[11px] uppercase tracking-tight truncate flex-1">{item.name}</span>
+                    {item.isPremium && <Badge className="bg-accent text-[7px] font-black h-4 px-1.5 uppercase">Premium</Badge>}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -237,6 +250,7 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
   const pilotageNav = [
     { name: t.Navigation.dashboard, href: "/dashboard", icon: LayoutDashboard },
     { name: t.Navigation.analytics, href: "/dashboard/financial-analysis", icon: BarChart3 },
+    { name: "Coach Stratégique", href: "/dashboard/assistant", icon: Bot, requireAddon: 'SEAD_STRATEGIC', isPremium: true },
     { name: "Services Premium", href: "/dashboard/premium", icon: Crown },
   ]
   const customsNav = [
@@ -279,6 +293,7 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
     { name: t.Navigation.purchase_hub, href: "/dashboard/purchases", icon: ShoppingCart },
     { name: t.Navigation.purchase_requests, href: "/dashboard/purchases/requests", icon: FilePlus2 },
     { name: t.Navigation.invoices, href: "/dashboard/purchases/invoices", icon: Receipt },
+    { name: "Capture Vision IA", href: "/dashboard/ocr", icon: Sparkles, isPremium: true },
   ]
   const accountingNav = [
     { name: t.Navigation.journal, href: "/dashboard/accounting", icon: BookText },
@@ -292,8 +307,9 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
   ]
   const payrollNav = [
     { name: t.Navigation.payroll_register, href: "/dashboard/payroll", icon: Users },
-    { name: t.Navigation.payroll_compliance, href: "/dashboard/payroll/compliance", icon: ShieldCheck },
+    { name: t.Navigation.payroll_compliance, href: "/dashboard/payroll/compliance", icon: ShieldCheck, requireAddon: 'PAYROLL_PRO', isPremium: true },
     { name: t.Navigation.payroll_ledger, href: "/dashboard/payroll/ledger", icon: BookOpen },
+    { name: "Déclarations Annuelles", href: "/dashboard/payroll/das", icon: ClipboardList, requireAddon: 'PAYROLL_PRO', isPremium: true },
   ]
   const fiscalNav = [
     { name: t.Navigation.declarations, href: "/dashboard/declarations", icon: FileText },
