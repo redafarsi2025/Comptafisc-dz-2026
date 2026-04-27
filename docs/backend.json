@@ -52,16 +52,19 @@
         "parentNumber": { "type": "string" }
       }
     },
-    "FiscalLaw": {
-      "title": "FiscalLaw",
+    "SubscriptionRequest": {
+      "title": "SubscriptionRequest",
       "type": "object",
-      "description": "Référentiel des versions législatives (ex: LF 2026).",
+      "description": "Demande de souscription à un service premium en attente de validation admin.",
       "properties": {
         "id": { "type": "string" },
-        "name": { "type": "string" },
-        "effectiveStartDate": { "type": "string", "format": "date" },
-        "publicationDate": { "type": "string", "format": "date" },
-        "description": { "type": "string" }
+        "tenantId": { "type": "string" },
+        "tenantName": { "type": "string" },
+        "addonId": { "type": "string" },
+        "addonName": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"] },
+        "requestedAt": { "type": "string", "format": "date-time" },
+        "userId": { "type": "string" }
       }
     }
   },
@@ -71,7 +74,7 @@
   "firestore": {
     "/customs_tariffs/{code}": { "schema": "#/backend/entities/CustomsTariff", "description": "Nomenclature SH10" },
     "/system_config/customs_params": { "schema": "#/backend/entities/CustomsParams", "description": "Taux douaniers globaux" },
-    "/fiscal_laws/{lawId}": { "schema": "#/backend/entities/FiscalLaw", "description": "Versions législatives" },
-    "/tenants/{tenantId}/accounts/{accId}": { "schema": "#/backend/entities/ClientAccount", "description": "Plan comptable personnalisé" }
+    "/tenants/{tenantId}/accounts/{accId}": { "schema": "#/backend/entities/ClientAccount", "description": "Plan comptable personnalisé" },
+    "/subscription_requests/{requestId}": { "schema": "#/backend/entities/SubscriptionRequest", "description": "Demandes d'activation premium" }
   }
 }

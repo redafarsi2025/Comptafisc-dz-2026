@@ -1,26 +1,24 @@
-
 "use client"
 
 import * as React from "react"
-import { useFirestore, useUser, useCollection, useMemoFirebase, updateDocumentNonBlocking, useDoc } from "@/firebase"
+import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc, addDocumentNonBlocking } from "@/firebase"
 import { collection, doc, query, where } from "firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { 
   Sparkles, Zap, Database, Users, 
-  CheckCircle2, Loader2, ArrowRight, ShieldCheck,
-  ShoppingBag, Star, Crown, Info, Landmark, PlusCircle
+  CheckCircle2, Loader2, ShieldCheck,
+  ShoppingBag, Star, Crown, Info, PlusCircle, Clock
 } from "lucide-react"
 import { PREMIUM_ADDONS, AddonService } from "@/lib/plans"
 import { toast } from "@/hooks/use-toast"
-import { useSearchParams, useRouter } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 import { cn } from "@/lib/utils"
 
 export default function PremiumMarketplace() {
   const db = useFirestore()
   const { user } = useUser()
-  const router = useRouter()
   const searchParams = useSearchParams()
   const tenantId = searchParams.get('tenantId')
   const [mounted, setMounted] = React.useState(false)
@@ -31,31 +29,47 @@ export default function PremiumMarketplace() {
   const tenantRef = useMemoFirebase(() => (db && tenantId) ? doc(db, "tenants", tenantId) : null, [db, tenantId]);
   const { data: tenant } = useDoc(tenantRef);
 
-  const handleActivateAddon = async (addon: AddonService) => {
-    if (!db || !tenantId) return;
+  // Charger les demandes de souscription existantes pour ce dossier
+  const requestsQuery = useMemoFirebase(() => 
+    (db && tenantId) ? query(collection(db, "subscription_requests"), where("tenantId", "==", tenantId), where("status", "==", "PENDING")) : null
+  , [db, tenantId]);
+  const { data: pendingRequests } = useCollection(requestsQuery);
+
+  const handleRequestAddon = async (addon: AddonService) => {
+    if (!db || !tenantId || !user || !tenant) return;
     setIsProcessing(addon.id);
 
     try {
-      const activeAddons = tenant?.activeAddons || [];
+      const activeAddons = tenant.activeAddons || [];
       if (activeAddons.includes(addon.id)) {
         toast({ title: "Déjà actif", description: "Ce service est déjà activé sur votre dossier." });
         return;
       }
 
-      await updateDocumentNonBlocking(doc(db, "tenants", tenantId), {
-        activeAddons: [...activeAddons, addon.id],
-        updatedAt: new Date().toISOString()
+      if (pendingRequests?.some(r => r.addonId === addon.id)) {
+        toast({ title: "Demande en cours", description: "Votre demande est déjà en attente de validation admin." });
+        return;
+      }
+
+      await addDocumentNonBlocking(collection(db, "subscription_requests"), {
+        tenantId,
+        tenantName: tenant.raisonSociale,
+        addonId: addon.id,
+        addonName: addon.name,
+        status: "PENDING",
+        requestedAt: new Date().toISOString(),
+        userId: user.uid,
+        userEmail: user.email
       });
 
       toast({ 
-        title: "Service activé", 
-        description: `${addon.name} est maintenant disponible immédiatement dans votre menu.`,
+        title: "Demande envoyée", 
+        description: `Votre demande pour "${addon.name}" a été transmise à l'administrateur pour validation.`,
       });
       
-      // La sidebar se mettra à jour automatiquement via le hook useDoc/useCollection
     } catch (e) {
       console.error(e);
-      toast({ variant: "destructive", title: "Erreur d'activation" });
+      toast({ variant: "destructive", title: "Erreur lors de la demande" });
     } finally {
       setIsProcessing(null);
     }
@@ -79,36 +93,21 @@ export default function PremiumMarketplace() {
         </div>
       </div>
 
-      {tenant?.plan === 'CABINET' && (
-        <Card className="bg-purple-50 border-purple-200 border-l-4 border-l-purple-500 rounded-3xl overflow-hidden shadow-sm">
-           <CardContent className="p-8 flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="flex items-center gap-6">
-                 <div className="h-16 w-16 rounded-3xl bg-white flex items-center justify-center shadow-inner border border-purple-100">
-                    <Star className="h-8 w-8 text-purple-600 fill-purple-600" />
-                 </div>
-                 <div>
-                    <h3 className="text-xl font-black text-purple-900 uppercase tracking-tighter">Offre Spéciale Cabinet</h3>
-                    <p className="text-sm text-purple-700 font-medium">Votre accès est offert par votre comptable. Vous pouvez souscrire ici à des options exclusives.</p>
-                 </div>
-              </div>
-           </CardContent>
-        </Card>
-      )}
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
         {PREMIUM_ADDONS.map((addon) => {
           const isActive = tenant?.activeAddons?.includes(addon.id);
+          const isPending = pendingRequests?.some(r => r.addonId === addon.id);
           const IconComp = addon.id === 'OCR_UNLIMITED' ? Zap : addon.id === 'STORAGE_100GB' ? Database : addon.id === 'PAYROLL_PRO' ? Users : Sparkles;
 
           return (
             <Card key={addon.id} className={cn(
               "flex flex-col border-none shadow-xl ring-1 ring-border rounded-3xl overflow-hidden transition-all duration-300 group hover:scale-[1.03] hover:shadow-2xl",
-              isActive ? "bg-slate-50 ring-emerald-200" : "bg-white"
+              isActive ? "bg-slate-50 ring-emerald-200" : isPending ? "ring-amber-200" : "bg-white"
             )}>
               <CardHeader className="pb-6">
                  <div className={cn(
                    "h-14 w-14 rounded-2xl flex items-center justify-center mb-4 transition-transform group-hover:rotate-12",
-                   isActive ? "bg-emerald-100 text-emerald-600" : "bg-primary/5 text-primary"
+                   isActive ? "bg-emerald-100 text-emerald-600" : isPending ? "bg-amber-100 text-amber-600" : "bg-primary/5 text-primary"
                  )}>
                     <IconComp className="h-7 w-7" />
                  </div>
@@ -122,7 +121,7 @@ export default function PremiumMarketplace() {
               <CardContent className="flex-1">
                  <ul className="space-y-3">
                     <li className="flex items-center gap-2 text-[10px] font-bold text-slate-600 uppercase">
-                       <CheckCircle2 className="h-3 w-3 text-emerald-500" /> Activation immédiate
+                       <CheckCircle2 className="h-3 w-3 text-emerald-500" /> Validation manuelle requise
                     </li>
                     <li className="flex items-center gap-2 text-[10px] font-bold text-slate-600 uppercase">
                        <CheckCircle2 className="h-3 w-3 text-emerald-500" /> Sans engagement
@@ -134,9 +133,13 @@ export default function PremiumMarketplace() {
                    <Button disabled className="w-full bg-emerald-500 text-white rounded-xl h-12 font-black uppercase text-[10px] tracking-[0.2em]">
                       <CheckCircle2 className="mr-2 h-4 w-4" /> Service Actif
                    </Button>
+                 ) : isPending ? (
+                    <Button disabled className="w-full bg-amber-100 text-amber-700 border border-amber-200 rounded-xl h-12 font-black uppercase text-[10px] tracking-[0.2em]">
+                      <Clock className="mr-2 h-4 w-4" /> En validation admin
+                    </Button>
                  ) : (
                    <Button 
-                    onClick={() => handleActivateAddon(addon)} 
+                    onClick={() => handleRequestAddon(addon)} 
                     disabled={isProcessing === addon.id}
                     className="w-full bg-primary shadow-lg shadow-primary/20 rounded-xl h-12 font-black uppercase text-[10px] tracking-[0.2em]"
                    >
@@ -153,10 +156,10 @@ export default function PremiumMarketplace() {
       <div className="grid md:grid-cols-2 gap-8">
          <Card className="bg-slate-900 text-white border-none shadow-2xl rounded-3xl p-8 relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 blur-[100px] -mr-32 -mt-32" />
-            <div className="relative space-y-6">
+            <div className="relative space-y-6 text-start">
                <h4 className="text-2xl font-black uppercase tracking-tighter">Pourquoi passer au Premium ?</h4>
-               <p className="text-sm text-slate-400 leading-relaxed font-medium">
-                 Le plan offert par votre cabinet couvre vos besoins comptables de base. Les services Premium vous permettent de transformer votre ERP en un véritable outil de pilotage stratégique et d'automatisation totale.
+               <p className="text-sm text-slate-400 font-medium">
+                 Le plan offert par votre cabinet couvre vos besoins comptables de base. Les services Premium vous permettent de transformer votre ERP en un véritable outil de pilotage stratégique.
                </p>
                <div className="grid grid-cols-2 gap-4">
                   <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
@@ -171,16 +174,16 @@ export default function PremiumMarketplace() {
             </div>
          </Card>
 
-         <div className="p-8 bg-blue-50 border border-blue-200 rounded-3xl flex items-start gap-6">
+         <div className="p-8 bg-blue-50 border border-blue-200 rounded-3xl flex items-start gap-6 text-start">
             <ShieldCheck className="h-10 w-10 text-blue-600 shrink-0 mt-1" />
-            <div className="text-xs text-blue-900 leading-relaxed space-y-4">
-              <p className="font-black text-blue-800 uppercase tracking-widest">Certification Jibayatic 2026 :</p>
+            <div className="text-xs text-blue-900 space-y-4">
+              <p className="font-black text-blue-800 uppercase tracking-widest">Processus d'activation :</p>
               <p className="font-medium">
-                "Les add-ons Premium incluent les mises à jour automatiques des connecteurs fiscaux. Le module Paie Pro génère des fichiers XML validés par les automates de la DGI et de la CNAS, garantissant un dépôt sans erreurs."
+                Pour garantir la conformité et la facturation, chaque nouvelle souscription premium doit être validée manuellement par notre équipe administrative. Le délai moyen de traitement est de 2 heures ouvrées.
               </p>
               <div className="bg-white/50 p-4 rounded-xl border border-blue-100 flex items-center gap-3">
                  <Info className="h-4 w-4 text-blue-400" />
-                 <span className="italic">Le montant des services est prélevé mensuellement sur votre moyen de paiement configuré.</span>
+                 <span className="italic">Une notification vous sera envoyée dès que le service sera débloqué dans votre menu.</span>
               </div>
             </div>
          </div>

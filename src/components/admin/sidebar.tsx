@@ -19,7 +19,8 @@ import {
   Zap,
   ChevronRight,
   Banknote,
-  Anchor
+  Anchor,
+  ShoppingBag
 } from "lucide-react"
 
 import {
@@ -37,6 +38,7 @@ import { cn } from "@/lib/utils"
 
 const adminNavigation = [
   { name: "Executive Cockpit", href: "/saas-admin", icon: Target },
+  { name: "Demandes Premium", href: "/saas-admin/subscription-requests", icon: ShoppingBag },
   { name: "Utilisateurs & Abos", href: "/saas-admin/users", icon: Users2 },
   { name: "Contrôle des Coûts", href: "/saas-admin/billing-control", icon: Banknote },
   { name: "Moteur Fiscal Master", href: "/saas-admin/fiscal-engine", icon: DatabaseZap },
@@ -70,12 +72,12 @@ export function AdminSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-4 pt-8 bg-white">
+      <SidebarContent className="px-3 py-4 custom-scrollbar bg-white">
         <SidebarGroup>
           <SidebarGroupLabel className="text-slate-400 uppercase text-[9px] font-black px-4 mb-6 tracking-[0.3em]">
             Global Operations
           </SidebarGroupLabel>
-          <SidebarMenu className="gap-1.5">
+          <SidebarMenu className="gap-0.5">
             {adminNavigation.map((item) => {
               const isActive = pathname === item.href
               return (
@@ -84,22 +86,18 @@ export function AdminSidebar() {
                     asChild 
                     isActive={isActive} 
                     className={cn(
-                      "group relative py-7 px-5 rounded-2xl transition-all duration-200 border flex items-center",
+                      "rounded-xl h-12 transition-all duration-200 border border-transparent px-4",
                       isActive 
-                        ? "bg-primary text-white border-primary shadow-xl shadow-primary/20 font-black scale-[1.02]" 
-                        : "text-slate-500 border-transparent hover:bg-slate-50 hover:text-primary hover:border-slate-200"
+                        ? "bg-primary text-white border-primary shadow-xl shadow-primary/20 font-black" 
+                        : "text-slate-600 hover:bg-slate-50 hover:text-primary hover:border-slate-200"
                     )}
                   >
                     <Link href={item.href} className="flex items-center justify-between w-full">
                       <div className="flex items-center gap-4">
-                        <item.icon className={cn("h-5 w-5 transition-all duration-200", isActive ? "text-white" : "text-slate-400 group-hover:text-primary group-hover:rotate-6")} />
+                        <item.icon className={cn("h-4 w-4 transition-all duration-200", isActive ? "text-white" : "text-slate-400 group-hover:text-primary")} />
                         <span className="text-[10px] uppercase tracking-widest font-black">{item.name}</span>
                       </div>
-                      {isActive ? (
-                        <ChevronRight className="h-3 w-3 text-white/50" />
-                      ) : (
-                        <Zap className="h-3 w-3 text-accent opacity-0 group-hover:opacity-100 transition-opacity" />
-                      )}
+                      {isActive && <ChevronRight className="h-3 w-3 text-white/50" />}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
