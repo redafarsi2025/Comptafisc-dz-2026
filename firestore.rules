@@ -52,21 +52,23 @@ service cloud.firestore {
 
     // --- Tenant Multi-Tenancy Rules ---
     match /tenants/{tenantId} {
-      allow get, list: if isMember(tenantId);
+      // Allow list if admin OR if the user is in the members map of the document
+      allow list: if isSignedIn() && (isAdmin() || resource.data.members[request.auth.uid] != null);
+      allow get: if isSignedIn() && (isAdmin() || request.auth.uid in resource.data.members);
       allow create: if isSignedIn();
-      allow update: if isMember(tenantId);
+      allow update: if isSignedIn() && (isAdmin() || request.auth.uid in resource.data.members);
       allow delete: if isAdmin();
 
       // Analytic Subcollections
-      match /axesAnalytiques/{docId} { allow read: if isMember(tenantId); allow write: if isMember(tenantId); }
-      match /sectionsAnalytiques/{docId} { allow read: if isMember(tenantId); allow write: if isMember(tenantId); }
-      match /plansAnalytiques/{docId} { allow read: if isMember(tenantId); allow write: if isMember(tenantId); }
-      match /ecrituresAnalytiques/{docId} { allow read: if isMember(tenantId); allow write: if isMember(tenantId); }
-      match /reglesVentilation/{docId} { allow read: if isMember(tenantId); allow write: if isMember(tenantId); }
-      match /budgetsAnalytiques/{docId} { allow read: if isMember(tenantId); allow write: if isMember(tenantId); }
+      match /axesAnalytiques/{docId} { allow read, write: if isSignedIn() && (isAdmin() || request.auth.uid in get(/databases/$(database)/documents/tenants/$(tenantId)).data.members); }
+      match /sectionsAnalytiques/{docId} { allow read, write: if isSignedIn() && (isAdmin() || request.auth.uid in get(/databases/$(database)/documents/tenants/$(tenantId)).data.members); }
+      match /plansAnalytiques/{docId} { allow read, write: if isSignedIn() && (isAdmin() || request.auth.uid in get(/databases/$(database)/documents/tenants/$(tenantId)).data.members); }
+      match /ecrituresAnalytiques/{docId} { allow read, write: if isSignedIn() && (isAdmin() || request.auth.uid in get(/databases/$(database)/documents/tenants/$(tenantId)).data.members); }
+      match /reglesVentilation/{docId} { allow read, write: if isSignedIn() && (isAdmin() || request.auth.uid in get(/databases/$(database)/documents/tenants/$(tenantId)).data.members); }
+      match /budgetsAnalytiques/{docId} { allow read, write: if isSignedIn() && (isAdmin() || request.auth.uid in get(/databases/$(database)/documents/tenants/$(tenantId)).data.members); }
 
       match /{allSubcollections=**} {
-        allow read, write: if isMember(tenantId);
+        allow read, write: if isSignedIn() && (isAdmin() || request.auth.uid in get(/databases/$(database)/documents/tenants/$(tenantId)).data.members);
       }
     }
   }
