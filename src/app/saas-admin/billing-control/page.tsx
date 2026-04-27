@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label"
 import { toast } from "@/hooks/use-toast"
 import { PREMIUM_ADDONS } from "@/lib/plans"
+import { cn } from "@/lib/utils"
 
 // Fallback constants if Firestore is empty
 const FALLBACK_PRICING = {
