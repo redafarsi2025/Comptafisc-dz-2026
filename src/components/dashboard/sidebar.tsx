@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -95,6 +94,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 import { useUser, useFirestore, useAuth, useCollection, useMemoFirebase, useDoc, initiateAnonymousSignIn, setDocumentNonBlocking } from "@/firebase"
 import { collection, query, where, doc } from "firebase/firestore"
 import { signOut } from "firebase/auth"
@@ -144,10 +144,7 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
   }, [tenants, tenantIdFromUrl]);
 
   const activeAddons = currentTenant?.activeAddons || [];
-  const hasOcrPro = activeAddons.includes('OCR_UNLIMITED');
-  const hasPayrollPro = activeAddons.includes('PAYROLL_PRO');
-  const hasSeadPro = activeAddons.includes('SEAD_STRATEGIC');
-
+  
   const handleTenantSelect = (id: string) => {
     const params = new URLSearchParams(searchParams.toString())
     params.set('tenantId', id)
@@ -199,11 +196,12 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
     if (!visible) return null;
     return (
       <SidebarGroup>
-        <SidebarGroupLabel className="text-slate-400 uppercase tracking-[0.2em] text-[8px] font-black mt-4 mb-2">
+        <SidebarGroupLabel className="text-slate-400 uppercase tracking-[0.2em] text-[8px] font-black mt-4 mb-2 px-4">
           {label}
         </SidebarGroupLabel>
         <SidebarMenu className="gap-0.5">
           {items.map((item: any) => {
+            // Logic to check if item should be visible based on plan or addons
             if (item.requireAddon && !activeAddons.includes(item.requireAddon) && currentTenant?.plan !== 'PRO') return null;
             
             const href = currentTenant ? `${item.href}?tenantId=${currentTenant.id}` : item.href
@@ -219,7 +217,7 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
                     active ? "bg-primary/10 text-primary border-primary/10 shadow-sm" : "hover:bg-slate-50 text-slate-600 hover:text-primary"
                   )}
                 >
-                  <Link href={href} className="flex items-center gap-3 w-full">
+                  <Link href={href} className="flex items-center gap-3 w-full px-4">
                     <item.icon className={cn(
                       "h-4 w-4 shrink-0 transition-transform duration-300", 
                       active ? "text-primary scale-110" : "text-slate-400 group-hover:text-primary",
@@ -345,7 +343,7 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align={isRtl ? "end" : "start"} className="w-72 p-2 shadow-2xl rounded-2xl border-slate-100">
-                <DropdownMenuLabel className="text-[10px] font-black text-slate-400 uppercase px-4 py-3 tracking-[0.2em]">Dossiers Accessibles</DropdownMenuLabel>
+                <div className="px-2 py-1.5 text-sm font-semibold text-[10px] font-black text-slate-400 uppercase px-4 py-3 tracking-[0.2em]">Dossiers Accessibles</div>
                 {tenants?.map((t) => (
                   <DropdownMenuItem key={t.id} onClick={() => handleTenantSelect(t.id)} className="cursor-pointer rounded-xl mb-1 p-3 hover:bg-primary/5">
                     <div className="flex flex-col">
@@ -383,17 +381,17 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
         <NavGroup label={isRtl ? "الضرائب" : "Fiscalité & Sociaux"} items={fiscalNav} />
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-slate-400 uppercase tracking-[0.2em] text-[8px] font-black mt-6 mb-2">{t.Navigation.config_section}</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-slate-400 uppercase tracking-[0.2em] text-[8px] font-black mt-6 mb-2 px-4">{t.Navigation.config_section}</SidebarGroupLabel>
           <SidebarMenu className="gap-0.5">
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname === "/dashboard/support"} tooltip={t.Navigation.support} className="rounded-xl h-10 font-bold text-xs uppercase text-slate-600 hover:text-primary transition-all">
+              <SidebarMenuButton asChild isActive={pathname === "/dashboard/support"} tooltip={t.Navigation.support} className="rounded-xl h-10 font-bold text-xs uppercase text-slate-600 hover:text-primary transition-all px-4">
                 <Link href={currentTenant ? `/dashboard/support?tenantId=${currentTenant.id}` : "/dashboard/support"} className="flex items-center gap-3">
                   <LifeBuoy className="h-4 w-4" /><span>{t.Navigation.support}</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname === "/dashboard/settings"} tooltip={t.Navigation.settings} className="rounded-xl h-10 font-bold text-xs uppercase text-slate-600 hover:text-primary transition-all">
+              <SidebarMenuButton asChild isActive={pathname === "/dashboard/settings"} tooltip={t.Navigation.settings} className="rounded-xl h-10 font-bold text-xs uppercase text-slate-600 hover:text-primary transition-all px-4">
                 <Link href={currentTenant ? `/dashboard/settings?tenantId=${currentTenant.id}` : "/dashboard/settings"} className="flex items-center gap-3">
                   <Settings className="h-4 w-4" /><span>{t.Navigation.settings}</span>
                 </Link>
@@ -463,8 +461,4 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
     </Dialog>
     </>
   )
-}
-
-function DropdownMenuLabel({ children, className }: { children: React.ReactNode, className?: string }) {
-    return <div className={cn("px-2 py-1.5 text-sm font-semibold", className)}>{children}</div>
 }
