@@ -1,4 +1,3 @@
-
 /**
  * @fileOverview Gestion du Plan Comptable de l'Entité (PCE).
  */
@@ -15,11 +14,11 @@ import { Badge } from "@/components/ui/badge"
 import { 
   Library, Plus, Search, Loader2, 
   ShieldCheck, Sparkles, DatabaseZap,
-  Landmark, ChevronRight
+  Landmark, ChevronRight, Languages, RefreshCcw
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useSearchParams } from "next/navigation"
-import { initializeClientChartOfAccounts } from "@/services/accounting/chart-of-accounts.service"
+import { initializeClientChartOfAccounts, resetClientAccountTranslations } from "@/services/accounting/chart-of-accounts.service"
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { useLocale } from "@/context/LocaleContext"
@@ -33,6 +32,7 @@ export default function ChartOfAccountsPage() {
   const [mounted, setMounted] = React.useState(false)
   const [searchTerm, setSearchTerm] = React.useState("")
   const [isInitializing, setIsInitializing] = React.useState(false)
+  const [isResetting, setIsResetting] = React.useState(false)
 
   React.useEffect(() => { setMounted(true) }, [])
 
@@ -68,6 +68,22 @@ export default function ChartOfAccountsPage() {
     }
   };
 
+  const handleResetTranslations = async () => {
+    if (!db || !tenantId || !tenant?.secteurActivite) return;
+    setIsResetting(true);
+    try {
+      const count = await resetClientAccountTranslations(db, tenantId, tenant.secteurActivite);
+      toast({ 
+        title: "Traductions réinitialisées", 
+        description: `${count} comptes standards ont été mis à jour avec les libellés officiels.` 
+      });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Erreur", description: e.message });
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   if (!mounted) return null;
 
   return (
@@ -80,7 +96,7 @@ export default function ChartOfAccountsPage() {
           <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest mt-1">Nomenclature personnalisée conforme au SCF algérien</p>
         </div>
         <div className="flex gap-2">
-          {accounts?.length === 0 && !isLoading && (
+          {accounts?.length === 0 && !isLoading ? (
             <Button 
               onClick={handleInitialize} 
               disabled={isInitializing}
@@ -89,8 +105,18 @@ export default function ChartOfAccountsPage() {
               {isInitializing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
               Initialiser Pack {tenant?.secteurActivite || "SERVICES"}
             </Button>
+          ) : (
+            <Button 
+              variant="outline"
+              onClick={handleResetTranslations} 
+              disabled={isResetting || isLoading}
+              className="border-primary text-primary font-black uppercase text-[10px] tracking-widest h-11 px-8 rounded-2xl shadow-sm"
+            >
+              {isResetting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCcw className="h-4 w-4 mr-2" />}
+              Réinitialiser Libellés (Bilingue)
+            </Button>
           )}
-          <Button className="bg-primary shadow-xl h-11 px-8 rounded-xl font-bold">
+          <Button className="bg-primary shadow-xl h-11 px-8 rounded-xl font-bold text-[10px] uppercase tracking-widest">
             <Plus className="mr-2 h-4 w-4" /> Nouveau Compte
           </Button>
         </div>
@@ -196,7 +222,7 @@ export default function ChartOfAccountsPage() {
         <div className="text-xs leading-relaxed space-y-2">
           <p className="font-bold text-accent uppercase tracking-widest">Intégrité Structurelle (SCF) :</p>
           <p className="opacity-80 italic">
-            "Le Plan de Comptes de l'Entité (PCE) est dérivé du plan modèle de votre secteur d'activité. Le maintien du lien avec l'origine (Standard 2026) garantit la conformité de vos futurs états financiers (Bilan, TCR) avec les rubriques de la liasse fiscale G4."
+            "Le Plan de Comptes de l'Entité (PCE) est dérivé du plan modèle de votre secteur d'activité. Le maintien du lien avec l'origine (Standard 2026) garantit la conformité de vos futurs états financiers (Bilan, TCR) avec les rubriques de la liasse fiscale G4. Vous pouvez à tout moment réinitialiser les libellés bilingues sans perdre vos comptes personnalisés."
           </p>
         </div>
       </div>

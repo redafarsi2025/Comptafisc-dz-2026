@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Firestore, collection, doc, writeBatch, getDocs, query, where, addDoc } from 'firebase/firestore';
@@ -38,6 +37,38 @@ export async function initializeClientChartOfAccounts(db: Firestore, tenantId: s
 
   await batch.commit();
   return plan.length;
+}
+
+/**
+ * Réinitialise uniquement les libellés (FR/AR) des comptes standards déjà existants.
+ * Utile pour appliquer les traductions sur un plan déjà saisi.
+ */
+export async function resetClientAccountTranslations(db: Firestore, tenantId: string, sector: string) {
+  const accountsRef = collection(db, "tenants", tenantId, "accounts");
+  const existingSnap = await getDocs(accountsRef);
+  
+  if (existingSnap.empty) return 0;
+
+  const batch = writeBatch(db);
+  const templatePlan = getCompletePlanForSector(sector);
+  let updatedCount = 0;
+
+  existingSnap.docs.forEach((docSnap) => {
+    const data = docSnap.data();
+    const standardMatch = templatePlan.find(t => t.number === data.accountNumber);
+    
+    if (standardMatch) {
+      batch.update(docSnap.ref, {
+        label: standardMatch.label,
+        labelAr: standardMatch.labelAr,
+        updatedAt: new Date().toISOString()
+      });
+      updatedCount++;
+    }
+  });
+
+  await batch.commit();
+  return updatedCount;
 }
 
 export async function addCustomAccount(db: Firestore, tenantId: string, account: { number: string, label: string, type: any }) {
