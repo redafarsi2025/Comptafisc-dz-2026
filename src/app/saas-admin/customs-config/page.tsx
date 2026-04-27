@@ -111,17 +111,20 @@ export default function CustomsConfigAdmin() {
     if (!db) return;
     setIsInitializing(true);
     const defaults = [
+      { code: '8703239000', label: 'Véhicules de tourisme (1500-3000cc)', duty: 30, daps: 0, tva: 19 },
+      { code: '4012110000', label: 'Pneumatiques rechapés (Voitures Tourisme)', duty: 30, daps: 0, tva: 19 },
       { code: '8471300000', label: 'Ordinateurs Portables', duty: 5, daps: 0, tva: 19 },
       { code: '8517130000', label: 'Smartphones (Biométrie)', duty: 30, daps: 30, tva: 19 },
       { code: '3004900000', label: 'Médicaments Humains', duty: 5, daps: 0, tva: 9 },
       { code: '1001190000', label: 'Blé Dur (Consommation)', duty: 5, daps: 0, tva: 0 },
-      { code: '8703239000', label: 'Véhicules de tourisme (1500-3000cc)', duty: 30, daps: 0, tva: 19 },
+      { code: '2523290000', label: 'Ciment Portland', duty: 30, daps: 0, tva: 19 },
+      { code: '7214200000', label: 'Ronds à béton', duty: 15, daps: 0, tva: 19 },
     ];
     try {
       for (const t of defaults) {
         await setDocumentNonBlocking(doc(db, "customs_tariffs", t.code), { ...t, isActive: true, updatedAt: new Date().toISOString() }, { merge: true });
       }
-      toast({ title: "Top 5 Algérie injecté." });
+      toast({ title: "Catalogue Stratégique injecté." });
     } finally { setIsInitializing(false); }
   }
 
@@ -139,7 +142,7 @@ export default function CustomsConfigAdmin() {
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleInitializeDefaults} disabled={isInitializing} className="rounded-2xl border-slate-200 bg-white font-bold h-11 px-6 shadow-sm">
              {isInitializing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
-             Reset Top 5
+             Injecter Top 10
           </Button>
 
           <Dialog open={isDiscoveryOpen} onOpenChange={setIsDiscoveryOpen}>
@@ -256,7 +259,7 @@ export default function CustomsConfigAdmin() {
                   ) : filteredTariffs.length === 0 ? (
                       <TableRow><TableCell colSpan={5} className="text-center py-20 italic text-slate-400">Cache vide. Utilisez le Scraper SH10.</TableCell></TableRow>
                   ) : filteredTariffs.map((t) => (
-                    <TableRow key={t.id} className="hover:bg-slate-50 transition-colors group">
+                    <TableRow key={t.id} className="hover:bg-slate-50 transition-colors group h-20">
                       <TableCell className="pl-8 font-mono text-xs font-bold text-primary">{t.code}</TableCell>
                       <TableCell className="font-bold text-xs uppercase text-slate-900">{t.label}</TableCell>
                       <TableCell className="text-center">
