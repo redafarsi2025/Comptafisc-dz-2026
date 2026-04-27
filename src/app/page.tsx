@@ -18,7 +18,8 @@ import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
-  const heroImage = PlaceHolderImages.find(img => img.id === 'algerian-fiscal-hero') || PlaceHolderImages[0];
+  // Utilisation de l'image du tableau de bord au lieu de l'image de loi
+  const heroImage = PlaceHolderImages.find(img => img.id === 'hero-compta') || PlaceHolderImages[0];
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-body selection:bg-primary selection:text-white">
@@ -66,7 +67,7 @@ export default function LandingPage() {
         )}
       </nav>
 
-      {/* HERO SECTION - IMPACT MAXIMAL */}
+      {/* HERO SECTION - IMPACT MAXIMAL AVEC DASHBOARD */}
       <section className="relative pt-40 pb-20 overflow-hidden bg-white">
         <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-primary/5 blur-[120px] rounded-full -mr-96 -mt-96" />
         <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-accent/5 blur-[100px] rounded-full -ml-48 -mb-48" />
@@ -84,7 +85,7 @@ export default function LandingPage() {
             </h1>
             <p className="text-xl text-slate-500 max-w-xl leading-relaxed font-medium text-start">
               Plus qu'un ERP, ComptaFisc-DZ est votre **Master Node** de gestion. 
-              Automatisez vos déclarations G50, pilotez vos chantiers et sécurisez votre paie avec une intelligence déterministe de pointe basée sur le CIDTA.
+              Automatisez vos déclarations G50, pilotez vos chantiers et sécurisez votre paie avec une interface experte intuitive.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Button size="lg" className="bg-primary hover:bg-blue-700 h-14 px-10 rounded-2xl text-lg font-black uppercase tracking-widest shadow-2xl shadow-primary/30 group" asChild>
@@ -98,39 +99,35 @@ export default function LandingPage() {
                 </Link>
               </Button>
             </div>
-            <div className="flex items-center gap-8 pt-4">
-              <div className="flex -space-x-4">
-                {[1,2,3,4].map(i => (
-                  <div key={i} className="h-10 w-10 rounded-full border-2 border-white bg-slate-200 overflow-hidden shadow-sm">
-                    <img src={`https://picsum.photos/seed/${i+10}/40`} alt="user" />
-                  </div>
-                ))}
-              </div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-start">+2 500 entreprises auditées ce mois</p>
-            </div>
           </div>
 
+          {/* VISUEL TABLEAU DE BORD */}
           <div className="relative group">
             <div className="absolute inset-0 bg-primary/20 blur-[60px] group-hover:bg-primary/30 transition-all rounded-3xl" />
-            <div className="relative bg-white p-4 rounded-[40px] shadow-2xl border border-slate-100 ring-1 ring-slate-100 overflow-hidden transform group-hover:scale-[1.02] transition-transform duration-700">
+            <div className="relative bg-white p-2 rounded-3xl shadow-2xl border border-slate-200 ring-1 ring-slate-100 overflow-hidden transform group-hover:scale-[1.01] transition-transform duration-700">
+               {/* Simulation d'un navigateur/fenêtre logicielle */}
+               <div className="bg-slate-100 h-8 w-full flex items-center px-4 gap-1.5 border-b">
+                  <div className="h-2.5 w-2.5 rounded-full bg-red-400" />
+                  <div className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+                  <div className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+                  <div className="flex-1" />
+                  <div className="h-4 w-32 bg-slate-200 rounded-full" />
+               </div>
                <img 
                 src={heroImage.imageUrl} 
                 data-ai-hint={heroImage.imageHint}
-                alt="Corpus Juridique et Fiscal Algérien" 
-                className="rounded-[28px] shadow-inner object-cover w-full h-[500px]"
+                alt="Tableau de bord ComptaFisc-DZ" 
+                className="w-full h-auto object-cover aspect-[4/3] shadow-inner"
                />
-               <div className="absolute bottom-10 left-10 right-10 bg-white/95 backdrop-blur-xl p-6 rounded-3xl border border-slate-200 shadow-2xl flex items-center justify-between">
-                  <div className="flex items-center gap-4 text-start">
-                    <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center">
-                      <ScrollText className="text-primary h-6 w-6" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-1">Veille Réglementaire</p>
-                      <p className="text-sm font-black text-slate-900 uppercase italic">Base CIDTA & CTCA Live</p>
-                    </div>
+               
+               {/* Badge flottant IA */}
+               <div className="absolute bottom-8 right-8 bg-white/95 backdrop-blur-xl p-4 rounded-2xl border border-slate-200 shadow-xl flex items-center gap-3 animate-bounce-slow">
+                  <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center">
+                    <Zap className="text-accent h-5 w-5" />
                   </div>
-                  <div className="h-12 w-12 rounded-2xl bg-primary flex items-center justify-center animate-pulse">
-                    <Zap className="text-white h-6 w-6" />
+                  <div className="text-start">
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Audit Live</p>
+                    <p className="text-xs font-black text-slate-900 uppercase">100% Conforme</p>
                   </div>
                </div>
             </div>
