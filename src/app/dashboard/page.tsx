@@ -26,11 +26,35 @@ import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebas
 import { collection, query, where } from "firebase/firestore"
 import { 
   TrendingUp, TrendingDown, Activity, ShieldCheck, Loader2,
-  Camera, Package, Pickaxe, History, Landmark, Zap
+  Camera, Package, Pickaxe, History, Landmark, Zap, ArrowRight
 } from "lucide-react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { useLocale } from "@/context/LocaleContext"
+
+const REGULATORY_MILESTONES = [
+  {
+    law: "LF 2026",
+    title: "Barème IRG & Lissage",
+    status: "VÉRIFIÉ",
+    desc: "Application du nouveau barème progressif et exonération des salaires < 30k DA.",
+    color: "bg-blue-50 text-blue-700 border-blue-100"
+  },
+  {
+    law: "Art. 150 CIDTA",
+    title: "Réinvestissement",
+    status: "OPTIMISABLE",
+    desc: "Calcul de l'abattement IBS pour les investissements productifs réalisés.",
+    color: "bg-emerald-50 text-emerald-700 border-emerald-100"
+  },
+  {
+    law: "LF 2024",
+    title: "Suppression TAP",
+    status: "CONFORME",
+    desc: "Retrait définitif de la Taxe sur l'Activité Professionnelle du calcul G50.",
+    color: "bg-amber-50 text-amber-700 border-amber-100"
+  }
+];
 
 export default function DashboardOverview() {
   const db = useFirestore()
