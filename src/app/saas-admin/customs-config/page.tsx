@@ -10,13 +10,15 @@ import { Button } from "@/components/ui/button"
 import { 
   Anchor, Plus, Save, Trash2, Edit3, 
   Loader2, RefreshCcw, ShieldCheck, Gavel, 
-  Settings2, Zap, Info, Search, DatabaseZap, ListChecks, ArrowUpRight
+  Settings2, Zap, Info, Search, DatabaseZap, ListChecks, ArrowUpRight,
+  Sparkles, Globe
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { scrapeFromConformePro } from "@/services/customs/douane-scraper"
 
 export default function CustomsConfigAdmin() {
   const db = useFirestore()
@@ -24,18 +26,23 @@ export default function CustomsConfigAdmin() {
   const [mounted, setMounted] = React.useState(false)
   const [searchTerm, setSearchTerm] = React.useState("")
   const [isParamsOpen, setIsParamsOpen] = React.useState(false)
+  const [isDiscoveryOpen, setIsDiscoveryOpen] = React.useState(false)
   const [isSaving, setIsSaving] = React.useState(false)
   const [isInitializing, setIsInitializing] = React.useState(false)
+  const [isScraping, setIsScraping] = React.useState(false)
+
+  const [discoveryCode, setDiscoveryCode] = React.useState("")
+  const [scrapedResult, setScrapedResult] = React.useState<any>(null)
 
   React.useEffect(() => { setMounted(true) }, [])
 
-  // 1. Paramètres globaux (TCS, PRCT)
+  // 1. Paramètres globaux
   const customsParamsRef = useMemoFirebase(() => db ? doc(db, "system_config", "customs_params") : null, [db]);
   const { data: liveParams } = useDoc(customsParamsRef);
 
   const currentParams = React.useMemo(() => ({
-    tcs_rate: liveParams?.tcs_rate ?? 0.03,
-    prct_rate: liveParams?.prct_rate ?? 0.02,
+    tcs_rate: liveParams?.tcs_rate ?? 3.0,
+    prct_rate: liveParams?.prct_rate ?? 2.0,
   }), [liveParams]);
 
   const [editParams, setEditParams] = React.useState(currentParams);
@@ -63,27 +70,58 @@ export default function CustomsConfigAdmin() {
     } finally { setIsSaving(false); }
   }
 
+  const handleRunScraper = async () => {
+    if (!discoveryCode) return;
+    setIsScraping(true);
+    setScrapedResult(null);
+    try {
+      const result = await scrapeFromConformePro(discoveryCode);
+      if (result && result.found) {
+        setScrapedResult(result);
+        toast({ title: "Extraction réussie", description: result.label });
+      } else {
+        toast({ variant: "destructive", title: "Non trouvé sur ConformePro" });
+      }
+    } catch (e) {
+      toast({ variant: "destructive", title: "Erreur Scraper" });
+    } finally { setIsScraping(false); }
+  }
+
+  const handleImportScraped = async () => {
+    if (!db || !scrapedResult) return;
+    setIsSaving(true);
+    try {
+      await setDocumentNonBlocking(doc(db, "customs_tariffs", scrapedResult.code), {
+        code: scrapedResult.code,
+        label: scrapedResult.label,
+        duty: scrapedResult.duty,
+        tva: scrapedResult.tva,
+        daps: 0,
+        isActive: true,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      toast({ title: "Code SH10 Importé", description: "Le code est maintenant en cache globale." });
+      setIsDiscoveryOpen(false);
+      setScrapedResult(null);
+      setDiscoveryCode("");
+    } finally { setIsSaving(false); }
+  }
+
   const handleInitializeDefaults = async () => {
     if (!db) return;
     setIsInitializing(true);
-    // On charge un set plus complet (Top 10 Algérie)
     const defaults = [
       { code: '8471300000', label: 'Ordinateurs Portables', duty: 5, daps: 0, tva: 19 },
       { code: '8517130000', label: 'Smartphones (Biométrie)', duty: 30, daps: 30, tva: 19 },
       { code: '3004900000', label: 'Médicaments Humains', duty: 5, daps: 0, tva: 9 },
       { code: '1001190000', label: 'Blé Dur (Consommation)', duty: 5, daps: 0, tva: 0 },
       { code: '8703239000', label: 'Véhicules de tourisme (1500-3000cc)', duty: 30, daps: 0, tva: 19 },
-      { code: '8471410000', label: 'Unités centrales de traitement', duty: 5, daps: 0, tva: 19 },
-      { code: '8528521000', label: 'Moniteurs couleurs LCD', duty: 30, daps: 30, tva: 19 },
-      { code: '1512119100', label: 'Huile de tournesol brute', duty: 5, daps: 0, tva: 0 },
-      { code: '2523290000', label: 'Ciment Portland gris', duty: 30, daps: 30, tva: 19 },
-      { code: '7214200000', label: 'Ronds à béton', duty: 30, daps: 30, tva: 19 },
     ];
     try {
       for (const t of defaults) {
         await setDocumentNonBlocking(doc(db, "customs_tariffs", t.code), { ...t, isActive: true, updatedAt: new Date().toISOString() }, { merge: true });
       }
-      toast({ title: "Nomenclature SH10 mise à jour", description: "Top 10 Algérie injecté." });
+      toast({ title: "Top 5 Algérie injecté." });
     } finally { setIsInitializing(false); }
   }
 
@@ -94,15 +132,65 @@ export default function CustomsConfigAdmin() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-black text-primary flex items-center gap-3 tracking-tighter uppercase">
-            <Anchor className="text-accent h-10 w-10" /> Configuration Douane
+            <Anchor className="text-accent h-10 w-10" /> Config Douane IA
           </h1>
-          <p className="text-muted-foreground font-medium mt-1 uppercase text-[10px] tracking-widest">Pilotage du noyau de liquidation et nomenclature SH10</p>
+          <p className="text-muted-foreground font-medium mt-1 uppercase text-[10px] tracking-widest">Pilotage nomenclature SH10 & Scraper ConformePro</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleInitializeDefaults} disabled={isInitializing} className="rounded-2xl border-slate-200 bg-white font-bold h-11 px-6 shadow-sm">
              {isInitializing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
-             Reset Top 10
+             Reset Top 5
           </Button>
+
+          <Dialog open={isDiscoveryOpen} onOpenChange={setIsDiscoveryOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-accent text-primary shadow-lg rounded-2xl h-11 px-8 font-black uppercase text-[10px] tracking-widest">
+                <Zap className="mr-2 h-4 w-4" /> Découverte SH10
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-accent" /> Scraper ConformePro.dz
+                </DialogTitle>
+                <DialogDescription>
+                  Recherchez et extrayez n'importe quel code SH10 gratuitement pour l'ajouter à votre cache.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-6 py-4">
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="Saisissez un code SH10 (ex: 8535101000)" 
+                    value={discoveryCode} 
+                    onChange={e => setDiscoveryCode(e.target.value)}
+                    className="font-mono font-bold"
+                  />
+                  <Button onClick={handleRunScraper} disabled={isScraping || !discoveryCode}>
+                    {isScraping ? <Loader2 className="h-4 w-4 animate-spin" /> : "Scanner"}
+                  </Button>
+                </div>
+
+                {scrapedResult && (
+                  <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 space-y-6 animate-in zoom-in-95">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-1">
+                        <Badge className="bg-primary text-white text-[8px] font-black">{scrapedResult.code}</Badge>
+                        <h4 className="text-sm font-black uppercase text-slate-900">{scrapedResult.label}</h4>
+                      </div>
+                      <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-200">TROUVÉ</Badge>
+                    </div>
+                    <div className="grid grid-cols-4 gap-4 text-center">
+                       <div className="p-2 bg-white rounded-lg border"><p className="text-[8px] font-bold text-slate-400">DD</p><p className="font-black text-primary">{scrapedResult.duty}%</p></div>
+                       <div className="p-2 bg-white rounded-lg border"><p className="text-[8px] font-bold text-slate-400">TVA</p><p className="font-black text-emerald-600">{scrapedResult.tva}%</p></div>
+                       <div className="p-2 bg-white rounded-lg border"><p className="text-[8px] font-bold text-slate-400">TCS</p><p className="font-black text-blue-600">{scrapedResult.tcs}%</p></div>
+                       <div className="p-2 bg-white rounded-lg border"><p className="text-[8px] font-bold text-slate-400">PRCT</p><p className="font-black text-slate-900">{scrapedResult.prct}%</p></div>
+                    </div>
+                    <Button onClick={handleImportScraped} disabled={isSaving} className="w-full bg-emerald-600">Importer dans le catalogue global</Button>
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
           
           <Dialog open={isParamsOpen} onOpenChange={setIsParamsOpen}>
             <DialogTrigger asChild>
@@ -143,7 +231,7 @@ export default function CustomsConfigAdmin() {
         <div className="md:col-span-2 space-y-6">
            <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-black uppercase tracking-tighter flex items-center gap-2">
-                <ListChecks className="h-5 w-5 text-primary" /> Nomenclature Top SH10 (Cache)
+                <ListChecks className="h-5 w-5 text-primary" /> Cache SH10 Global
               </h3>
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
@@ -166,7 +254,7 @@ export default function CustomsConfigAdmin() {
                   {isLoading ? (
                     <TableRow><TableCell colSpan={5} className="text-center py-20"><Loader2 className="animate-spin h-8 w-8 mx-auto text-primary" /></TableCell></TableRow>
                   ) : filteredTariffs.length === 0 ? (
-                      <TableRow><TableCell colSpan={5} className="text-center py-20 italic text-slate-400">Aucun code en cache. Utilisez le bouton Reset Top 10.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={5} className="text-center py-20 italic text-slate-400">Cache vide. Utilisez le Scraper SH10.</TableCell></TableRow>
                   ) : filteredTariffs.map((t) => (
                     <TableRow key={t.id} className="hover:bg-slate-50 transition-colors group">
                       <TableCell className="pl-8 font-mono text-xs font-bold text-primary">{t.code}</TableCell>
@@ -194,41 +282,31 @@ export default function CustomsConfigAdmin() {
 
         <div className="space-y-6">
            <Card className="bg-slate-900 text-white border-none shadow-xl rounded-3xl p-6 relative overflow-hidden group">
-              <DatabaseZap className="absolute -right-4 -top-4 h-24 w-24 opacity-10 text-accent group-hover:scale-110 transition-transform" />
-              <CardHeader className="p-0 mb-6">
+              <DatabaseZap className="absolute -right-4 -top-4 h-24 w-24 opacity-10 text-accent" />
+              <CardHeader className="p-0 mb-6 text-start">
                 <CardTitle className="text-[10px] font-black text-accent uppercase tracking-[0.2em] flex items-center gap-2">
-                  <Zap className="h-4 w-4" /> Stratégie "Hybrid"
+                  <Zap className="h-4 w-4" /> Stratégie de Découverte
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-0 space-y-6">
+              <CardContent className="p-0 space-y-6 text-start">
                 <p className="text-xs leading-relaxed opacity-80 italic">
-                  "Pour éviter de saturer Firestore avec 16 000 lignes, nous stockons ici uniquement les codes fréquents. Le simulateur client interroge mfdgi.gov.dz en direct pour les codes manquants."
+                  "L'outil de découverte utilise le Scraper ConformePro pour enrichir dynamiquement votre catalogue sans saisie manuelle. Une fois importé, le code SH10 devient disponible instantanément pour tous vos clients."
                 </p>
                 <div className="p-4 bg-white/5 rounded-2xl border border-white/10 space-y-4">
                     <div className="flex items-center gap-2 text-emerald-400 font-black text-[10px] uppercase">
-                        <ShieldCheck className="h-4 w-4" /> Conformité 2026 Ready
+                        <ShieldCheck className="h-4 w-4" /> Source : conformepro.dz
                     </div>
                     <div className="flex justify-between items-center text-[10px] font-black uppercase">
-                      <span className="text-slate-400">TCS Active</span>
-                      <span className="text-accent">{(currentParams.tcs_rate * 100).toFixed(1)}%</span>
+                      <span className="text-slate-400">TCS (Globale)</span>
+                      <span className="text-accent">{currentParams.tcs_rate}%</span>
                    </div>
                    <div className="flex justify-between items-center text-[10px] font-black uppercase">
-                      <span className="text-slate-400">PRCT Active</span>
-                      <span className="text-accent">{(currentParams.prct_rate * 100).toFixed(1)}%</span>
+                      <span className="text-slate-400">PRCT (Global)</span>
+                      <span className="text-accent">{currentParams.prct_rate}%</span>
                    </div>
                 </div>
               </CardContent>
            </Card>
-
-           <div className="p-6 bg-blue-50 border border-blue-200 rounded-3xl flex items-start gap-4">
-              <Info className="h-6 w-6 text-blue-600 shrink-0 mt-1" />
-              <div className="text-[10px] text-blue-900 leading-relaxed font-medium">
-                <p className="font-black uppercase tracking-tight mb-1">Automatisation :</p>
-                <p className="opacity-80">
-                  Le système de "Scraping" sur le portail douanier permet de découvrir de nouveaux codes sans intervention manuelle. Ils sont ensuite mis en cache globale.
-                </p>
-              </div>
-           </div>
         </div>
       </div>
     </div>

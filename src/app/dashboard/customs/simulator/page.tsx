@@ -11,7 +11,7 @@ import {
   TrendingUp, ShieldCheck, Zap, 
   Info, AlertTriangle, Scale, PieChart,
   ArrowRight, Search, ListChecks, Database, ExternalLink, Loader2,
-  FileText, CheckCircle2, History
+  FileText, CheckCircle2, History, DatabaseZap, Sparkles
 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
@@ -19,7 +19,7 @@ import { calculateCustomsLiquidation } from "@/lib/customs-engine"
 import { formatDZD } from "@/utils/fiscalAlgerie"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { searchOfficialTariff } from "@/services/customs/douane-scraper"
+import { scrapeFromConformePro } from "@/services/customs/douane-scraper"
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
@@ -31,7 +31,7 @@ export default function CustomsSimulator() {
   const tenantId = searchParams.get('tenantId')
   const [mounted, setMounted] = React.useState(false)
   const [isVerifying, setIsVerifying] = React.useState(false)
-  const [officialData, setOfficialStatus] = React.useState<any>(null)
+  const [discoveryData, setDiscoveryData] = React.useState<any>(null)
   const [manualSHMode, setManualSHMode] = React.useState(false)
 
   // 1. Charger les tarifs favoris depuis Firestore
@@ -49,7 +49,6 @@ export default function CustomsSimulator() {
     shCode: "8471300000",
     origin: "UE", 
     extraFees: 15000,
-    // Champs découverts par scraping ou saisis
     customDuty: 30,
     customDaps: 0,
     customTva: 19
@@ -57,7 +56,7 @@ export default function CustomsSimulator() {
 
   React.useEffect(() => { setMounted(true) }, [])
 
-  // Sync des taux quand on choisit un code dans la liste "Top"
+  // Sync des taux quand on choisit un code dans la liste
   React.useEffect(() => {
     if (!manualSHMode && tariffs) {
         const match = tariffs.find(t => t.code === formData.shCode);
@@ -65,10 +64,10 @@ export default function CustomsSimulator() {
             setFormData(prev => ({ 
                 ...prev, 
                 customDuty: match.duty, 
-                customDaps: match.daps, 
+                customDaps: match.daps || 0, 
                 customTva: match.tva 
             }));
-            setOfficialStatus(null);
+            setDiscoveryData(null);
         }
     }
   }, [formData.shCode, tariffs, manualSHMode]);
@@ -87,29 +86,33 @@ export default function CustomsSimulator() {
       dutyRate: dutyRate,
       dapsRate: formData.customDaps,
       tvaRate: formData.customTva,
-      tcsRate: liveParams.tcs_rate || 0.03,
-      prctRate: liveParams.prct_rate || 0.02,
+      tcsRate: liveParams.tcs_rate / 100 || 0.03,
+      prctRate: liveParams.prct_rate / 100 || 0.02,
       extraFees: formData.extraFees
     });
   }, [formData, liveParams]);
 
-  const handleVerifyOfficial = async () => {
-    if (!formData.shCode) return;
+  const handleDiscovery = async () => {
+    if (!formData.shCode || formData.shCode.length < 4) return;
     setIsVerifying(true);
+    setDiscoveryData(null);
+    
     try {
-      const result = await searchOfficialTariff(formData.shCode);
+      const result = await scrapeFromConformePro(formData.shCode);
       if (result && result.found) {
-        setOfficialStatus(result);
-        // Simulation de mise à jour des taux extraits
+        setDiscoveryData(result);
         setFormData(prev => ({
             ...prev,
-            customDuty: 30, // Normalement extrait du scraping
-            customTva: 19
+            customDuty: result.duty,
+            customTva: result.tva,
+            customDaps: result.daps || 0
         }));
-        toast({ title: "Données officielles trouvées", description: "Le code SH10 est valide sur le portail douane.gov.dz" });
+        toast({ title: "Données extraites", description: result.label });
       } else {
-        toast({ variant: "destructive", title: "Non listé", description: "Ce code n'a pas retourné de résultat direct. Vérifiez la nomenclature." });
+        toast({ variant: "destructive", title: "Code SH10 inconnu", description: "Veuillez vérifier la structure du code (10 chiffres)." });
       }
+    } catch (e) {
+      toast({ variant: "destructive", title: "Erreur Scraper" });
     } finally {
       setIsVerifying(false);
     }
@@ -128,19 +131,19 @@ export default function CustomsSimulator() {
           </Button>
           <div>
             <h1 className="text-3xl font-black text-primary uppercase tracking-tighter">Simulateur Import Pro</h1>
-            <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest mt-1">Calculateur dynamique multiversion (Base : 15 947 sous-positions)</p>
+            <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest mt-1">Calculateur dynamique multiversion (Extraction Live)</p>
           </div>
         </div>
         <div className="flex gap-2">
             <Button 
                 variant="outline" 
                 onClick={() => setManualSHMode(!manualSHMode)}
-                className={cn("h-9 px-4 font-black uppercase text-[10px] rounded-xl", manualSHMode ? "bg-primary text-white border-primary" : "border-slate-200")}
+                className={cn("h-9 px-4 font-black uppercase text-[10px] rounded-xl shadow-sm", manualSHMode ? "bg-primary text-white border-primary" : "border-slate-200")}
             >
                 {manualSHMode ? "Mode Liste" : "Saisie Libre SH10"}
             </Button>
             <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 h-9 px-4 font-black uppercase text-[10px]">
-              <ShieldCheck className="mr-2 h-4 w-4" /> Noyau Live v4.0
+              <ShieldCheck className="mr-2 h-4 w-4" /> Noyau Live v4.1
             </Badge>
         </div>
       </div>
@@ -156,12 +159,12 @@ export default function CustomsSimulator() {
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  className="text-[9px] font-black text-blue-600 uppercase border border-blue-200 bg-blue-50/50 hover:bg-blue-100"
-                  onClick={handleVerifyOfficial}
+                  className="text-[9px] font-black text-blue-600 uppercase border border-blue-200 bg-blue-50/50 hover:bg-blue-100 h-9 rounded-xl px-4"
+                  onClick={handleDiscovery}
                   disabled={isVerifying || !formData.shCode}
                 >
-                  {isVerifying ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <ExternalLink className="h-3 w-3 mr-1" />}
-                  Vérifier douane.gov.dz
+                  {isVerifying ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Zap className="h-3 w-3 mr-1" />}
+                  Extraire via conformepro.dz
                 </Button>
               </div>
             </CardHeader>
@@ -177,7 +180,7 @@ export default function CustomsSimulator() {
                         className="h-11 rounded-xl font-mono font-bold border-primary/40 bg-primary/5"
                       />
                   ) : (
-                    <Select value={formData.shCode} onValueChange={v => { setFormData({...formData, shCode: v}); setOfficialStatus(null); }}>
+                    <Select value={formData.shCode} onValueChange={v => { setFormData({...formData, shCode: v}); setDiscoveryData(null); }}>
                         <SelectTrigger className="h-11 rounded-xl bg-white shadow-sm">
                         <SelectValue placeholder={isTariffsLoading ? "Chargement nomenclature..." : "Choisir une catégorie"} />
                         </SelectTrigger>
@@ -188,9 +191,9 @@ export default function CustomsSimulator() {
                         </SelectContent>
                     </Select>
                   )}
-                  {officialData && (
-                    <p className="text-[9px] text-emerald-600 font-bold flex items-center gap-1 animate-in fade-in">
-                      <CheckCircle2 className="h-3 w-3" /> Certifié conforme douane.gov.dz (MAJ {officialData.lastUpdate})
+                  {discoveryData && (
+                    <p className="text-[9px] text-emerald-600 font-bold flex items-center gap-1 animate-in fade-in py-1">
+                      <CheckCircle2 className="h-3 w-3" /> {discoveryData.label} (Source: conformepro.dz)
                     </p>
                   )}
                 </div>
@@ -293,11 +296,11 @@ export default function CustomsSimulator() {
                              <span className="font-mono">+{formatDZD(liquidation.tvaImport)}</span>
                           </div>
                           <div className="flex justify-between items-center text-xs font-bold text-blue-600 bg-blue-50/50 p-2 rounded-lg border border-blue-100">
-                             <span className="flex items-center gap-1"><Zap className="h-3 w-3" /> TCS ({(liveParams.tcs_rate * 100).toFixed(1)}%)</span>
+                             <span className="flex items-center gap-1"><Zap className="h-3 w-3" /> TCS ({liveParams.tcs_rate}%)</span>
                              <span className="font-mono">+{formatDZD(liquidation.tcs)}</span>
                           </div>
                           <div className="flex justify-between items-center text-xs font-bold text-slate-900 bg-slate-50 p-2 rounded-lg border border-slate-100">
-                             <span className="flex items-center gap-1"><FileText className="h-3 w-3" /> PRCT ({(liveParams.prct_rate * 100).toFixed(1)}%)</span>
+                             <span className="flex items-center gap-1"><FileText className="h-3 w-3" /> PRCT ({liveParams.prct_rate}%)</span>
                              <span className="font-mono">+{formatDZD(liquidation.prct)}</span>
                           </div>
                           <div className="pt-4 border-t border-dashed flex justify-between items-baseline">
@@ -348,16 +351,16 @@ export default function CustomsSimulator() {
                   </p>
                </div>
                <p className="text-[10px] leading-relaxed opacity-60 italic">
-                 "Utilisez le bouton 'Saisie Libre' pour tester n'importe quel code de la nomenclature nationale 2026."
+                 "Le système interroge automatiquement la base conformepro.dz pour les codes SH10 absents de notre catalogue par défaut."
                </p>
             </CardContent>
           </Card>
 
           <Card className="bg-blue-50 border border-blue-200 rounded-3xl p-6 relative overflow-hidden shadow-inner">
              <Info className="h-6 w-6 text-blue-600 shrink-0 mb-4" />
-             <h4 className="text-[10px] font-black text-blue-800 uppercase tracking-widest mb-2 text-start">Technologie Hybride</h4>
+             <h4 className="text-[10px] font-black text-blue-800 uppercase tracking-widest mb-2 text-start">Scraper JIT Actif</h4>
              <p className="text-[11px] text-blue-700 leading-relaxed font-medium italic text-start">
-              "Le système n'est pas limité à la liste déroulante. En cas de code inconnu, notre moteur interroge les serveurs de la DGD pour extraire les taux officiels."
+              "Notre technologie 'Just-in-Time Scraper' permet de découvrir n'importe quelle sous-position tarifaire algérienne gratuitement."
              </p>
           </Card>
         </div>
