@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -16,6 +17,12 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser()
   const db = useFirestore()
   const { locale, setLocale, t, isRtl } = useLocale()
+  const [mounted, setMounted] = React.useState(false)
+
+  // Wait for hydration to avoid ID mismatches in Radix components or dynamic locales
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Sync user profile to Firestore
   React.useEffect(() => {
@@ -54,7 +61,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
                   <Search className={cn("absolute top-2.5 h-4 w-4 text-muted-foreground", isRtl ? "right-2.5" : "left-2.5")} />
                   <input
                     type="search"
-                    placeholder={t.Common.search}
+                    placeholder={mounted ? t.Common.search : "..."}
                     className={cn(
                       "w-72 rounded-full border bg-muted py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20",
                       isRtl ? "pr-9 pl-4" : "pl-9 pr-4"
@@ -63,26 +70,31 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="text-muted-foreground font-bold flex items-center gap-2 px-3 rounded-xl border border-transparent hover:border-slate-200">
-                      <Languages className="h-4 w-4" />
-                      <span className="text-[11px] uppercase">{locale === 'ar' ? 'العربية' : 'Français'}</span>
+                {/* Defer rendering of dynamic UI to prevent hydration mismatch */}
+                {mounted && (
+                  <>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="text-muted-foreground font-bold flex items-center gap-2 px-3 rounded-xl border border-transparent hover:border-slate-200">
+                          <Languages className="h-4 w-4" />
+                          <span className="text-[11px] uppercase">{locale === 'ar' ? 'العربية' : 'Français'}</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align={isRtl ? "start" : "end"} className="rounded-xl p-1 w-40">
+                        <DropdownMenuItem onClick={() => setLocale('fr')} className="cursor-pointer font-bold text-xs rounded-lg py-2">Français</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setLocale('ar')} className="cursor-pointer font-bold text-xs rounded-lg py-2 text-end">العربية</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    
+                    <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-xl">
+                      <Bell className="h-5 w-5" />
+                      <span className={cn(
+                        "absolute top-2.5 h-2 w-2 rounded-full bg-destructive border-2 border-white",
+                        isRtl ? "right-2.5" : "left-2.5"
+                      )} />
                     </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align={isRtl ? "start" : "end"} className="rounded-xl p-1 w-40">
-                    <DropdownMenuItem onClick={() => setLocale('fr')} className="cursor-pointer font-bold text-xs rounded-lg py-2">Français</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setLocale('ar')} className="cursor-pointer font-bold text-xs rounded-lg py-2 text-end">العربية</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                
-                <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-xl">
-                  <Bell className="h-5 w-5" />
-                  <span className={cn(
-                    "absolute top-2.5 h-2 w-2 rounded-full bg-destructive border-2 border-white",
-                    isRtl ? "right-2.5" : "left-2.5"
-                  )} />
-                </Button>
+                  </>
+                )}
               </div>
             </header>
             <main className="flex-1 overflow-auto p-4 md:p-8">
