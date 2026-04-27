@@ -3,8 +3,8 @@
 import { Firestore, collection, query, where, getDocs } from 'firebase/firestore';
 
 /**
- * @fileOverview Moteur Fiscal Master (Noyau v3.2 - Expert Mode)
- * Implémentation d'un DSL déclaratif enrichi pour la fiscalité algérienne.
+ * @fileOverview Moteur Fiscal Master (Noyau v4.0 - Senior Expert Mode)
+ * Architecture DSL versionnée avec audit de cohérence et génération de conseils.
  */
 
 export interface FiscalContext {
@@ -12,7 +12,8 @@ export interface FiscalContext {
   date: string;       
   tenantId?: string;
   sector?: string;    
-  regime?: string;    
+  regime?: string;
+  fiscalYear?: number;
 }
 
 export interface RuleTrace {
@@ -22,54 +23,21 @@ export interface RuleTrace {
   actionsExecuted: string[];
   justification: string;
   advice?: string;
-  severity?: 'LOW' | 'MEDIUM' | 'HIGH';
-  category?: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITIQUE';
+  category: string;
+  impactEstimated?: number;
+  recommendation?: string;
   timestamp: string;
 }
 
-const VARIABLE_CACHE: Record<string, { value: any; expires: number }> = {};
-const CACHE_TTL = 300000; 
-
 /**
- * Résout une variable fiscale via la hiérarchie GLOBAL (versionnée).
+ * Pipeline Master DSL 4.0 : Évalue les règles avec audit de conflit et scoring.
  */
-export async function resolveFiscalVariable(ctx: FiscalContext, code: string): Promise<number> {
-  const { db, date } = ctx;
-  const cacheKey = `${code}_${date}`;
-
-  if (VARIABLE_CACHE[cacheKey] && VARIABLE_CACHE[cacheKey].expires > Date.now()) {
-    return VARIABLE_CACHE[cacheKey].value;
-  }
-
-  const valueQuery = query(
-    collection(db, 'fiscal_variable_values'),
-    where('fiscalVariableTypeId', '==', code)
-  );
-
-  const snap = await getDocs(valueQuery);
-  
-  if (snap.empty) return 0;
-
-  const validDocs = snap.docs
-    .map(d => d.data())
-    .filter(d => d.effectiveStartDate <= date)
-    .sort((a, b) => b.effectiveStartDate.localeCompare(a.effectiveStartDate));
-
-  if (validDocs.length === 0) return 0;
-
-  const data = validDocs[0];
-  const val = typeof data.value === 'string' ? parseFloat(data.value) : data.value;
-  
-  VARIABLE_CACHE[cacheKey] = { value: val, expires: Date.now() + CACHE_TTL };
-  return val;
-}
-
-/**
- * Pipeline Master DSL : Évalue les règles en respectant l'isolation par ACTIVITÉ et CLIENT.
- */
-export async function executeFiscalPipeline(ctx: FiscalContext, category?: string, inputData: any = {}): Promise<{ results: any, traces: RuleTrace[] }> {
+export async function executeFiscalPipeline(ctx: FiscalContext, category?: string, inputData: any = {}): Promise<{ results: any, traces: RuleTrace[], score: number }> {
   const { db, date, sector, regime } = ctx;
+  const currentYear = ctx.fiscalYear || new Date(date).getFullYear();
   
+  // 1. Récupération des règles actives pour l'année fiscale
   const rulesQuery = query(
     collection(db, 'fiscal_business_rules'),
     where('active', '==', true)
@@ -80,9 +48,9 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
   const filteredRules = snap.docs
     .map(doc => ({ id: doc.id, ...doc.data() }))
     .filter((rule: any) => {
-      const matchDate = rule.effectiveStartDate <= date;
+      const matchYear = rule.fiscal_year ? rule.fiscal_year === currentYear : true;
       const matchCategory = category ? rule.category === category : true;
-      return matchDate && matchCategory;
+      return matchYear && matchCategory;
     })
     .sort((a: any, b: any) => (a.priority || 0) - (b.priority || 0));
 
@@ -90,11 +58,16 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
     ...inputData, 
     secteur: sector || 'SERVICES', 
     regime: regime || 'REGIME_REEL',
-    date_calcul: date
+    date_calcul: date,
+    fiscal_year: currentYear,
+    total_reintegrations: 0,
+    score_initial: 100
   };
   
   let traces: RuleTrace[] = [];
+  let currentScore = 100;
 
+  // 2. Évaluation séquentielle avec gestion d'erreurs
   for (const rule of filteredRules as any[]) {
     try {
       const isMet = rule.when ? evalDSLFormula(rule.when, results) : true;
@@ -102,6 +75,11 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
       if (isMet) {
         const executedActions: string[] = [];
         
+        // Calcul du malus de score basé sur la sévérité
+        if (rule.severity === 'HIGH' || rule.severity === 'CRITIQUE') currentScore -= 15;
+        else if (rule.severity === 'MEDIUM') currentScore -= 7;
+        else currentScore -= 3;
+
         if (Array.isArray(rule.then)) {
           for (const action of rule.then) {
             const subConditionMet = action.if ? evalDSLFormula(action.if, results) : true;
@@ -116,13 +94,9 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
               }
             }
           }
-        } else if (rule.formula) { 
-          const val = evalDSLFormula(rule.formula, results);
-          results[rule.code] = val;
-          executedActions.push(`${rule.code} = ${val}`);
         }
 
-        // Génération du conseil basé sur le template
+        // Génération du conseil enrichi
         let advice = rule.message_template || "";
         if (advice) {
           Object.entries(results).forEach(([k, v]) => {
@@ -135,21 +109,25 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
           ruleName: rule.name,
           conditionMet: true,
           actionsExecuted: executedActions,
-          justification: rule.justify || "Calcul automatique par le moteur DSL.",
+          justification: rule.justify || "Conformité CIDTA.",
           advice,
           severity: rule.severity || 'LOW',
-          category: rule.category,
+          category: rule.category || 'FISCAL',
+          recommendation: rule.recommendation || "Vérifier l'imputation comptable.",
           timestamp: new Date().toISOString()
         });
       }
     } catch (e) {
-      console.error(`[Moteur DSL] Erreur sur règle ${rule.id}:`, e);
+      console.error(`[Moteur DSL] Erreur règle ${rule.id}:`, e);
     }
   }
 
-  return { results, traces };
+  return { results, traces, score: Math.max(0, currentScore) };
 }
 
+/**
+ * Évaluateur de formules DSL sécurisé.
+ */
 function evalDSLFormula(formula: string, params: Record<string, any>): any {
   try {
     let expression = formula
