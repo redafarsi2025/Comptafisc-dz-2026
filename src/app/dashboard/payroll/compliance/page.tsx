@@ -21,6 +21,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useSearchParams } from "next/navigation"
 import { PAYROLL_CONSTANTS, calculateSalaireBase } from "@/lib/calculations"
 import { toast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
 
 /**
  * @fileOverview Intelligence Déterministe RH : Audit automatique des contrats.
