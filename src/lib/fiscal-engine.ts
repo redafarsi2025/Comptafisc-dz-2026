@@ -3,9 +3,8 @@
 import { Firestore, collection, query, where, getDocs } from 'firebase/firestore';
 
 /**
- * @fileOverview Moteur Fiscal Master (Noyau v3.1 - Index Opti)
- * Implémentation d'un DSL déclaratif pour la fiscalité algérienne.
- * Correction : Filtrage et tri côté client pour éviter les erreurs d'index composite Firestore.
+ * @fileOverview Moteur Fiscal Master (Noyau v3.2 - Expert Mode)
+ * Implémentation d'un DSL déclaratif enrichi pour la fiscalité algérienne.
  */
 
 export interface FiscalContext {
@@ -22,6 +21,9 @@ export interface RuleTrace {
   conditionMet: boolean;
   actionsExecuted: string[];
   justification: string;
+  advice?: string;
+  severity?: 'LOW' | 'MEDIUM' | 'HIGH';
+  category?: string;
   timestamp: string;
 }
 
@@ -39,7 +41,6 @@ export async function resolveFiscalVariable(ctx: FiscalContext, code: string): P
     return VARIABLE_CACHE[cacheKey].value;
   }
 
-  // Requête simple sur un champ unique pour éviter les erreurs d'index
   const valueQuery = query(
     collection(db, 'fiscal_variable_values'),
     where('fiscalVariableTypeId', '==', code)
@@ -49,7 +50,6 @@ export async function resolveFiscalVariable(ctx: FiscalContext, code: string): P
   
   if (snap.empty) return 0;
 
-  // Filtrage manuel par date et tri pour éviter l'index composite
   const validDocs = snap.docs
     .map(d => d.data())
     .filter(d => d.effectiveStartDate <= date)
@@ -66,12 +66,10 @@ export async function resolveFiscalVariable(ctx: FiscalContext, code: string): P
 
 /**
  * Pipeline Master DSL : Évalue les règles en respectant l'isolation par ACTIVITÉ et CLIENT.
- * Utilise le filtrage client-side pour garantir la compatibilité sans index composite.
  */
 export async function executeFiscalPipeline(ctx: FiscalContext, category?: string, inputData: any = {}): Promise<{ results: any, traces: RuleTrace[] }> {
   const { db, date, sector, regime } = ctx;
   
-  // Requête ultra-simple pour éviter les erreurs d'index complexe
   const rulesQuery = query(
     collection(db, 'fiscal_business_rules'),
     where('active', '==', true)
@@ -79,7 +77,6 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
 
   const snap = await getDocs(rulesQuery);
   
-  // Filtrage et tri client-side
   const filteredRules = snap.docs
     .map(doc => ({ id: doc.id, ...doc.data() }))
     .filter((rule: any) => {
@@ -125,17 +122,28 @@ export async function executeFiscalPipeline(ctx: FiscalContext, category?: strin
           executedActions.push(`${rule.code} = ${val}`);
         }
 
+        // Génération du conseil basé sur le template
+        let advice = rule.message_template || "";
+        if (advice) {
+          Object.entries(results).forEach(([k, v]) => {
+            advice = advice.replace(new RegExp(`{${k}}`, 'g'), String(v));
+          });
+        }
+
         traces.push({
-          ruleCode: rule.code,
+          ruleCode: rule.id,
           ruleName: rule.name,
           conditionMet: true,
           actionsExecuted: executedActions,
           justification: rule.justify || "Calcul automatique par le moteur DSL.",
+          advice,
+          severity: rule.severity || 'LOW',
+          category: rule.category,
           timestamp: new Date().toISOString()
         });
       }
     } catch (e) {
-      console.error(`[Moteur DSL] Erreur sur règle ${rule.code}:`, e);
+      console.error(`[Moteur DSL] Erreur sur règle ${rule.id}:`, e);
     }
   }
 

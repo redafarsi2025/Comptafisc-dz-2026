@@ -120,8 +120,10 @@ export const TRANSLATIONS = {
       risk_high: "RISQUE ÉLEVÉ",
       risk_medium: "RISQUE MODÉRÉ",
       risk_low: "CONFORME",
-      recommendations: "Recommandations d'Optimisation",
+      recommendations: "Avis d'Expert Automatisés",
       audit_trace: "Justification du Moteur DSL",
+      fiscal_score: "Score de Santé Fiscale",
+      estimated_penalties: "Risque de Redressement",
     },
     Settings: {
       master_config: "Configuration Master",
@@ -264,8 +266,10 @@ export const TRANSLATIONS = {
       risk_high: "خطر مرتفع",
       risk_medium: "خطر متوسط",
       risk_low: "مطابق",
-      recommendations: "توصيات التحسين الجبائي",
+      recommendations: "توصيات خبير المحاسبة",
       audit_trace: "تبرير محرك القواعد DSL",
+      fiscal_score: "مؤشر الصحة الجبائية",
+      estimated_penalties: "مخاطر الغرامات",
     },
     Settings: {
       master_config: "الإعدادات الرئيسية",
