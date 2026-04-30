@@ -63,6 +63,13 @@ export const PLANS: PlanDefinition[] = [
           { name: 'Suivi véhicule unique', included: 'yes' },
           { name: 'Alertes maintenance', included: 'no' },
         ]
+      },
+      {
+        title: 'GESTION DES STOCKS & IMMOBILISATIONS',
+        features: [
+          { name: 'Gestion des immobilisations', included: 'no' },
+          { name: 'Gestion des stocks', included: 'no' },
+        ]
       }
     ]
   },
@@ -96,6 +103,13 @@ export const PLANS: PlanDefinition[] = [
           { name: 'Suivi multi-véhicules', included: 'yes' },
           { name: 'Carnet d\'entretien', included: 'yes' },
           { name: 'Saisie carburant', included: 'yes' },
+        ]
+      },
+      {
+        title: 'GESTION DES STOCKS & IMMOBILISATIONS',
+        features: [
+          { name: 'Gestion des immobilisations', included: 'yes' },
+          { name: 'Gestion des stocks', included: 'no' },
         ]
       }
     ]
@@ -131,6 +145,13 @@ export const PLANS: PlanDefinition[] = [
           { name: 'Rentabilité par véhicule', included: 'yes' },
           { name: 'Gestion des missions', included: 'yes' },
         ]
+      },
+      {
+        title: 'GESTION DES STOCKS & IMMOBILISATIONS',
+        features: [
+          { name: 'Gestion des immobilisations', included: 'yes' },
+          { name: 'Gestion des stocks', included: 'yes' },
+        ]
       }
     ]
   },
@@ -156,6 +177,13 @@ export const PLANS: PlanDefinition[] = [
           { name: 'Portail multi-sociétés', included: 'yes' },
           { name: 'Déclarations groupées', included: 'yes' },
           { name: 'Audit de flotte client', included: 'yes' },
+        ]
+      },
+      {
+        title: 'GESTION DES STOCKS & IMMOBILISATIONS',
+        features: [
+          { name: 'Gestion des immobilisations', included: 'yes' },
+          { name: 'Gestion des stocks', included: 'yes' },
         ]
       }
     ]

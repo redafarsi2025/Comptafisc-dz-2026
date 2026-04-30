@@ -1,0 +1,34 @@
+[
+  {
+    "id": "STK-001",
+    "name": "Matière Première A",
+    "quantity": 150,
+    "unitCost": 2500,
+    "status": "En stock",
+    "supplier": "Fournisseur X"
+  },
+  {
+    "id": "STK-002",
+    "name": "Produit Fini B",
+    "quantity": 45,
+    "unitCost": 12000,
+    "status": "Stock faible",
+    "supplier": "Fournisseur Y"
+  },
+  {
+    "id": "STK-003",
+    "name": "Emballage C",
+    "quantity": 0,
+    "unitCost": 300,
+    "status": "En rupture de stock",
+    "supplier": "Fournisseur Z"
+  },
+  {
+    "id": "STK-004",
+    "name": "Matière Première D",
+    "quantity": 80,
+    "unitCost": 5000,
+    "status": "En stock",
+    "supplier": "Fournisseur X"
+  }
+]

@@ -59,23 +59,21 @@ service cloud.firestore {
 
     // --- Tenant Multi-Tenancy Rules ---
     match /tenants/{tenantId} {
-      // For security, only allow admins to list all tenants.
-      // Clients should fetch the tenants a user has access to from the user's profile.
       allow list: if isAdmin();
-
-      // Get and Update are allowed if the user is a member of the tenant.
-      // We check membership via `resource.data` to be efficient and avoid recursion.
       allow get, update: if isSignedIn() && (isAdmin() || request.auth.uid in resource.data.members);
-      
-      // Any signed-in user can create a new tenant.
       allow create: if isSignedIn();
-
-      // Only admins can delete a tenant record.
       allow delete: if isAdmin();
 
-      // Rules for all subcollections under a tenant (e.g., assets, employees).
-      // We use the isMember function which performs a `get` on the parent tenant
-      // to verify the user's membership.
+      // Rules for new modules
+      match /assets/{assetId} {
+        allow read, write: if isMember(tenantId);
+      }
+
+      match /stocks/{stockId} {
+        allow read, write: if isMember(tenantId);
+      }
+
+      // Wildcard for all other subcollections
       match /{allSubcollections=**} {
         allow read, write: if isMember(tenantId);
       }

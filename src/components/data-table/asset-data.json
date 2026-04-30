@@ -1,0 +1,46 @@
+[
+  {
+    "id": "ACT-001",
+    "acquisitionDate": "2023-01-15",
+    "name": "Laptop Développeur",
+    "value": 250000,
+    "status": "En service",
+    "amortization": {
+      "method": "Linéaire",
+      "duration": 3
+    }
+  },
+  {
+    "id": "ACT-002",
+    "acquisitionDate": "2022-05-20",
+    "name": "Serveur de Production",
+    "value": 1200000,
+    "status": "En service",
+    "amortization": {
+      "method": "Linéaire",
+      "duration": 5
+    }
+  },
+  {
+    "id": "ACT-003",
+    "acquisitionDate": "2021-11-10",
+    "name": "Licence Logiciel CRM",
+    "value": 150000,
+    "status": "En service",
+    "amortization": {
+      "method": "Linéaire",
+      "duration": 2
+    }
+  },
+  {
+    "id": "ACT-004",
+    "acquisitionDate": "2019-02-01",
+    "name": "Véhicule de livraison",
+    "value": 3500000,
+    "status": "Amorti",
+    "amortization": {
+      "method": "Dégressif",
+      "duration": 5
+    }
+  }
+]
