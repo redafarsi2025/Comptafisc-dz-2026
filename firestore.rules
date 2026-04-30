@@ -24,7 +24,7 @@ service cloud.firestore {
     match /saas_admins/{userId} {
       allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       allow list: if isAdmin();
-      allow create: if isSignedIn() && request.auth.uid == userId; 
+      allow create: if isSignedIn() && request.auth.uid == userId;
       allow update, delete: if isAdmin();
     }
 
@@ -59,14 +59,25 @@ service cloud.firestore {
 
     // --- Tenant Multi-Tenancy Rules ---
     match /tenants/{tenantId} {
-      allow list: if isSignedIn() && (isAdmin() || resource.data.members[request.auth.uid] != null);
-      allow get: if isSignedIn() && (isAdmin() || request.auth.uid in resource.data.members);
+      // For security, only allow admins to list all tenants.
+      // Clients should fetch the tenants a user has access to from the user's profile.
+      allow list: if isAdmin();
+
+      // Get and Update are allowed if the user is a member of the tenant.
+      // We check membership via `resource.data` to be efficient and avoid recursion.
+      allow get, update: if isSignedIn() && (isAdmin() || request.auth.uid in resource.data.members);
+      
+      // Any signed-in user can create a new tenant.
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && (isAdmin() || request.auth.uid in resource.data.members);
+
+      // Only admins can delete a tenant record.
       allow delete: if isAdmin();
 
+      // Rules for all subcollections under a tenant (e.g., assets, employees).
+      // We use the isMember function which performs a `get` on the parent tenant
+      // to verify the user's membership.
       match /{allSubcollections=**} {
-        allow read, write: if isSignedIn() && (isAdmin() || request.auth.uid in get(/databases/$(database)/documents/tenants/$(tenantId)).data.members);
+        allow read, write: if isMember(tenantId);
       }
     }
   }

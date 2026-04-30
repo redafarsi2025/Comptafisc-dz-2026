@@ -191,6 +191,12 @@ export default function TenantSettingsPage() {
                       <SelectItem value="INDUSTRIE">🏭 Agroalimentaire / Industrie</SelectItem>
                       <SelectItem value="SANTE">🏥 Santé (Pharmacie/Clinique)</SelectItem>
                       <SelectItem value="SERVICES">💼 Services & Conseil</SelectItem>
+                      <SelectItem value="ASSURANCES">🛡️ Assurances</SelectItem>
+                      <SelectItem value="BANQUES">🏦 Banques</SelectItem>
+                      <SelectItem value="APC">🏛️ APC (Commune)</SelectItem>
+                      <SelectItem value="APW">🏛️ APW (Wilaya)</SelectItem>
+                      <SelectItem value="MINISTERE">🏛️ Ministère</SelectItem>
+                      <SelectItem value="ORGANISMES_PUBLICS">🏢 Organismes Publics</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
