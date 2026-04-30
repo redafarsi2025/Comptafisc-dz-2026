@@ -22,7 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 type WizardStep = 0 | 1 | 2;
 
-export default function RegisterPage() {
+function RegisterPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const auth = useAuth()
@@ -344,5 +344,13 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function RegisterPageWithSuspense() {
+  return (
+    <React.Suspense fallback={<div>Loading...</div>}>
+      <RegisterPage />
+    </React.Suspense>
   )
 }

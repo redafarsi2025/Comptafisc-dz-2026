@@ -138,7 +138,7 @@ export default function TaxeApprentissagePage() {
         <Info className="h-4 w-4 text-blue-600" />
         <AlertTitle className="text-blue-800 font-bold">Obligation Déclarative</AlertTitle>
         <AlertDescription className="text-xs text-blue-700">
-          La déclaration <strong>Annexe I</strong> doit être souscrite par tous les employeurs, même lorsqu'aucun montant n'est dû, au plus tard le <strong>20 du mois qui suit le semestre</strong>.
+          La déclaration <b>Annexe I</b> doit être souscrite par tous les employeurs, même lorsqu'aucun montant n'est dû, au plus tard le <b>20 du mois qui suit le semestre</b>.
         </AlertDescription>
       </Alert>
 
@@ -243,8 +243,14 @@ export default function TaxeApprentissagePage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="text-xs text-amber-700 leading-relaxed">
-            Le défaut de dépôt dans les délais entraîne une majoration de <strong>10%</strong> (≤ 1 mois), <strong>20%</strong> (≤ 2 mois) ou <strong>25%</strong> (> 2 mois). 
-            En l'absence de paiement, une amende forfaitaire de <strong>10 000 DA</strong> est appliquée.
+            {'Le défaut de dépôt dans les délais entraîne une majoration de '}
+            <b>10%</b>{' (≤ 1 mois), '}
+            <b>20%</b>{' (≤ 2 mois) ou '}
+            <b>25%</b>{' (> 2 mois).'}
+            <br />
+            {'En l\'absence de paiement, une amende forfaitaire de '}
+            <b>10 000 DA</b>
+            {' est appliquée.'}
           </CardContent>
         </Card>
       </div>
