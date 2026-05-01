@@ -13,12 +13,13 @@ import {
   KeyRound, Sparkles, ChevronRight, ChevronLeft, 
   CheckCircle2, Calculator, Landmark, CalendarDays, MapPin 
 } from "lucide-react"
-import { useAuth, useUser, useFirestore, initiateEmailSignUp, setDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase"
+import { useAuth, useUser, useFirestore, initiateEmailSignUp, setDocumentNonBlocking } from "@/firebase"
 import { doc, collection } from "firebase/firestore"
 import { toast } from "@/hooks/use-toast"
 import { WILAYAS } from "@/lib/wilaya-data"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { initializeClientChartOfAccounts } from "@/services/accounting/chart-of-accounts.service"
 
 type WizardStep = 0 | 1 | 2;
 
@@ -48,16 +49,12 @@ function RegisterPage() {
     debutActivite: new Date().toISOString().split('T')[0],
   })
 
-  const isDemoMode = searchParams.get('demo') === 'true';
-
   // Finalize Onboarding once user is created
   React.useEffect(() => {
     const finalizeOnboarding = async () => {
-      // Verrouillage pour éviter les exécutions multiples lors de la navigation
       if (user && !isUserLoading && !user.isAnonymous && !isFinishing && step === 2) {
         setIsFinishing(true);
         try {
-          // 1. Profil Utilisateur (Non-bloquant)
           const profileRef = doc(db, "userProfiles", user.uid);
           setDocumentNonBlocking(profileRef, {
             id: user.uid,
@@ -68,7 +65,6 @@ function RegisterPage() {
             updatedAt: new Date().toISOString(),
           }, { merge: true });
 
-          // 2. Pré-génération de l'ID Dossier pour navigation immédiate
           const tenantRef = collection(db, "tenants");
           const newTenantRef = doc(tenantRef);
           const tenantId = newTenantRef.id;
@@ -91,16 +87,20 @@ function RegisterPage() {
             assujettissementTva: formData.regimeFiscal === 'REGIME_REEL',
           };
 
-          // 3. Écriture Firestore (Non-bloquante)
           setDocumentNonBlocking(newTenantRef, tenantData, { merge: true });
-          
+
+          // NOUVEAU : Initialisation non-bloquante du plan comptable
+          initializeClientChartOfAccounts(db, tenantId, 'SERVICES', false)
+            .then(count => console.log(`${count} comptes initialisés en arrière-plan pour ${tenantId}`))
+            .catch(error => console.error("Erreur d'initialisation du plan comptable:", error));
+
           toast({
             title: "Dossier initialisé",
             description: `Bienvenue, ${formData.raisonSociale} est maintenant en ligne.`,
           });
 
-          // 4. Redirection IMMÉDIATE (Navigation Optimiste)
           router.push(`/dashboard?tenantId=${tenantId}`);
+          
         } catch (e) {
           console.error("Onboarding error:", e);
           setIsFinishing(false);
@@ -137,7 +137,6 @@ function RegisterPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Appel non-bloquant vers Firebase Auth
     initiateEmailSignUp(auth, formData.email, formData.password);
   };
 

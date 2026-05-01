@@ -14,25 +14,37 @@ service cloud.firestore {
       return isSignedIn() && (isAdmin() || request.auth.uid in get(/databases/$(database)/documents/tenants/$(tenantId)).data.members);
     }
 
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
     // --- User Profiles ---
     match /userProfiles/{userId} {
-      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow read, write: if isSignedIn() && (isOwner(userId) || isAdmin());
     }
 
     // --- SaaS Admin Records ---
     match /saas_admins/{userId} {
-      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
       allow list: if isAdmin();
-      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow create: if isSignedIn() && isOwner(userId);
       allow update, delete: if isAdmin();
     }
 
     // --- Subscription Requests ---
     match /subscription_requests/{requestId} {
-      allow read: if isSignedIn();
+      allow read: if isAdmin() || isOwner(get(/databases/$(database)/documents/subscription_requests/$(requestId)).data.userId);
+      allow list: if isAdmin() || (isSignedIn() && request.query.where.userId == request.auth.uid);
       allow create: if isSignedIn();
       allow update, delete: if isAdmin();
+    }
+    
+    // --- Support Tickets ---
+    match /support_tickets/{ticketId} {
+      allow create: if isSignedIn();
+      allow read, update: if isAdmin() || isOwner(resource.data.userId);
+      allow list: if isAdmin() || (isSignedIn() && request.query.where.userId == request.auth.uid);
+      allow delete: if isAdmin();
     }
 
     // --- System Config ---
@@ -41,13 +53,8 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // --- Customs Tariffs ---
-    match /customs_tariffs/{code} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    // --- DGI Publications ---
+    // --- DGI, Customs, etc. (Admin-only) ---
+    match /customs_tariffs/{code} { allow read: if isSignedIn(); allow write: if isAdmin(); }
     match /dgi_publications/{pubId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
     match /dgi_templates/{templateId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
     match /fiscal_laws/{lawId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
@@ -55,23 +62,13 @@ service cloud.firestore {
     match /fiscal_variable_values/{valId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
     match /fiscal_business_rules/{ruleId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
     match /plans/{planId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
-    match /support_tickets/{ticketId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
 
     // --- Tenant Multi-Tenancy Rules ---
     match /tenants/{tenantId} {
       allow list: if isAdmin();
-      allow get, update: if isSignedIn() && (isAdmin() || request.auth.uid in resource.data.members);
+      allow get, update: if isMember(tenantId);
       allow create: if isSignedIn();
       allow delete: if isAdmin();
-
-      // Rules for new modules
-      match /assets/{assetId} {
-        allow read, write: if isMember(tenantId);
-      }
-
-      match /stocks/{stockId} {
-        allow read, write: if isMember(tenantId);
-      }
 
       // Wildcard for all other subcollections
       match /{allSubcollections=**} {

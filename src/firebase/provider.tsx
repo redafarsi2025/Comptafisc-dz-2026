@@ -2,11 +2,11 @@
 
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore } from 'firebase/firestore';
+import { Firestore, enableIndexedDbPersistence, initializeFirestore, CACHE_SIZE_UNLIMITED } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
 import { FirebaseStorage } from 'firebase/storage';
-import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
-import { AuthErrorListener } from '@/components/AuthErrorListener'
+import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
+import { AuthErrorListener } from '@/components/AuthErrorListener';
 
 interface FirebaseProviderProps {
   children: ReactNode;
@@ -63,6 +63,22 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     isUserLoading: true,
     userError: null,
   });
+
+  useEffect(() => {
+    if (firestore) {
+      enableIndexedDbPersistence(firestore, {
+        cacheSizeBytes: CACHE_SIZE_UNLIMITED,
+      })
+      .then(() => console.log("Firestore persistence enabled"))
+      .catch((err) => {
+        if (err.code == 'failed-precondition') {
+          console.warn("Firestore persistence failed: Multiple tabs open?");
+        } else if (err.code == 'unimplemented') {
+          console.log("Firestore persistence not available in this browser");
+        }
+      });
+    }
+  }, [firestore]);
 
   useEffect(() => {
     if (!auth) {

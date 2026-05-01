@@ -14,7 +14,7 @@ import {
   Truck, Save, ChevronLeft, Loader2, 
   Settings, Gauge, ShieldCheck, User,
   CalendarDays, Zap, Info, AlertTriangle,
-  Database, Fingerprint, Banknote, Calculator, Droplets
+  Database, Fingerprint, Banknote, Calculator, Droplets, FolderSearch
 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "@/hooks/use-toast"
@@ -43,10 +43,9 @@ export default function ManageVehiclePage() {
     status: "ACTIVE",
     health: 100,
     currentOdometer: 0,
-    recommendedConsumption: 0, // Nouveau champ : Recommandation constructeur
+    recommendedConsumption: 0,
     driverName: "",
     notes: "",
-    // Financial fields for Asset Registry
     acquisitionValue: 0,
     acquisitionDate: new Date().toISOString().split('T')[0],
     amortizationRate: 20,
@@ -55,13 +54,11 @@ export default function ManageVehiclePage() {
 
   React.useEffect(() => { setMounted(true) }, [])
 
-  // Charger les données si on est en mode édition
   const vehicleRef = useMemoFirebase(() => 
     (db && tenantId && vehicleId) ? doc(db, "tenants", tenantId, "vehicles", vehicleId) : null
   , [db, tenantId, vehicleId]);
   const { data: existingVehicle, isLoading: isVehicleLoading } = useDoc(vehicleRef);
 
-  // Charger l'axe analytique VEH pour la synchronisation
   const axesQuery = useMemoFirebase(() => 
     (db && tenantId) ? query(collection(db, "tenants", tenantId, "axesAnalytiques"), where("code", "==", "VEH"), limit(1)) : null
   , [db, tenantId]);
@@ -106,21 +103,18 @@ export default function ManageVehiclePage() {
       let finalVehicleId = vehicleId;
       let finalAssetId = formData.assetId;
 
-      // 1. GESTION DE L'ACTIF (COMPTABILITÉ CLASSE 2)
       if (syncWithAssets && formData.acquisitionValue > 0) {
         if (finalAssetId) {
-          // Update existing asset
           await updateDocumentNonBlocking(doc(assetsColRef, finalAssetId), {
             designation: formData.name,
             code: formData.plate,
             acquisitionValue: formData.acquisitionValue,
             acquisitionDate: formData.acquisitionDate,
             amortizationRate: formData.amortizationRate,
-            category: "2182", // Matériel de transport
+            category: "2182", 
             updatedAt: new Date().toISOString()
           });
         } else {
-          // Create new asset
           const assetDocRef = await addDocumentNonBlocking(assetsColRef, {
             designation: formData.name,
             code: formData.plate,
@@ -139,7 +133,6 @@ export default function ManageVehiclePage() {
         }
       }
 
-      // 2. SAUVEGARDE DU VÉHICULE
       const vehicleData = {
         ...formData,
         assetId: finalAssetId,
@@ -158,7 +151,6 @@ export default function ManageVehiclePage() {
         finalVehicleId = vDocRef?.id;
       }
 
-      // 3. SYNCHRONISATION ANALYTIQUE (AXE VEH)
       if (axes && axes.length > 0 && (finalVehicleId || vehicleId)) {
         const axeVEH = axes[0];
         const existingSectionQuery = query(sectionsColRef, where("code", "==", formData.plate), where("axeId", "==", axeVEH.id));
@@ -193,7 +185,20 @@ export default function ManageVehiclePage() {
     }
   };
 
-  if (!mounted || isVehicleLoading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary h-10 w-10" /></div>
+  if (!mounted || isVehicleLoading) {
+      return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary h-10 w-10" /></div>
+  }
+
+  // GESTION DU TENANTID MANQUANT
+  if (!tenantId) {
+    return (
+      <div className="text-center py-20">
+        <FolderSearch className="mx-auto h-16 w-16 text-slate-300" />
+        <h2 className="mt-4 text-xl font-bold">Aucun dossier sélectionné</h2>
+        <p className="mt-2 text-sm text-muted-foreground">Veuillez sélectionner un dossier dans le menu principal pour accéder à ce module.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-20">
@@ -292,7 +297,6 @@ export default function ManageVehiclePage() {
             </CardContent>
           </Card>
 
-          {/* VOLET FINANCIER SCF */}
           <Card className="shadow-xl border-none ring-1 ring-border rounded-2xl overflow-hidden bg-white">
             <CardHeader className="bg-primary/5 border-b border-primary/10 flex flex-row items-center justify-between">
               <div>

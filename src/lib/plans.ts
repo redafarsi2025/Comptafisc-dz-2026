@@ -68,7 +68,7 @@ export const PLANS: PlanDefinition[] = [
         title: 'GESTION DES STOCKS & IMMOBILISATIONS',
         features: [
           { name: 'Gestion des immobilisations', included: 'no' },
-          { name: 'Gestion des stocks', included: 'no' },
+          { name: 'Gestion des stocks', included: 'yes' },
         ]
       }
     ]
@@ -108,8 +108,8 @@ export const PLANS: PlanDefinition[] = [
       {
         title: 'GESTION DES STOCKS & IMMOBILISATIONS',
         features: [
-          { name: 'Gestion des immobilisations', included: 'yes' },
-          { name: 'Gestion des stocks', included: 'no' },
+          { name: 'Gestion des immobilisations', included: 'no' },
+          { name: 'Gestion des stocks', included: 'yes' },
         ]
       }
     ]
@@ -190,7 +190,7 @@ export const PLANS: PlanDefinition[] = [
   }
 ];
 
-export interface AddonService {
+export interface PremiumAddon {
   id: string;
   name: string;
   price: number;
@@ -198,7 +198,7 @@ export interface AddonService {
   icon: string;
 }
 
-export const PREMIUM_ADDONS: AddonService[] = [
+export const PREMIUM_ADDONS: PremiumAddon[] = [
   {
     id: 'OCR_UNLIMITED',
     name: 'OCR Vision Illimité',
@@ -226,5 +226,19 @@ export const PREMIUM_ADDONS: AddonService[] = [
     price: 3500,
     description: 'Analyses prospectives et simulations d\'optimisation IBS.',
     icon: 'Brain'
+  },
+  {
+    id: 'INVENTORY_MANAGEMENT',
+    name: 'Module Gestion de Stock',
+    price: 1800,
+    description: 'Suivi des entrées/sorties, valorisation et inventaire en temps réel.',
+    icon: 'Boxes'
+  },
+  {
+    id: 'ASSET_MANAGEMENT',
+    name: 'Module Immobilisations',
+    price: 1200,
+    description: 'Amortissements, suivi des cessions et fiches d\'immobilisation détaillées.',
+    icon: 'Package'
   }
 ];

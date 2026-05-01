@@ -9,12 +9,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Trash2, Edit2, Building2, ShieldCheck, Loader2, Calendar, User, MapPin, Fingerprint, Receipt, Truck } from "lucide-react"
+import { Plus, Trash2, Edit2, Building2, ShieldCheck, Loader2, Calendar, User, MapPin, Fingerprint, Receipt, Truck, Lock, ArrowUpCircle } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
 import { useSearchParams } from "next/navigation"
+import Link from "next/link"
 
 const ASSET_CATEGORIES = [
   { id: '204', name: 'Logiciels & Brevets', rate: 20 },
@@ -25,6 +26,24 @@ const ASSET_CATEGORIES = [
   { id: '2183', name: 'Matériel de Bureau', rate: 15 },
   { id: '2184', name: 'Mobilier de Bureau', rate: 10 },
 ]
+
+const UpgradeCard = ({ tenantId }: { tenantId: string }) => (
+  <div className="flex flex-col items-center justify-center h-[70vh] bg-slate-50 rounded-2xl border border-dashed">
+    <div className="text-center p-8 bg-white rounded-2xl shadow-xl max-w-lg mx-auto border">
+        <Lock className="mx-auto h-12 w-12 text-primary opacity-20" />
+        <h2 className="mt-6 text-2xl font-black text-primary tracking-tighter">Module Immobilisations PRO</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Cette fonctionnalité est réservée aux abonnés des plans <strong>PRO</strong> et <strong>CABINET</strong>. 
+          Passez au niveau supérieur pour un suivi expert de vos actifs et amortissements.
+        </p>
+        <Button asChild className="mt-6 font-bold shadow-lg">
+          <Link href={`/dashboard/settings?tenantId=${tenantId}#subscription`}>
+            <ArrowUpCircle className="mr-2 h-4 w-4" /> Mettre à niveau
+          </Link>
+        </Button>
+    </div>
+  </div>
+)
 
 export default function AssetsPage() {
   const db = useFirestore()
@@ -81,6 +100,10 @@ export default function AssetsPage() {
     return collection(db, "tenants", currentTenant.id, "assets");
   }, [db, currentTenant?.id]);
   const { data: assets, isLoading } = useCollection(assetsQuery);
+
+  // PAYWALL LOGIC
+  const authorizedPlans = ['PRO', 'CABINET'];
+  const hasAccess = currentTenant && authorizedPlans.includes(currentTenant.planId);
 
   const calculateAmort = (asset: any) => {
     if (!mounted) return { annualDotation: 0, cumul: 0, vnc: asset.acquisitionValue };
@@ -159,7 +182,11 @@ export default function AssetsPage() {
     });
   }
 
-  if (!mounted) return null;
+  if (!mounted || !currentTenant) return <div className="flex justify-center items-center h-[70vh]"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
+
+  if (!hasAccess) {
+    return <UpgradeCard tenantId={currentTenant.id} />;
+  }
 
   return (
     <div className="space-y-6">

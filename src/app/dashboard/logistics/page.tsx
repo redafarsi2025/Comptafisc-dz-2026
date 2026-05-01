@@ -14,7 +14,7 @@ import { Progress } from "@/components/ui/progress"
 import { 
   Truck, Fuel, Settings, AlertTriangle, 
   TrendingUp, TrendingDown, MapPin, Calendar, 
-  Gauge, Activity, Loader2, Plus, ArrowRight, ShieldCheck, Edit3
+  Gauge, Activity, Loader2, Plus, ArrowRight, ShieldCheck, Edit3, FolderSearch
 } from "lucide-react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
@@ -29,13 +29,11 @@ export default function LogisticsDashboard() {
 
   React.useEffect(() => { setMounted(true) }, [])
 
-  // Charger les véhicules réels depuis Firestore
   const vehiclesQuery = useMemoFirebase(() => 
     (db && tenantId) ? query(collection(db, "tenants", tenantId, "vehicles"), orderBy("updatedAt", "desc")) : null
   , [db, tenantId]);
   const { data: vehicles, isLoading } = useCollection(vehiclesQuery);
 
-  // ANALYTIQUE : Charger les dépenses par véhicule (Axe VEH)
   const entriesQuery = useMemoFirebase(() => 
     (db && tenantId) ? collection(db, "tenants", tenantId, "ecrituresAnalytiques") : null
   , [db, tenantId]);
@@ -52,6 +50,17 @@ export default function LogisticsDashboard() {
   }, [vehicles]);
 
   if (!mounted) return null;
+
+  // GESTION DU TENANTID MANQUANT
+  if (!tenantId) {
+    return (
+      <div className="text-center py-20">
+        <FolderSearch className="mx-auto h-16 w-16 text-slate-300" />
+        <h2 className="mt-4 text-xl font-bold">Aucun dossier sélectionné</h2>
+        <p className="mt-2 text-sm text-muted-foreground">Veuillez sélectionner un dossier dans le menu principal pour afficher le tableau de bord logistique.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 pb-20">

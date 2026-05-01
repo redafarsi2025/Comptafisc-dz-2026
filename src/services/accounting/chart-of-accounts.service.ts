@@ -5,24 +5,32 @@ import { getCompletePlanForSector, AccountTemplateLine } from '@/lib/scf-templat
 
 /**
  * Service de gestion du Plan Comptable Client.
- * Initialise le plan bilingue en fonction du secteur d'activité.
+ * Initialise ou réinitialise le plan bilingue en fonction du secteur d'activité.
+ * @param force - Si true, supprime tous les comptes existants avant de réinitialiser.
  */
-export async function initializeClientChartOfAccounts(db: Firestore, tenantId: string, sector: string) {
+export async function initializeClientChartOfAccounts(db: Firestore, tenantId: string, sector: string, force: boolean = false) {
   const accountsRef = collection(db, "tenants", tenantId, "accounts");
-  
-  // 1. Vérifier si le plan existe déjà
-  const existingSnap = await getDocs(query(accountsRef, where("isActive", "==", true)));
-  if (!existingSnap.empty) {
-    throw new Error("Le plan comptable est déjà initialisé pour ce dossier.");
+  const existingSnap = await getDocs(accountsRef);
+
+  // Si l'option force est activée, supprimer tous les comptes existants.
+  if (force && !existingSnap.empty) {
+    const deleteBatch = writeBatch(db);
+    existingSnap.docs.forEach(doc => {
+      deleteBatch.delete(doc.ref);
+    });
+    await deleteBatch.commit();
+  } else if (!existingSnap.empty) {
+    // Comportement par défaut : refuser si le plan existe déjà et que force n'est pas activé.
+    throw new Error("Le plan comptable est déjà initialisé. Utilisez l'option de forçage pour écraser.");
   }
 
-  const batch = writeBatch(db);
+  // Procéder à l'initialisation
+  const initBatch = writeBatch(db);
   const plan = getCompletePlanForSector(sector);
 
-  // 2. Cloner le modèle vers l'instance client (Bilingue)
   plan.forEach((acc) => {
     const newAccRef = doc(accountsRef);
-    batch.set(newAccRef, {
+    initBatch.set(newAccRef, {
       accountNumber: acc.number,
       label: acc.label,
       labelAr: acc.labelAr,
@@ -35,7 +43,7 @@ export async function initializeClientChartOfAccounts(db: Firestore, tenantId: s
     });
   });
 
-  await batch.commit();
+  await initBatch.commit();
   return plan.length;
 }
 

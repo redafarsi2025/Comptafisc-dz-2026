@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { 
   Library, Plus, Search, Loader2, 
   ShieldCheck, Sparkles, DatabaseZap,
-  Landmark, ChevronRight, Languages, RefreshCcw
+  Landmark, ChevronRight, Languages, RefreshCcw, AlertTriangle
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useSearchParams } from "next/navigation"
@@ -36,11 +36,9 @@ export default function ChartOfAccountsPage() {
 
   React.useEffect(() => { setMounted(true) }, [])
 
-  // Profil du Tenant pour connaître le secteur
   const tenantRef = useMemoFirebase(() => (db && tenantId) ? doc(db, "tenants", tenantId) : null, [db, tenantId]);
   const { data: tenant } = useDoc(tenantRef);
 
-  // Plan comptable réel du client
   const accountsQuery = useMemoFirebase(() => 
     (db && tenantId) ? query(collection(db, "tenants", tenantId, "accounts"), orderBy("accountNumber", "asc")) : null
   , [db, tenantId]);
@@ -55,19 +53,31 @@ export default function ChartOfAccountsPage() {
     );
   }, [accounts, searchTerm]);
 
-  const handleInitialize = async () => {
-    if (!db || !tenantId || !tenant?.secteurActivite) return;
+  const handleInitialize = async (force = false) => {
+    if (!db || !tenantId || !tenant?.secteurActivite) {
+      toast({ variant: "destructive", title: "Données manquantes", description: "Le secteur d'activité n'est pas chargé. Patientez et réessayez." });
+      return;
+    }
+
+    if (force) {
+      const confirmation = window.confirm("Êtes-vous sûr de vouloir réinitialiser le plan comptable ?\nTous les comptes existants, y compris les comptes personnalisés, seront supprimés et remplacés par le pack standard de votre secteur.");
+      if (!confirmation) return;
+    }
+
     setIsInitializing(true);
     try {
-      const count = await initializeClientChartOfAccounts(db, tenantId, tenant.secteurActivite);
-      toast({ title: "Plan activé", description: `${count} comptes SCF initialisés pour le secteur ${tenant.secteurActivite}.` });
+      const count = await initializeClientChartOfAccounts(db, tenantId, tenant.secteurActivite, force);
+      toast({
+        title: force ? "Plan Comptable Réinitialisé" : "Plan Comptable Initialisé",
+        description: `${count} comptes SCF ont été déployés pour le secteur ${tenant.secteurActivite}.`
+      });
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Erreur", description: e.message });
+      toast({ variant: "destructive", title: "Erreur d'initialisation", description: e.message });
     } finally {
       setIsInitializing(false);
     }
   };
-
+  
   const handleResetTranslations = async () => {
     if (!db || !tenantId || !tenant?.secteurActivite) return;
     setIsResetting(true);
@@ -86,41 +96,35 @@ export default function ChartOfAccountsPage() {
 
   if (!mounted) return null;
 
+  const hasAccounts = accounts && accounts.length > 0;
+
   return (
     <div className="space-y-8 pb-20">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
         <div>
           <h1 className="text-3xl font-black text-primary flex items-center gap-3 tracking-tighter uppercase">
             <Library className="text-accent h-8 w-8" /> Plan Comptable (PCE)
           </h1>
           <p className="text-muted-foreground font-medium uppercase text-[10px] tracking-widest mt-1">Nomenclature personnalisée conforme au SCF algérien</p>
         </div>
-        <div className="flex gap-2">
-          {accounts?.length === 0 && !isLoading ? (
+        <div className="flex flex-col md:flex-row items-end md:items-center gap-2">
+          {!hasAccounts && !isLoading && (
             <Button 
-              onClick={handleInitialize} 
-              disabled={isInitializing}
-              className="bg-accent text-primary font-black uppercase text-[10px] tracking-widest h-11 px-8 rounded-2xl shadow-lg"
+              onClick={() => handleInitialize(false)} 
+              disabled={isInitializing || !tenant} // CORRECTIF : Désactivé si le tenant n'est pas chargé
+              className="bg-accent text-primary font-black uppercase text-[10px] tracking-widest h-11 px-8 rounded-2xl shadow-lg animate-pulse"
             >
               {isInitializing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-              Initialiser Pack {tenant?.secteurActivite || "SERVICES"}
-            </Button>
-          ) : (
-            <Button 
-              variant="outline"
-              onClick={handleResetTranslations} 
-              disabled={isResetting || isLoading}
-              className="border-primary text-primary font-black uppercase text-[10px] tracking-widest h-11 px-8 rounded-2xl shadow-sm"
-            >
-              {isResetting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCcw className="h-4 w-4 mr-2" />}
-              Réinitialiser Libellés (Bilingue)
+              Activer le Pack {tenant?.secteurActivite || "..."}
             </Button>
           )}
-          <Button className="bg-primary shadow-xl h-11 px-8 rounded-xl font-bold text-[10px] uppercase tracking-widest">
+           <Button className="bg-primary shadow-xl h-11 px-8 rounded-xl font-bold text-[10px] uppercase tracking-widest">
             <Plus className="mr-2 h-4 w-4" /> Nouveau Compte
           </Button>
         </div>
       </div>
+
+      {/* ... (Le reste du code de la page reste identique) ... */}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="border-none shadow-xl ring-1 ring-border bg-white border-l-4 border-l-primary">
@@ -216,6 +220,46 @@ export default function ChartOfAccountsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {hasAccounts && (
+        <div className="p-6 bg-slate-100 rounded-3xl mt-12">
+          <h3 className="text-xs font-bold uppercase text-slate-500 mb-4">Actions Avancées</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 bg-white rounded-xl border">
+                  <div className="flex items-center gap-3">
+                      <RefreshCcw className="h-5 w-5 text-primary" />
+                      <h4 className="font-bold">Mise à jour des Libellés</h4>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1 mb-3">Réinitialise les noms des comptes standards (Fr/Ar) sans affecter vos comptes personnalisés.</p>
+                  <Button 
+                    variant="outline"
+                    size="sm"
+                    onClick={handleResetTranslations} 
+                    disabled={isResetting || isLoading}
+                  >
+                    {isResetting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Languages className="h-3 w-3 mr-2" />}
+                    Lancer la synchronisation
+                  </Button>
+              </div>
+              <div className="p-4 bg-white rounded-xl border border-red-200">
+                  <div className="flex items-center gap-3">
+                      <AlertTriangle className="h-5 w-5 text-red-500" />
+                      <h4 className="font-bold">Réinitialisation Complète</h4>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1 mb-3">Supprime TOUS les comptes et déploie une version neuve du pack comptable de votre secteur.</p>
+                  <Button 
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleInitialize(true)} 
+                    disabled={isInitializing || isLoading}
+                  >
+                    {isInitializing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <DatabaseZap className="h-3 w-3 mr-2" />}
+                    Réinitialiser le Plan Comptable
+                  </Button>
+              </div>
+          </div>
+        </div>
+      )}
 
       <div className="p-6 bg-slate-900 text-white rounded-3xl flex items-start gap-4 shadow-xl">
         <DatabaseZap className="h-6 w-6 text-accent shrink-0 mt-1" />

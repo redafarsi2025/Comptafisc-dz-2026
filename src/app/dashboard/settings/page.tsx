@@ -2,23 +2,31 @@
 
 import * as React from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { useFirestore, useUser, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase'
+import { useFirestore, useUser, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase'
 import { collection, query, where, doc } from 'firebase/firestore'
 import { WILAYAS } from '@/lib/wilaya-data'
 import { 
-  Building2, Save, ShieldCheck, Loader2, Info, Landmark, Zap, Briefcase, GraduationCap, Gavel, Truck, FlaskConical
+  Building2, Save, ShieldCheck, Loader2, Info, Landmark, Zap, Briefcase, GraduationCap, Gavel, Truck, FlaskConical,
+  Star, CheckCircle, ArrowRight, PlusCircle, XCircle, AlertTriangle, Crown, FolderSearch
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { useSearchParams } from 'next/navigation'
 import { useLocale } from '@/context/LocaleContext'
 import { cn } from '@/lib/utils'
+import { PlanDefinition, PLANS, PREMIUM_ADDONS, PremiumAddon } from '@/lib/plans';
+
+const FeatureIcon = ({ included }: { included: 'yes' | 'no' | 'limited' }) => {
+  if (included === 'yes') return <CheckCircle className="h-5 w-5 text-green-500" />
+  if (included === 'no') return <XCircle className="h-5 w-5 text-red-400" />
+  return <AlertTriangle className="h-5 w-5 text-yellow-500" />
+}
 
 export default function TenantSettingsPage() {
   const db = useFirestore()
@@ -28,6 +36,7 @@ export default function TenantSettingsPage() {
   const tenantIdFromUrl = searchParams.get('tenantId')
   const [isSaving, setIsSaving] = React.useState(false)
   const [isDirty, setIsDirty] = React.useState(false)
+  const [submittingId, setSubmittingId] = React.useState<string | null>(null);
 
   const tenantsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -38,7 +47,10 @@ export default function TenantSettingsPage() {
   
   const currentTenant = React.useMemo(() => {
     if (!tenants || tenants.length === 0) return null;
-    if (tenantIdFromUrl) return tenants.find(t => t.id === tenantIdFromUrl) || tenants[0];
+    if (tenantIdFromUrl) {
+        const tenant = tenants.find(t => t.id === tenantIdFromUrl);
+        return tenant;
+    }
     return tenants[0];
   }, [tenants, tenantIdFromUrl]);
 
@@ -51,7 +63,12 @@ export default function TenantSettingsPage() {
     }
   }, [currentTenant])
 
+  const memberInfo = currentTenant?.members?.[user?.uid];
+  const userRole = (typeof memberInfo === 'object' && memberInfo !== null) ? memberInfo.role : memberInfo;
+  const canManageSettings = userRole === 'owner' || userRole === 'admin';
+
   const handleUpdate = (path: string, value: any) => {
+    if (!canManageSettings) return;
     const keys = path.split('.')
     setFormData((prev: any) => {
       const newData = { ...prev }
@@ -67,7 +84,7 @@ export default function TenantSettingsPage() {
   }
 
   const handleSave = async () => {
-    if (!db || !currentTenant) return
+    if (!db || !currentTenant || !canManageSettings) return;
     setIsSaving(true)
     try {
       await updateDocumentNonBlocking(doc(db, 'tenants', currentTenant.id), {
@@ -79,199 +96,248 @@ export default function TenantSettingsPage() {
     } finally { setIsSaving(false); }
   }
 
+  const handlePlanChangeRequest = async (planId: PlanDefinition['id']) => {
+    if (!db || !user || !currentTenant) return;
+    setSubmittingId(planId);
+    try {
+      await addDocumentNonBlocking(collection(db, 'subscription_requests'), {
+        tenantId: currentTenant.id,
+        requestedPlanId: planId,
+        currentPlanId: currentTenant.planId || 'GRATUIT',
+        userId: user.uid,
+        userEmail: user.email,
+        status: 'PENDING',
+        createdAt: new Date().toISOString(),
+        type: 'PLAN_UPGRADE'
+      });
+      toast({ title: "Demande Envoyée", description: "Votre demande de changement de plan a été envoyée." });
+    } catch (error) {
+      toast({ title: "Erreur", variant: 'destructive' });
+    } finally { setSubmittingId(null); }
+  };
+
+  const handleAddonRequest = async (addon: PremiumAddon) => {
+    if (!db || !user || !currentTenant) return;
+    setSubmittingId(addon.id);
+    try {
+      await addDocumentNonBlocking(collection(db, 'subscription_requests'), {
+        tenantId: currentTenant.id,
+        requestedAddonId: addon.id,
+        requestedAddonName: addon.name,
+        currentPlanId: currentTenant.planId || 'GRATUIT',
+        userId: user.uid,
+        userEmail: user.email,
+        status: 'PENDING',
+        createdAt: new Date().toISOString(),
+        type: 'ADDON_PURCHASE'
+      });
+      toast({ title: "Demande de Module Envoyée", description: `Votre demande pour le module "${addon.name}" a été envoyée.` });
+    } catch (error) {
+      toast({ title: "Erreur", variant: 'destructive' });
+    } finally { setSubmittingId(null); }
+  };
+
   if (isTenantsLoading) return <div className='flex items-center justify-center h-full'><Loader2 className='animate-spin h-8 w-8 text-primary' /></div>
 
+  if (!currentTenant && tenantIdFromUrl) {
+    return (
+      <div className="text-center py-20">
+        <FolderSearch className="mx-auto h-16 w-16 text-slate-300" />
+        <h2 className="mt-4 text-xl font-bold">Dossier non trouvé ou inaccessible</h2>
+        <p className="mt-2 text-sm text-muted-foreground">Vérifiez que vous êtes bien membre de ce dossier.</p>
+      </div>
+    );
+  }
+  
+  const currentPlanId = currentTenant?.planId || 'GRATUIT';
+
   return (
-    <div className='max-w-5xl mx-auto space-y-6 pb-20' dir={isRtl ? 'rtl' : 'ltr'}>
+    <div className='max-w-7xl mx-auto space-y-6 pb-20' dir={isRtl ? 'rtl' : 'ltr'}>
       <div className='flex flex-col md:flex-row md:items-center justify-between gap-4'>
         <div className='flex flex-col gap-1 text-start'>
           <h1 className='text-3xl font-black text-primary flex items-center gap-2 uppercase tracking-tighter'>
             {t.Settings.master_config}
           </h1>
-          <p className='text-muted-foreground font-medium uppercase text-[10px] tracking-widest'>{t.Settings.governance}</p>
+          <p className='text-muted-foreground font-medium uppercase text-[10px] tracking-widest'>{currentTenant?.raisonSociale || t.Settings.governance}</p>
         </div>
-        <Button onClick={handleSave} disabled={isSaving || !isDirty} className='shadow-xl bg-primary h-11 px-8 rounded-xl font-bold'>
-          {isSaving ? <Loader2 className={cn(isRtl ? 'ms-2' : 'me-2', 'h-4 w-4 animate-spin')} /> : <Save className={cn(isRtl ? 'ms-2' : 'me-2', 'h-4 w-4')} />}
-          {t.Common.save}
-        </Button>
+        {canManageSettings && (
+          <Button onClick={handleSave} disabled={isSaving || !isDirty} className='shadow-xl bg-primary h-11 px-8 rounded-xl font-bold'>
+            {isSaving ? <Loader2 className={cn(isRtl ? 'ms-2' : 'me-2', 'h-4 w-4 animate-spin')} /> : <Save className={cn(isRtl ? 'ms-2' : 'me-2', 'h-4 w-4')} />}
+            {t.Common.save}
+          </Button>
+        )}
       </div>
 
-      <Tabs defaultValue='identification' className='w-full'>
-        <TabsList className='grid w-full grid-cols-4 h-auto p-1 bg-muted/50 rounded-2xl'>
-          <TabsTrigger value='identification' className='py-3 text-xs font-bold rounded-xl'>{t.Settings.legal_id}</TabsTrigger>
-          <TabsTrigger value='fiscal' className='py-3 text-xs font-bold rounded-xl'>{t.Settings.fiscal_profile}</TabsTrigger>
-          <TabsTrigger value='expert' className='py-3 text-xs font-bold rounded-xl'>Modules Secteurs</TabsTrigger>
-          <TabsTrigger value='social' className='py-3 text-xs font-bold rounded-xl'>Social & RH</TabsTrigger>
+      <Tabs defaultValue={canManageSettings ? 'identification' : 'subscription'} className='w-full'>
+        <TabsList className={cn('grid w-full h-auto p-1 bg-muted/50 rounded-2xl', canManageSettings ? 'grid-cols-5' : 'grid-cols-1')}>
+          {canManageSettings && <TabsTrigger value='identification' className='py-3 text-xs font-bold rounded-xl'>{t.Settings.legal_id}</TabsTrigger>}
+          {canManageSettings && <TabsTrigger value='fiscal' className='py-3 text-xs font-bold rounded-xl'>{t.Settings.fiscal_profile}</TabsTrigger>}
+          {canManageSettings && <TabsTrigger value='expert' className='py-3 text-xs font-bold rounded-xl'>Modules Secteurs</TabsTrigger>}
+          {canManageSettings && <TabsTrigger value='social' className='py-3 text-xs font-bold rounded-xl'>Social & RH</TabsTrigger>}
+          <TabsTrigger value='subscription' className='py-3 text-xs font-bold rounded-xl'>Abonnement</TabsTrigger>
         </TabsList>
 
-        <TabsContent value='identification' className='mt-6 space-y-6'>
-          <Card className='border-none shadow-xl ring-1 ring-border rounded-2xl overflow-hidden'>
-            <CardHeader className='bg-slate-50 border-b border-slate-100 text-start'>
-              <CardTitle className='text-sm font-black uppercase tracking-widest flex items-center gap-2'>
-                <Building2 className='h-4 w-4 text-primary' /> {t.Settings.legal_id}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className='grid md:grid-cols-2 gap-8 pt-6'>
-              <div className='space-y-4'>
-                <div className='space-y-2 text-start'>
-                  <Label className='text-[10px] font-black uppercase text-slate-400 px-1'>{t.Settings.raison_sociale}</Label>
-                  <Input value={formData.raisonSociale || ''} onChange={(e) => handleUpdate('raisonSociale', e.target.value)} className='h-11 rounded-xl' />
-                </div>
-                <div className='grid grid-cols-2 gap-4'>
-                  <div className='space-y-2 text-start'>
-                    <Label className='text-[10px] font-black uppercase text-slate-400 px-1'>{t.Settings.forme_juridique}</Label>
-                    <Select value={formData.formeJuridique || 'SARL'} onValueChange={(v) => handleUpdate('formeJuridique', v)}>
-                      <SelectTrigger className='h-11 rounded-xl'><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {['SARL', 'SPA', 'EURL', 'SNC', 'EI', 'Auto-entrepreneur'].map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className='space-y-2 text-start'>
-                    <Label className='text-[10px] font-black uppercase text-slate-400 px-1'>{t.Settings.wilaya}</Label>
-                    <Select value={formData.wilaya || '16'} onValueChange={(v) => handleUpdate('wilaya', v)}>
-                      <SelectTrigger className='h-11 rounded-xl'><SelectValue /></SelectTrigger>
-                      <SelectContent className='max-h-60'>
-                        {WILAYAS.map(w => <SelectItem key={w.code} value={w.code}>{w.code} - {w.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+        {canManageSettings && <TabsContent value='identification' className='mt-6 space-y-6'>
+          <Card>
+            <CardHeader><CardTitle>Informations Générales</CardTitle></CardHeader>
+            <CardContent className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label>Raison Sociale</Label>
+                <Input value={formData.raisonSociale || ''} onChange={e => handleUpdate('raisonSociale', e.target.value)} />
               </div>
-
-              <div className='space-y-4'>
-                <div className='grid grid-cols-2 gap-4'>
-                  <div className='space-y-2 text-start'>
-                    <Label className='text-[10px] font-black uppercase text-slate-400 px-1'>{t.Settings.nif}</Label>
-                    <Input value={formData.nif || ''} onChange={(e) => handleUpdate('nif', e.target.value)} maxLength={20} className='h-11 rounded-xl font-mono font-bold' />
-                  </div>
-                  <div className='space-y-2 text-start'>
-                    <Label className='text-[10px] font-black uppercase text-slate-400 px-1'>{t.Settings.nis}</Label>
-                    <Input value={formData.nis || ''} onChange={(e) => handleUpdate('nis', e.target.value)} className='h-11 rounded-xl font-mono' />
-                  </div>
-                </div>
-                <div className='grid grid-cols-2 gap-4'>
-                  <div className='space-y-2 text-start'>
-                    <Label className='text-[10px] font-black uppercase text-slate-400 px-1'>{t.Settings.rc}</Label>
-                    <Input value={formData.rc || ''} onChange={(e) => handleUpdate('rc', e.target.value)} className='h-11 rounded-xl font-mono' />
-                  </div>
-                  <div className='space-y-2 text-start'>
-                    <Label className='text-[10px] font-black uppercase text-slate-400 px-1'>{t.Settings.fiscal_article}</Label>
-                    <Input value={formData.articleImposition || ''} onChange={(e) => handleUpdate('articleImposition', e.target.value)} className='h-11 rounded-xl font-mono' />
-                  </div>
-                </div>
+              <div className="space-y-2">
+                <Label>Forme Juridique</Label>
+                <Select value={formData.formeJuridique || ''} onValueChange={v => handleUpdate('formeJuridique', v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="SARL">SARL</SelectItem><SelectItem value="EURL">EURL</SelectItem><SelectItem value="SPA">SPA</SelectItem><SelectItem value="SNC">SNC</SelectItem><SelectItem value="Profession Libérale">Profession Libérale</SelectItem></SelectContent></Select>
+              </div>
+              <div className="space-y-2">
+                <Label>NIF</Label>
+                <Input value={formData.nif || ''} onChange={e => handleUpdate('nif', e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>NIS</Label>
+                <Input value={formData.nis || ''} onChange={e => handleUpdate('nis', e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>N° Registre Commerce</Label>
+                <Input value={formData.rc || ''} onChange={e => handleUpdate('rc', e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>N° Article d'Imposition</Label>
+                <Input value={formData.ai || ''} onChange={e => handleUpdate('ai', e.target.value)} />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label>Adresse</Label>
+                <Input value={formData.adresse || ''} onChange={e => handleUpdate('adresse', e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Wilaya</Label>
+                <Select value={formData.wilaya || ''} onValueChange={v => handleUpdate('wilaya', v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="16">Alger</SelectItem>{/*...*/}</SelectContent></Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Date de création</Label>
+                <Input type="date" value={formData.dateCreation || ''} onChange={e => handleUpdate('dateCreation', e.target.value)} />
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent>}
 
-        <TabsContent value='fiscal' className='mt-6 space-y-6'>
-          <Card className='border-none shadow-xl ring-1 ring-border rounded-2xl overflow-hidden bg-white'>
-            <CardHeader className='bg-slate-50 border-b text-start'>
-              <CardTitle className='text-sm font-black uppercase tracking-widest flex items-center gap-2'>
-                <Gavel className='h-4 w-4 text-primary' /> {t.Settings.fiscal_profile}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className='pt-6 grid md:grid-cols-2 gap-8'>
-              <div className='space-y-6 text-start'>
-                <div className='space-y-2'>
-                  <Label className='text-[10px] font-black uppercase text-slate-400'>{t.Settings.regime}</Label>
-                  <Select value={formData.regimeFiscal || 'REGIME_REEL'} onValueChange={(v) => handleUpdate('regimeFiscal', v)}>
-                    <SelectTrigger className='h-11 rounded-xl'><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value='REGIME_REEL'>Régime du Réel (Jibayatic Obligatoire)</SelectItem>
-                      <SelectItem value='IFU'>IFU (Impôt Forfaitaire Unique)</SelectItem>
-                    </SelectContent>
-                  </Select>
+        {canManageSettings && <TabsContent value='fiscal' className='mt-6 space-y-6'>
+          <Card>
+            <CardHeader><CardTitle>Paramètres Fiscaux</CardTitle></CardHeader>
+            <CardContent className="grid md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                    <Label>Régime Fiscal</Label>
+                    <Select value={formData.regimeFiscal || ''} onValueChange={v => handleUpdate('regimeFiscal', v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="REGIME_REEL">Régime du Réel</SelectItem><SelectItem value="IFU">Impôt Forfaitaire Unique (IFU)</SelectItem></SelectContent></Select>
                 </div>
-                <div className='space-y-2'>
-                  <Label className='text-[10px] font-black uppercase text-slate-400'>{t.Settings.sector}</Label>
-                  <Select value={formData.secteurActivite || 'SERVICES'} onValueChange={(v) => handleUpdate('secteurActivite', v)}>
-                    <SelectTrigger className='h-11 rounded-xl'><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value='COMMERCE'>🛒 Commerce & Négoce</SelectItem>
-                      <SelectItem value='BTP'>🏗 BTPH (Chantiers)</SelectItem>
-                      <SelectItem value='TRANSPORT'>🚚 Transport & Logistique</SelectItem>
-                      <SelectItem value='INDUSTRIE'>🏭 Agroalimentaire / Industrie</SelectItem>
-                      <SelectItem value='SANTE'>🏥 Santé (Pharmacie/Clinique)</SelectItem>
-                      <SelectItem value='SERVICES'>💼 Services & Conseil</SelectItem>
-                      <SelectItem value='ASSURANCES'>🛡️ Assurances</SelectItem>
-                      <SelectItem value='BANQUES'>🏦 Banques</SelectItem>
-                      <SelectItem value='APC'>🏛️ APC (Commune)</SelectItem>
-                      <SelectItem value='APW'>🏛️ APW (Wilaya)</SelectItem>
-                      <SelectItem value='MINISTERE'>🏛️ Ministère</SelectItem>
-                      <SelectItem value='ORGANISMES_PUBLICS'>🏢 Organismes Publics</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="flex items-center space-x-2 pt-8">
+                    <Switch id="tva-switch" checked={formData.assujettissementTva || false} onCheckedChange={c => handleUpdate('assujettissementTva', c)} />
+                    <Label htmlFor="tva-switch">Assujetti à la TVA</Label>
                 </div>
-              </div>
+                 <div className="space-y-2">
+                    <Label>Direction des Impôts de Wilaya</Label>
+                    <Input value={formData.diw || ''} onChange={e => handleUpdate('diw', e.target.value)} />
+                </div>
+                 <div className="space-y-2">
+                    <Label>Inspection / Recette des Impôts</Label>
+                    <Input value={formData.inspection || ''} onChange={e => handleUpdate('inspection', e.target.value)} />
+                </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent>}
 
-        <TabsContent value='expert' className='mt-6 space-y-6'>
-          <div className='grid md:grid-cols-2 gap-8'>
-            {formData.secteurActivite === 'TRANSPORT' && (
-              <Card className='border-none shadow-xl ring-1 ring-border rounded-2xl overflow-hidden bg-white'>
-                <CardHeader className='bg-blue-50 border-b border-blue-100 text-start'>
-                  <CardTitle className='text-sm font-black uppercase tracking-widest flex items-center gap-2'><Truck className='h-4 w-4 text-blue-600' /> Options Transport</CardTitle>
-                </CardHeader>
-                <CardContent className='pt-6 space-y-4 text-start'>
-                  <div className='flex items-center justify-between'>
-                    <Label className='text-xs font-bold'>Activer Rentabilité par Véhicule</Label>
-                    <Switch checked={true} disabled />
-                  </div>
-                  <div className='flex items-center justify-between'>
-                    <Label className='text-xs font-bold'>Alertes Agréments Wilayas</Label>
-                    <Switch checked={formData.transportConfig?.permitAlerts} onCheckedChange={(v) => handleUpdate('transportConfig.permitAlerts', v)} />
-                  </div>
+        {canManageSettings && <TabsContent value='expert' className='mt-6 space-y-6'>
+            <Card>
+                <CardHeader><CardTitle>Modules et Secteurs d'Activité</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                        <Label>Secteur Principal</Label>
+                        <Select value={formData.secteurActivite || ''} onValueChange={v => handleUpdate('secteurActivite', v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="COMMERCE">Commerce</SelectItem><SelectItem value="INDUSTRIE">Industrie</SelectItem><SelectItem value="BTP">BTP</SelectItem><SelectItem value="SERVICES">Services</SelectItem><SelectItem value="PRO_LIBERALE">Profession Libérale</SelectItem><SelectItem value="TRANSPORT">Transport</SelectItem><SelectItem value="SANTE">Santé</SelectItem></SelectContent></Select>
+                    </div>
                 </CardContent>
-              </Card>
-            )}
-            <Card className='border-none shadow-xl ring-1 ring-border rounded-2xl overflow-hidden bg-white'>
-              <CardHeader className='bg-slate-50 border-b text-start'>
-                <CardTitle className='text-sm font-black uppercase tracking-widest flex items-center gap-2'><Briefcase className='h-4 w-4 text-primary' /> Paramètres Métier</CardTitle>
-              </CardHeader>
-              <CardContent className='pt-6 space-y-4 text-start'>
-                <div className='flex items-center space-x-2'>
-                  <Checkbox id='startup' checked={formData.isStartup} onCheckedChange={(v) => handleUpdate('isStartup', !!v)} />
-                  <Label htmlFor='startup' className='text-xs font-bold'>Label Startup (Exonéré IBS/IFU)</Label>
-                </div>
-              </CardContent>
             </Card>
+        </TabsContent>}
+
+        {canManageSettings && <TabsContent value='social' className='mt-6 space-y-6'>
+            <Card>
+                <CardHeader><CardTitle>Paramètres Sociaux (RH)</CardTitle></CardHeader>
+                <CardContent className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                        <Label>N° CNAS</Label>
+                        <Input value={formData.cnas || ''} onChange={e => handleUpdate('cnas', e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>N° CASNOS</Label>
+                        <Input value={formData.casnos || ''} onChange={e => handleUpdate('casnos', e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Agence CNAS</Label>
+                        <Input value={formData.agenceCnas || ''} onChange={e => handleUpdate('agenceCnas', e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Effectif</Label>
+                        <Input type="number" value={formData.effectif || 0} onChange={e => handleUpdate('effectif', parseInt(e.target.value))}/>
+                    </div>
+                </CardContent>
+            </Card>
+        </TabsContent>}
+
+        <TabsContent value='subscription' className='mt-6'>
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold tracking-tight">Gérez votre abonnement</h2>
+            <p className="text-muted-foreground mt-2">Passez au plan supérieur pour débloquer de nouvelles fonctionnalités.</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {PLANS.map((plan) => (
+              <Card key={plan.id} className={cn('flex flex-col rounded-2xl shadow-lg', { 'ring-2 ring-primary': currentPlanId === plan.id })}>
+                {currentPlanId === plan.id && <div className="py-1 px-4 bg-primary text-primary-foreground text-xs font-semibold rounded-t-2xl text-center">Plan Actuel</div>}
+                <CardHeader className="text-center">
+                  <CardTitle className={`text-2xl font-black ${plan.id === 'PRO' || plan.id === 'CABINET' ? 'text-primary' : ''}`}>{plan.name}</CardTitle>
+                  <p className="font-bold text-3xl">{plan.price}<span className="text-sm font-normal text-muted-foreground">/mois</span></p>
+                  <CardDescription>{plan.description}</CardDescription>
+                </CardHeader>
+                <CardContent className="flex-grow">
+                  <ul className="space-y-3">
+                    {plan.categories.flatMap(c => c.features).map(feature => (
+                      <li key={feature.name} className="flex items-start">
+                        <FeatureIcon included={feature.included} />
+                        <span className="ml-3 text-sm text-start">{feature.name} {feature.detail && `(${feature.detail})`}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+                <CardFooter>
+                  <Button className="w-full font-bold rounded-lg" disabled={submittingId !== null || currentPlanId === plan.id} onClick={() => handlePlanChangeRequest(plan.id)}>
+                    {submittingId === plan.id ? <><Loader2 className='mr-2 h-4 w-4 animate-spin' /> Envoi...</> : currentPlanId === plan.id ? 'Plan Actuel' : 'Choisir ce Plan'}
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+          <div className="mt-16">
+            <div className="text-center mb-8">
+              <h3 className="text-2xl font-bold tracking-tight flex items-center justify-center gap-2"><Crown className="h-6 w-6 text-yellow-500"/> Modules Complémentaires</h3>
+              <p className="text-muted-foreground mt-2">Améliorez votre productivité avec nos modules spécialisés.</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {PREMIUM_ADDONS.map(addon => (
+                <Card key={addon.id} className='flex items-center justify-between p-4 rounded-xl shadow-md'>
+                  <div>
+                    <p className='font-semibold flex items-center gap-2'><Zap className="h-4 w-4 text-primary"/>{addon.name}</p>
+                    <p className='text-sm text-muted-foreground mt-1'>{addon.description}</p>
+                  </div>
+                  <div className="text-right">
+                     <p className='text-lg font-bold text-primary'>{addon.price} DA</p>
+                     <p className='text-xs text-muted-foreground'>/mois</p>
+                     <Button variant='outline' className="mt-2" disabled={submittingId !== null} onClick={() => handleAddonRequest(addon)}>
+                       {submittingId === addon.id ? <><Loader2 className='mr-2 h-4 w-4 animate-spin' /> Envoi...</> : <><PlusCircle className='mr-2 h-4 w-4' /> Demander</>}
+                     </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
           </div>
         </TabsContent>
-
-        <TabsContent value='social' className='mt-6 space-y-6'>
-          <Card className='border-none shadow-xl ring-1 ring-border rounded-2xl overflow-hidden bg-white'>
-            <CardHeader className='bg-primary/5 border-b border-primary/10 text-start'>
-              <CardTitle className='text-sm font-black uppercase tracking-widest text-primary flex items-center gap-2'><GraduationCap className='h-4 w-4' /> Noyau RH</CardTitle>
-            </CardHeader>
-            <CardContent className='pt-8 grid md:grid-cols-2 gap-10'>
-              <div className='space-y-6 text-start'>
-                <div className='space-y-2'>
-                  <Label className='text-[10px] font-black uppercase text-primary tracking-[0.2em]'>Valeur du point indiciaire (DA)</Label>
-                  <div className='relative'>
-                    <Zap className={cn('absolute top-3.5 h-4 w-4 text-accent', isRtl ? 'right-3' : 'left-3')} />
-                    <Input type='number' value={formData.iepPointValue || 45} onChange={(e) => handleUpdate('iepPointValue', parseFloat(e.target.value))} className={cn('h-12 text-lg font-black rounded-xl border-primary/20 bg-primary/5 text-primary', isRtl ? 'pr-10' : 'pl-10')} />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
-      
-      <div className='p-6 bg-slate-900 text-white rounded-3xl flex items-start gap-4 shadow-xl'>
-        <Info className='h-6 w-6 text-accent shrink-0 mt-1' />
-        <div className='text-xs leading-relaxed space-y-2 text-start'>
-          <p className='font-bold text-accent uppercase tracking-widest'>Gouvernance Numérique 2026 :</p>
-          <p className='opacity-80'>
-            L'interopérabilité avec **Jibayatic** et l'**ONS** repose sur l'exactitude de vos identifiants (NIF à 20 chiffres, NIS dématérialisé). 
-            Le système vérifie la structure de ces codes pour éviter tout rejet lors de vos télé-déclarations.
-          </p>
-        </div>
-      </div>
     </div>
   )
 }

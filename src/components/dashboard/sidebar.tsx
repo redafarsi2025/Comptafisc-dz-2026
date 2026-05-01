@@ -173,7 +173,7 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
       ...newTenantData,
       createdAt: new Date().toISOString(),
       createdByUserId: user.uid,
-      members: { [user.uid]: 'owner' },
+      members: { [user.uid]: { role: 'owner' } }, // Correction: role doit être un objet
       onboardingComplete: false,
       plan: 'GRATUIT',
       activeAddons: [],
@@ -181,12 +181,14 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
     };
 
     try {
-      setDocumentNonBlocking(newTenantRef, tenantData, { merge: true });
+      await setDoc(newTenantRef, tenantData);
       setIsCreateDialogOpen(false);
-      handleTenantSelect(tenantId);
-      toast({ title: t.Common.new_dossier, description: `${newTenantData.raisonSociale} ok.` });
+      // Redirection vers la page de configuration, qui est plus sûre pour un nouveau dossier
+      router.push(`/dashboard/settings?tenantId=${tenantId}`);
+      toast({ title: t.Common.new_dossier, description: `${newTenantData.raisonSociale} a été créé.` });
     } catch (e) {
-      console.error(e);
+      console.error("Erreur de création de dossier:", e);
+      toast({ title: "Erreur", description: "La création du dossier a échoué.", variant: "destructive" });
     } finally {
       setIsCreating(false);
     }
@@ -201,9 +203,7 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
         </SidebarGroupLabel>
         <SidebarMenu className="gap-0.5">
           {items.map((item: any) => {
-            // Logic to check if item should be visible based on plan or addons
             if (item.requireAddon && !activeAddons.includes(item.requireAddon) && currentTenant?.plan !== 'PRO') return null;
-            
             const href = currentTenant ? `${item.href}?tenantId=${currentTenant.id}` : item.href
             const active = pathname === item.href;
             return (
@@ -218,10 +218,7 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
                   )}
                 >
                   <Link href={href} className="flex items-center gap-3 w-full px-4">
-                    <item.icon className={cn(
-                      "h-4 w-4 shrink-0 transition-transform duration-300", 
-                      active ? "text-primary scale-110" : "text-slate-400 group-hover:text-primary",
-                    )} />
+                    <item.icon className={cn("h-4 w-4 shrink-0", active ? "text-primary" : "text-slate-400 group-hover:text-primary")} />
                     <span className="font-bold text-[11px] uppercase tracking-tight truncate flex-1">{item.name}</span>
                     {item.isPremium && <Badge className="bg-accent text-[7px] font-black h-4 px-1.5 uppercase">Premium</Badge>}
                   </Link>
@@ -238,67 +235,44 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
 
   const secteur = currentTenant?.secteurActivite || "COMMERCE";
   const isCabinetPlan = currentTenant?.plan === "CABINET";
+  const userRole = currentTenant?.members?.[user?.uid]?.role;
+  const isCabinetMember = userRole === 'owner' || userRole === 'admin';
 
-  // Navigation Items
   const cabinetNav = [
     { name: t.Navigation.cabinet_dashboard, href: "/dashboard/cabinet", icon: Target },
-    { name: t.Navigation.collaboration, href: "/dashboard/cabinet/collaboration", icon: MessagesSquare },
-    { name: t.Navigation.bulk_filing, href: "/dashboard/cabinet/bulk-g50", icon: Repeat },
-    { name: t.Navigation.bank_recon, href: "/dashboard/cabinet/bank-recon", icon: ArrowRightLeft },
   ]
   const pilotageNav = [
     { name: t.Navigation.dashboard, href: "/dashboard", icon: LayoutDashboard },
     { name: t.Navigation.analytics, href: "/dashboard/financial-analysis", icon: BarChart3 },
     { name: "Coach Stratégique", href: "/dashboard/assistant", icon: Bot, requireAddon: 'SEAD_STRATEGIC', isPremium: true },
-    { name: "Services Premium", href: "/dashboard/premium", icon: Crown },
   ]
   const customsNav = [
     { name: t.Customs.customs_hub, href: "/dashboard/customs", icon: Anchor },
-    { name: t.Customs.simulator, href: "/dashboard/customs/simulator", icon: Calculator },
-  ]
-  const relationsNav = [
-    { name: t.Navigation.contacts, href: "/dashboard/contacts", icon: Users },
-    { name: t.Navigation.crm, href: "/dashboard/crm", icon: Target },
   ]
   const salesNav = [
-    { name: t.Navigation.invoicing, href: "/dashboard/invoicing", icon: FilePlus },
     { name: t.Navigation.sales_hub, href: "/dashboard/sales", icon: CircleDollarSign },
-    { name: t.Navigation.orders, href: "/dashboard/sales/orders", icon: FileSearch },
-    { name: t.Navigation.delivery, href: "/dashboard/sales/delivery", icon: Truck },
     { name: t.Navigation.invoices, href: "/dashboard/sales/invoices", icon: Receipt },
   ]
   const logisticsNav = [
     { name: t.Navigation.logistics, href: "/dashboard/logistics", icon: Truck },
-    { name: t.Navigation.fuel, href: "/dashboard/logistics/fuel", icon: Fuel },
-    { name: t.Navigation.maintenance, href: "/dashboard/logistics/maintenance", icon: Wrench },
   ]
   const btpNav = [
     { name: t.Navigation.projects, href: "/dashboard/btp/projects", icon: Pickaxe },
-    { name: t.Navigation.situations, href: "/dashboard/btp/situations", icon: FileBadge },
   ]
   const industryNav = [
     { name: t.Navigation.production, href: "/dashboard/industry/production", icon: Factory },
-    { name: t.Navigation.recipes, href: "/dashboard/industry/recipes", icon: FileText },
-  ]
-  const healthNav = [
-    { name: t.Navigation.health_lots, href: "/dashboard/health/lots", icon: FlaskConical },
   ]
   const inventoryNav = [
     { name: t.Navigation.inventory_stock, href: "/dashboard/inventory/stock", icon: Boxes },
-    { name: t.Navigation.inventory_sessions, href: "/dashboard/inventory", icon: ClipboardCheck },
     { name: t.Navigation.assets, href: "/dashboard/accounting/assets", icon: Package },
   ]
   const purchaseNav = [
     { name: t.Navigation.purchase_hub, href: "/dashboard/purchases", icon: ShoppingCart },
-    { name: t.Navigation.purchase_requests, href: "/dashboard/purchases/requests", icon: FilePlus2 },
-    { name: t.Navigation.invoices, href: "/dashboard/purchases/invoices", icon: Receipt },
     { name: "Capture Vision IA", href: "/dashboard/ocr", icon: Sparkles, isPremium: true },
   ]
   const accountingNav = [
     { name: t.Navigation.journal, href: "/dashboard/accounting", icon: BookText },
     { name: "Plan Comptable (PCE)", href: "/dashboard/accounting/chart", icon: Library },
-    { name: t.Navigation.ledger, href: "/dashboard/accounting/ledger", icon: Library },
-    { name: t.Navigation.financial_statements, href: "/dashboard/accounting/financial-statements", icon: FileBarChart },
   ]
   const analyticNav = [
     { name: t.Navigation.analytic_reporting, href: "/dashboard/accounting/analytic/reporting", icon: PieChart },
@@ -306,14 +280,9 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
   ]
   const payrollNav = [
     { name: t.Navigation.payroll_register, href: "/dashboard/payroll", icon: Users },
-    { name: t.Navigation.payroll_compliance, href: "/dashboard/payroll/compliance", icon: ShieldCheck, requireAddon: 'PAYROLL_PRO', isPremium: true },
-    { name: t.Navigation.payroll_ledger, href: "/dashboard/payroll/ledger", icon: BookOpen },
-    { name: "Déclarations Annuelles", href: "/dashboard/payroll/das", icon: ClipboardList, requireAddon: 'PAYROLL_PRO', isPremium: true },
   ]
   const fiscalNav = [
     { name: t.Navigation.declarations, href: "/dashboard/declarations", icon: FileText },
-    { name: t.Navigation.etat104, href: "/dashboard/declarations/etat104", icon: TableProperties },
-    { name: t.Navigation.liasse_g4, href: "/dashboard/declarations/g4", icon: FileText },
   ]
 
   return (
@@ -330,12 +299,12 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
                   </div>
                   <div className="flex flex-col gap-0.5 leading-none ms-3 me-3 overflow-hidden text-start">
                     <span className="font-black text-sm text-slate-900 truncate uppercase tracking-tighter">
-                      {isTenantsLoading ? "..." : (currentTenant?.raisonSociale || "---")}
+                      {isTenantsLoading ? "..." : (currentTenant?.raisonSociale || t.Common.select_dossier)}
                     </span>
                     <div className="flex items-center gap-1.5">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      {currentTenant && <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />}
                       <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                        {secteur}
+                        {currentTenant ? secteur : t.Common.no_folder}
                       </span>
                     </div>
                   </div>
@@ -343,7 +312,7 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align={isRtl ? "end" : "start"} className="w-72 p-2 shadow-2xl rounded-2xl border-slate-100">
-                <div className="px-2 py-1.5 text-sm font-semibold text-[10px] font-black text-slate-400 uppercase px-4 py-3 tracking-[0.2em]">Dossiers Accessibles</div>
+                <div className="px-2 py-1.5 text-sm font-semibold text-[10px] font-black text-slate-400 uppercase px-4 py-3 tracking-[0.2em]">{t.Common.accessible_folders}</div>
                 {tenants?.map((t) => (
                   <DropdownMenuItem key={t.id} onClick={() => handleTenantSelect(t.id)} className="cursor-pointer rounded-xl mb-1 p-3 hover:bg-primary/5">
                     <div className="flex flex-col">
@@ -363,22 +332,19 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
       </SidebarHeader>
 
       <SidebarContent className="px-3 py-4 custom-scrollbar bg-white">
-        <NavGroup label={isRtl ? "أدوات المكتب" : "Expert Cabinet Hub"} items={cabinetNav} visible={isCabinetPlan} />
-        <NavGroup label={isRtl ? "التوجيه والقرار" : t.Navigation.global_ops} items={pilotageNav} />
-        <NavGroup label={isRtl ? "الجمارك" : "Commerce Extérieur"} items={customsNav} visible={secteur === "COMMERCE" || secteur === "INDUSTRIE"} />
-        <NavGroup label={isRtl ? "العلاقات" : "Relations & CRM"} items={relationsNav} />
-        
-        <NavGroup label={isRtl ? "المبيعات" : "Ventes & Clients"} items={salesNav} visible={secteur === "COMMERCE" || secteur === "INDUSTRIE" || secteur === "TRANSPORT"} />
-        <NavGroup label={isRtl ? "اللوجستيك" : "Gestion Flotte"} items={logisticsNav} visible={secteur !== "PRO_LIBERALE"} />
-        <NavGroup label={isRtl ? "الأشغال" : "Gestion Chantiers"} items={btpNav} visible={secteur === "BTP"} />
-        <NavGroup label={isRtl ? "التصنيع" : "Production Industrielle"} items={industryNav} visible={secteur === "INDUSTRIE"} />
-        <NavGroup label={isRtl ? "الصحة" : "Gestion Santé"} items={healthNav} visible={secteur === "SANTE"} />
-        <NavGroup label={isRtl ? "المخزون" : "Stocks & Patrimoine"} items={inventoryNav} visible={secteur !== "SERVICES" && secteur !== "PRO_LIBERALE"} />
-        <NavGroup label={isRtl ? "المشتريات" : "Achats & Dépenses"} items={purchaseNav} visible={secteur !== "PRO_LIBERALE"} />
-        <NavGroup label={isRtl ? "المحاسبة" : "Comptabilité SCF"} items={accountingNav} />
-        <NavGroup label={isRtl ? "التحليل" : "Comptabilité Analytique"} items={analyticNav} />
-        <NavGroup label={isRtl ? "الموارد البشرية" : "RH & Paie"} items={payrollNav} />
-        <NavGroup label={isRtl ? "الضرائب" : "Fiscalité & Sociaux"} items={fiscalNav} />
+        {isCabinetMember && <NavGroup label="Expert Cabinet Hub" items={cabinetNav} />}
+        <NavGroup label={t.Navigation.global_ops} items={pilotageNav} />
+        <NavGroup label="Commerce Extérieur" items={customsNav} visible={secteur === "COMMERCE" || secteur === "INDUSTRIE"} />
+        <NavGroup label="Ventes & Clients" items={salesNav} visible={secteur === "COMMERCE" || secteur === "INDUSTRIE" || secteur === "TRANSPORT"} />
+        <NavGroup label="Gestion Flotte" items={logisticsNav} visible={secteur !== "PRO_LIBERALE"} />
+        <NavGroup label="Gestion Chantiers" items={btpNav} visible={secteur === "BTP"} />
+        <NavGroup label="Production Industrielle" items={industryNav} visible={secteur === "INDUSTRIE"} />
+        <NavGroup label="Stocks & Patrimoine" items={inventoryNav} visible={secteur !== "SERVICES" && secteur !== "PRO_LIBERALE"} />
+        <NavGroup label="Achats & Dépenses" items={purchaseNav} visible={secteur !== "PRO_LIBERALE"} />
+        <NavGroup label="Comptabilité SCF" items={accountingNav} />
+        <NavGroup label="Comptabilité Analytique" items={analyticNav} />
+        <NavGroup label="RH & Paie" items={payrollNav} />
+        <NavGroup label="Fiscalité & Sociaux" items={fiscalNav} />
 
         <SidebarGroup>
           <SidebarGroupLabel className="text-slate-400 uppercase tracking-[0.2em] text-[8px] font-black mt-6 mb-2 px-4">{t.Navigation.config_section}</SidebarGroupLabel>
