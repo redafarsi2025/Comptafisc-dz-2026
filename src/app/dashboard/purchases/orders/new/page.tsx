@@ -1,252 +1,223 @@
 
-"use client"
+'use client'
 
-import * as React from "react"
-import { useFirestore, useUser, useCollection, useMemoFirebase, addDocumentNonBlocking } from "@/firebase"
-import { collection, query, where } from "firebase/firestore"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Trash2, Save, Loader2, ChevronLeft, CalendarDays, ShoppingBag, Calculator, ShieldCheck } from "lucide-react"
-import { useRouter, useSearchParams } from "next/navigation"
-import { toast } from "@/hooks/use-toast"
-import Link from "next/link"
+import * as React from 'react'
+import { useRouter } from 'next/navigation'
+import { useTenant, useFirestore } from '@/firebase'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { DollarSign, PlusCircle, Trash2, ArrowLeft, Loader2, AlertTriangle, FilePlus, Building2, User2 } from 'lucide-react'
+import { PurchaseOrderItem } from '@/models/purchase.models'
+import { BudgetLine } from '@/models/budget.models'
+import { Contact } from '@/models/contact.models'
+import { v4 as uuidv4 } from 'uuid'
+import { getBudgetByTenant, FullBudgetData } from '@/services/budget.service'
+import { getSuppliersByTenant } from '@/services/contact.service'
 
-export default function NewPurchaseOrder() {
-  const db = useFirestore()
-  const { user } = useUser()
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const tenantId = searchParams.get('tenantId')
-  const [mounted, setMounted] = React.useState(false)
-  const [isSaving, setIsSaving] = React.useState(false)
+export default function NewPurchaseOrderPage() {
+  const router = useRouter();
+  const { currentTenant } = useTenant();
+  const db = useFirestore();
 
-  const [formData, setFormData] = React.useState({
-    orderNumber: `BC-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-    supplierId: "",
-    supplierName: "",
-    date: new Date().toISOString().split('T')[0],
-    deliveryDate: "",
-    paymentTerms: "Virement 30 jours",
-    items: [{ description: "", quantity: 1, unitPrice: 0, tvaRate: 19 }]
-  })
+  // Form state
+  const [supplierId, setSupplierId] = React.useState('');
+  const [budgetLineId, setBudgetLineId] = React.useState('');
+  const [items, setItems] = React.useState<PurchaseOrderItem[]>([{ productId: uuidv4(), description: '', quantity: 1, unitPrice: 0, totalPrice: 0 }]);
+  const [notes, setNotes] = React.useState('');
+
+  // Data state
+  const [budgetLines, setBudgetLines] = React.useState<BudgetLine[]>([]);
+  const [suppliers, setSuppliers] = React.useState<Contact[]>([]);
+  const [dataIsLoading, setDataIsLoading] = React.useState(true);
+  
+  // UI state
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    setMounted(true)
-  }, [])
+    if (currentTenant && db) {
+      const fetchData = async () => {
+        const fiscalYear = new Date().getFullYear();
+        setDataIsLoading(true);
+        try {
+          const budgetDataPromise = getBudgetByTenant(db, currentTenant.id, fiscalYear);
+          const suppliersPromise = getSuppliersByTenant(db, currentTenant.id);
+          
+          const [budgetData, suppliersData] = await Promise.all([budgetDataPromise, suppliersPromise]);
+          
+          if (budgetData) {
+            setBudgetLines(budgetData.lines);
+          }
+          setSuppliers(suppliersData);
 
-  const suppliersQuery = useMemoFirebase(() => {
-    if (!db || !tenantId) return null;
-    return query(collection(db, "tenants", tenantId, "clients"), where("type", "==", "Fournisseur"));
-  }, [db, tenantId]);
-  const { data: suppliers } = useCollection(suppliersQuery);
+        } catch (err) {
+          console.error("Failed to load page data:", err);
+          setError("Impossible de charger les données nécessaires (budget, fournisseurs).");
+        } finally {
+          setDataIsLoading(false);
+        }
+      }
+      fetchData();
+    }
+  }, [currentTenant, db]);
+
+  const handleItemChange = (index: number, field: keyof PurchaseOrderItem, value: any) => {
+    const newItems = [...items];
+    const item = newItems[index];
+    (item[field] as any) = value;
+    item.totalPrice = item.quantity * item.unitPrice;
+    setItems(newItems);
+  };
 
   const addItem = () => {
-    setFormData({
-      ...formData,
-      items: [...formData.items, { description: "", quantity: 1, unitPrice: 0, tvaRate: 19 }]
-    })
-  }
+    setItems([...items, { productId: uuidv4(), description: '', quantity: 1, unitPrice: 0, totalPrice: 0 }]);
+  };
 
   const removeItem = (index: number) => {
-    if (formData.items.length === 1) return;
-    setFormData({
-      ...formData,
-      items: formData.items.filter((_, i) => i !== index)
-    })
-  }
+    setItems(items.filter((_, i) => i !== index));
+  };
 
-  const updateItem = (index: number, field: string, value: any) => {
-    const newItems = [...formData.items];
-    (newItems[index] as any)[field] = value;
-    setFormData({ ...formData, items: newItems });
-  }
+  const totalAmount = items.reduce((sum, item) => sum + item.totalPrice, 0);
 
-  const totals = React.useMemo(() => {
-    return formData.items.reduce((acc, item) => {
-      const ht = item.quantity * item.unitPrice;
-      const tva = ht * (item.tvaRate / 100);
-      return {
-        ht: acc.ht + ht,
-        tva: acc.tva + tva,
-        ttc: acc.ttc + ht + tva
-      };
-    }, { ht: 0, tva: 0, ttc: 0 });
-  }, [formData.items]);
-
-  const handleSave = async () => {
-    if (!db || !tenantId || !user || !formData.supplierId) {
-      toast({ variant: "destructive", title: "Erreur", description: "Veuillez sélectionner un fournisseur." });
+  const handleSubmit = async () => {
+    if (!supplierId || !budgetLineId || items.some(i => !i.description || i.quantity <= 0 || i.unitPrice <= 0)) {
+      setError('Veuillez remplir tous les champs obligatoires du bon de commande.');
       return;
     }
-    
-    setIsSaving(true);
-    const selectedSupplier = suppliers?.find(s => s.id === formData.supplierId);
+    setError(null);
+    setIsSubmitting(true);
 
-    const orderData = {
-      ...formData,
-      supplierName: selectedSupplier?.name || "Fournisseur inconnu",
-      totalHT: totals.ht,
-      totalTVA: totals.tva,
-      totalTTC: totals.ttc,
-      status: "VALIDATED",
-      tenantId,
-      createdAt: new Date().toISOString(),
-      createdByUserId: user.uid,
-      tenantMembers: { [user.uid]: 'owner' }
+    const payload = {
+      tenantId: currentTenant?.id,
+      supplierId,
+      budgetLineId,
+      items,
+      totalAmount,
+      notes,
+      reference: `BC-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000)}`
     };
 
     try {
-      await addDocumentNonBlocking(collection(db, "tenants", tenantId, "purchase_orders"), orderData);
-      toast({ title: "Bon de Commande créé", description: `Le BC ${formData.orderNumber} a été enregistré.` });
-      router.push(`/dashboard/purchases/orders?tenantId=${tenantId}`);
-    } catch (e) {
-      console.error(e);
-      toast({ variant: "destructive", title: "Erreur de sauvegarde" });
+      const response = await fetch('/api/commitments/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Une erreur est survenue.');
+      }
+      
+      router.push('/dashboard/purchases');
+
+    } catch (err: any) {
+      setError(err.message);
     } finally {
-      setIsSaving(false);
+      setIsSubmitting(false);
     }
+  };
+
+  if (dataIsLoading) {
+      return (
+        <div className="flex items-center justify-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      )
   }
 
-  if (!mounted) return null;
-
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild>
-            <Link href={`/dashboard/purchases/orders?tenantId=${tenantId}`}>
-              <ChevronLeft className="h-5 w-5" />
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-2xl font-black text-primary uppercase">Émettre un Bon de Commande</h1>
-            <p className="text-muted-foreground text-xs font-medium uppercase tracking-widest">Engagement Fournisseur Conforme SCF</p>
-          </div>
-        </div>
-        <Button onClick={handleSave} disabled={isSaving} className="bg-primary shadow-lg h-11 px-8">
-          {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-          Enregistrer & Valider le BC
+    <div className="max-w-4xl mx-auto space-y-6">
+        <Button variant="outline" onClick={() => router.back()} className="mb-4">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Retour
         </Button>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="lg:col-span-2 shadow-xl border-none ring-1 ring-border">
-          <CardHeader className="bg-muted/20 border-b">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <ShoppingBag className="h-5 w-5 text-primary" /> Informations Générales
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6 space-y-6">
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label>N° Bon de Commande</Label>
-                <Input value={formData.orderNumber} readOnly className="bg-muted font-mono font-bold" />
-              </div>
-              <div className="space-y-2">
-                <Label>Fournisseur</Label>
-                <Select value={formData.supplierId} onValueChange={(v) => setFormData({...formData, supplierId: v})}>
-                  <SelectTrigger className="bg-white">
-                    <SelectValue placeholder="Choisir un fournisseur..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {suppliers?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                  </SelectContent>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FilePlus />
+            Nouveau Bon de Commande
+          </CardTitle>
+          <CardDescription>Remplissez les informations ci-dessous pour créer un bon de commande et engager le budget associé.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+            {error && (
+                <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Erreur de soumission</AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                </Alert>
+            )}
+
+            <div className="grid md:grid-cols-2 gap-4">
+                <Select onValueChange={setSupplierId} value={supplierId}>
+                    <SelectTrigger><div className='flex items-center gap-2'><Building2 className='h-4 w-4'/> <SelectValue placeholder="Sélectionner un fournisseur..." /></div></SelectTrigger>
+                    <SelectContent>
+                        {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                    </SelectContent>
                 </Select>
-              </div>
+
+                <Select onValueChange={setBudgetLineId} value={budgetLineId}>
+                    <SelectTrigger><div className='flex items-center gap-2'><User2 className='h-4 w-4'/> <SelectValue placeholder="Sélectionner une ligne budgétaire..." /></div></SelectTrigger>
+                    <SelectContent>
+                        {budgetLines.map(l => {
+                             const available = l.allocatedAmount - l.committedAmount;
+                             return <SelectItem key={l.id} value={l.id}>{l.accountCode} - {l.label} (Dispo: {available.toLocaleString('fr-DZ')} DA)</SelectItem>
+                        })}
+                    </SelectContent>
+                </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-6 pt-4 border-t">
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2"><CalendarDays className="h-4 w-4" /> Date de commande</Label>
-                <Input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
-              </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2"><CalendarDays className="h-4 w-4" /> Date de livraison prévue</Label>
-                <Input type="date" value={formData.deliveryDate} onChange={e => setFormData({...formData, deliveryDate: e.target.value})} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-1 bg-slate-900 text-white border-none shadow-2xl relative overflow-hidden">
-          <Calculator className="absolute -right-4 -top-4 h-24 w-24 opacity-10" />
-          <CardHeader>
-            <CardTitle className="text-sm font-bold uppercase tracking-widest text-accent">Récapitulatif Financier</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6 pt-4">
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm opacity-70">
-                <span>Total HT</span>
-                <span className="font-mono">{totals.ht.toLocaleString()} DA</span>
-              </div>
-              <div className="flex justify-between text-sm text-accent">
-                <span>Total TVA</span>
-                <span className="font-mono">+{totals.tva.toLocaleString()} DA</span>
-              </div>
-              <div className="border-t border-white/10 pt-4 flex justify-between items-baseline">
-                <span className="text-lg font-bold">TOTAL TTC</span>
-                <span className="text-3xl font-black text-accent">{totals.ttc.toLocaleString()} DA</span>
-              </div>
-            </div>
-            <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-2">
-               <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-400">
-                 <ShieldCheck className="h-4 w-4" /> MOTEUR DE CONFORMITÉ ACTIF
-               </div>
-               <p className="text-[10px] opacity-60 leading-relaxed italic">
-                 Ce Bon de Commande servira de base légale au rapprochement facture (Art. 21 CTCA).
-               </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-3 shadow-xl border-none ring-1 ring-border overflow-hidden">
-          <CardHeader className="bg-muted/20 border-b flex flex-row items-center justify-between">
-            <CardTitle className="text-lg">Détail des articles</CardTitle>
-            <Button variant="outline" size="sm" onClick={addItem} className="border-primary text-primary">
-              <Plus className="mr-2 h-4 w-4" /> Ajouter ligne
-            </Button>
-          </CardHeader>
-          <CardContent className="p-0">
+          <div>
+            <h3 className="text-sm font-medium mb-2">Articles de la commande</h3>
             <Table>
-              <TableHeader className="bg-muted/50">
-                <TableRow className="text-[10px] uppercase font-black">
-                  <TableHead className="w-1/2">Désignation</TableHead>
-                  <TableHead className="text-center">Quantité</TableHead>
-                  <TableHead className="text-right">Prix Unit. HT</TableHead>
-                  <TableHead className="text-center">TVA</TableHead>
-                  <TableHead className="text-right">Total HT</TableHead>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Description</TableHead>
+                  <TableHead className="w-[100px]">Quantité</TableHead>
+                  <TableHead className="w-[150px]">Prix Unitaire</TableHead>
+                  <TableHead className="w-[150px] text-right">Total</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {formData.items.map((item, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell><Input value={item.description} onChange={e => updateItem(idx, 'description', e.target.value)} className="h-9 text-xs" /></TableCell>
-                    <TableCell><Input type="number" value={item.quantity} onChange={e => updateItem(idx, 'quantity', parseFloat(e.target.value) || 0)} className="h-9 text-center w-24 mx-auto text-xs" /></TableCell>
-                    <TableCell><Input type="number" value={item.unitPrice} onChange={e => updateItem(idx, 'unitPrice', parseFloat(e.target.value) || 0)} className="h-9 text-right w-32 ml-auto text-xs" /></TableCell>
-                    <TableCell>
-                      <Select value={item.tvaRate.toString()} onValueChange={v => updateItem(idx, 'tvaRate', parseInt(v))}>
-                        <SelectTrigger className="h-9 w-24 mx-auto text-[10px] bg-white"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="19">19%</SelectItem>
-                          <SelectItem value="9">9%</SelectItem>
-                          <SelectItem value="0">0%</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-xs font-bold">{(item.quantity * item.unitPrice).toLocaleString()} DA</TableCell>
-                    <TableCell><Button variant="ghost" size="icon" onClick={() => removeItem(idx)} className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></TableCell>
+                {items.map((item, index) => (
+                  <TableRow key={index}>
+                    <TableCell><Input placeholder="Description de l'article" value={item.description} onChange={e => handleItemChange(index, 'description', e.target.value)} /></TableCell>
+                    <TableCell><Input type="number" value={item.quantity} onChange={e => handleItemChange(index, 'quantity', parseInt(e.target.value) || 0)} /></TableCell>
+                    <TableCell><Input type="number" value={item.unitPrice} onChange={e => handleItemChange(index, 'unitPrice', parseFloat(e.target.value) || 0)} /></TableCell>
+                    <TableCell className="text-right font-medium">{(item.totalPrice).toLocaleString('fr-DZ')} DA</TableCell>
+                    <TableCell><Button variant="ghost" size="icon" onClick={() => removeItem(index)}><Trash2 className="h-4 w-4 text-red-500"/></Button></TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
-      </div>
+            <Button variant="outline" size="sm" onClick={addItem} className="mt-2">
+              <PlusCircle className="mr-2 h-4 w-4"/> Ajouter une ligne
+            </Button>
+          </div>
+
+          <div className="flex justify-end items-center gap-4 pt-4 border-t">
+            <span className="text-lg font-bold">Total de la Commande:</span>
+            <span className="text-2xl font-black text-primary">{totalAmount.toLocaleString('fr-DZ')} DA</span>
+          </div>
+
+          <Textarea placeholder="Ajouter des notes ou des conditions spécifiques..." value={notes} onChange={e => setNotes(e.target.value)} />
+
+          <Button onClick={handleSubmit} disabled={isSubmitting || dataIsLoading} size="lg" className="w-full font-bold">
+            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DollarSign className="mr-2 h-4 w-4"/>}
+            Valider et Engager le Budget
+          </Button>
+
+        </CardContent>
+      </Card>
     </div>
-  )
+  );
 }

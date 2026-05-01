@@ -68,6 +68,8 @@ function RegisterPage() {
           const tenantRef = collection(db, "tenants");
           const newTenantRef = doc(tenantRef);
           const tenantId = newTenantRef.id;
+          
+          const isPublic = formData.formeJuridique === 'Etablissement Public';
 
           const tenantData = {
             id: tenantId,
@@ -82,16 +84,17 @@ function RegisterPage() {
             createdByUserId: user.uid,
             members: { [user.uid]: 'owner' },
             onboardingComplete: true,
-            plan: 'GRATUIT',
-            secteurActivite: 'SERVICES',
+            planId: isPublic ? 'PUBLIQUE' : 'GRATUIT',
+            secteurActivite: isPublic ? 'PUBLIC' : 'SERVICES',
+            isPublicSector: isPublic,
             assujettissementTva: formData.regimeFiscal === 'REGIME_REEL',
           };
 
           setDocumentNonBlocking(newTenantRef, tenantData, { merge: true });
 
-          // NOUVEAU : Initialisation non-bloquante du plan comptable
-          initializeClientChartOfAccounts(db, tenantId, 'SERVICES', false)
-            .then(count => console.log(`${count} comptes initialisés en arrière-plan pour ${tenantId}`))
+          const chartOfAccountsType = isPublic ? 'PUBLIC' : 'SERVICES';
+          initializeClientChartOfAccounts(db, tenantId, chartOfAccountsType, false)
+            .then(count => console.log(`${count} comptes (${chartOfAccountsType}) initialisés pour ${tenantId}`))
             .catch(error => console.error("Erreur d'initialisation du plan comptable:", error));
 
           toast({
@@ -234,7 +237,7 @@ function RegisterPage() {
                     <Select value={formData.formeJuridique} onValueChange={(v) => setFormData({...formData, formeJuridique: v})}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {["SARL", "SPA", "EURL", "SNC", "EI", "Auto-entrepreneur"].map(f => (
+                        {["SARL", "SPA", "EURL", "SNC", "EI", "Auto-entrepreneur", "Etablissement Public"].map(f => (
                           <SelectItem key={f} value={f}>{f}</SelectItem>
                         ))}
                       </SelectContent>

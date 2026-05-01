@@ -1,3 +1,4 @@
+
 'use client'
 
 import * as React from 'react'
@@ -131,7 +132,7 @@ export default function TenantSettingsPage() {
         createdAt: new Date().toISOString(),
         type: 'ADDON_PURCHASE'
       });
-      toast({ title: "Demande de Module Envoyée", description: `Votre demande pour le module "${addon.name}" a été envoyée.` });
+      toast({ title: `Demande de Module Envoyée`, description: `Votre demande pour le module "${addon.name}" a été envoyée.` });
     } catch (error) {
       toast({ title: "Erreur", variant: 'destructive' });
     } finally { setSubmittingId(null); }
@@ -187,7 +188,7 @@ export default function TenantSettingsPage() {
               </div>
               <div className="space-y-2">
                 <Label>Forme Juridique</Label>
-                <Select value={formData.formeJuridique || ''} onValueChange={v => handleUpdate('formeJuridique', v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="SARL">SARL</SelectItem><SelectItem value="EURL">EURL</SelectItem><SelectItem value="SPA">SPA</SelectItem><SelectItem value="SNC">SNC</SelectItem><SelectItem value="Profession Libérale">Profession Libérale</SelectItem></SelectContent></Select>
+                <Select value={formData.formeJuridique || ''} onValueChange={v => handleUpdate('formeJuridique', v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="SARL">SARL</SelectItem><SelectItem value="EURL">EURL</SelectItem><SelectItem value="SPA">SPA</SelectItem><SelectItem value="SNC">SNC</SelectItem><SelectItem value="Profession Libérale">Profession Libérale</SelectItem><SelectItem value="Etablissement Public">Etablissement Public</SelectItem></SelectContent></Select>
               </div>
               <div className="space-y-2">
                 <Label>NIF</Label>
@@ -251,7 +252,20 @@ export default function TenantSettingsPage() {
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
                         <Label>Secteur Principal</Label>
-                        <Select value={formData.secteurActivite || ''} onValueChange={v => handleUpdate('secteurActivite', v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="COMMERCE">Commerce</SelectItem><SelectItem value="INDUSTRIE">Industrie</SelectItem><SelectItem value="BTP">BTP</SelectItem><SelectItem value="SERVICES">Services</SelectItem><SelectItem value="PRO_LIBERALE">Profession Libérale</SelectItem><SelectItem value="TRANSPORT">Transport</SelectItem><SelectItem value="SANTE">Santé</SelectItem></SelectContent></Select>
+                        <Select value={formData.secteurActivite || ''} onValueChange={v => handleUpdate('secteurActivite', v)}>
+                            <SelectTrigger><SelectValue/></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="COMMERCE">Commerce</SelectItem>
+                                <SelectItem value="INDUSTRIE">Industrie</SelectItem>
+                                <SelectItem value="BTP">BTP</SelectItem>
+                                <SelectItem value="SERVICES">Services</SelectItem>
+                                <SelectItem value="PRO_LIBERALE">Profession Libérale</SelectItem>
+                                <SelectItem value="TRANSPORT">Transport</SelectItem>
+                                <SelectItem value="SANTE">Santé</SelectItem>
+                                <SelectItem value="ASSURANCE">Assurance</SelectItem>
+                                <SelectItem value="PUBLIC">Entreprise Publique</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                 </CardContent>
             </Card>
@@ -323,10 +337,10 @@ export default function TenantSettingsPage() {
                 <Card key={addon.id} className='flex items-center justify-between p-4 rounded-xl shadow-md'>
                   <div>
                     <p className='font-semibold flex items-center gap-2'><Zap className="h-4 w-4 text-primary"/>{addon.name}</p>
-                    <p className='text-sm text-muted-foreground mt-1'>{addon.description}</p>
+                    <p className='text-sm text-muted-foreground mt-1'>${addon.description}</p>
                   </div>
                   <div className="text-right">
-                     <p className='text-lg font-bold text-primary'>{addon.price} DA</p>
+                     <p className='text-lg font-bold text-primary'>${addon.price} DA</p>
                      <p className='text-xs text-muted-foreground'>/mois</p>
                      <Button variant='outline' className="mt-2" disabled={submittingId !== null} onClick={() => handleAddonRequest(addon)}>
                        {submittingId === addon.id ? <><Loader2 className='mr-2 h-4 w-4 animate-spin' /> Envoi...</> : <><PlusCircle className='mr-2 h-4 w-4' /> Demander</>}

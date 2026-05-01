@@ -15,7 +15,7 @@ export type PlanCategory = {
 };
 
 export type PlanDefinition = {
-  id: 'GRATUIT' | 'ESSENTIEL' | 'PRO' | 'CABINET';
+  id: 'GRATUIT' | 'ESSENTIEL' | 'PRO' | 'CABINET' | 'ASSURANCE' | 'PUBLIQUE';
   name: string;
   price: string;
   period: string;
@@ -184,6 +184,74 @@ export const PLANS: PlanDefinition[] = [
         features: [
           { name: 'Gestion des immobilisations', included: 'yes' },
           { name: 'Gestion des stocks', included: 'yes' },
+        ]
+      }
+    ]
+  },
+  {
+    id: 'ASSURANCE',
+    name: 'ASSURANCE',
+    price: '7 500',
+    period: 'DA/mois',
+    description: 'Une solution complète pour les compagnies d\'assurance.',
+    color: 'bg-indigo-600',
+    limits: {
+      invoices: 'Illimité',
+      users: '15',
+      companies: '1',
+      storage: '50 GB',
+      support: 'Dédié',
+      vehicles: '20 véhicules'
+    },
+    categories: [
+      {
+        title: 'GESTION SPÉCIFIQUE ASSURANCE',
+        features: [
+          { name: 'Gestion des polices d\'assurance', included: 'yes' },
+          { name: 'Suivi des sinistres et remboursements', included: 'yes' },
+          { name: 'Calcul des provisions techniques', included: 'yes' },
+        ]
+      },
+      {
+        title: 'CONFORMITÉ RÉGLEMENTAIRE',
+        features: [
+          { name: 'Rapports pour l\'autorité de régulation', included: 'yes' },
+          { name: 'Gestion de la TVA spécifique au secteur', included: 'yes' },
+          { name: 'Archivage sécurisé des contrats', included: 'yes' },
+        ]
+      }
+    ]
+  },
+  {
+    id: 'PUBLIQUE',
+    name: 'ÉTABLISSEMENT PUBLIC',
+    price: 'Sur devis',
+    period: '',
+    description: 'Solution adaptée pour les mairies, wilayas et ministères.',
+    color: 'bg-red-700',
+    limits: {
+      invoices: 'Illimité',
+      users: 'Illimité',
+      companies: 'Illimité',
+      storage: '500 GB',
+      support: 'Support dédié 24/7',
+      vehicles: 'Illimité'
+    },
+    categories: [
+      {
+        title: 'COMPTABILITÉ PUBLIQUE',
+        features: [
+          { name: 'Respect de la nomenclature M97', included: 'yes' },
+          { name: 'Gestion des budgets et engagements', included: 'yes' },
+          { name: 'Suivi des subventions et dotations', included: 'yes' },
+        ]
+      },
+      {
+        title: 'MARCHÉS PUBLICS & PATRIMOINE',
+        features: [
+          { name: 'Suivi de l\'exécution des marchés publics', included: 'yes' },
+          { name: 'Gestion de l\'inventaire du patrimoine', included: 'yes' },
+          { name: 'Portail de services aux citoyens', included: 'limited', detail: 'En option' },
         ]
       }
     ]

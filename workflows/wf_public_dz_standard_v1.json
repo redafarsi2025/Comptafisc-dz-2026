@@ -1,0 +1,47 @@
+{
+  "id": "wf_public_dz_standard_v1",
+  "name": "Processus de Validation des Dépenses (Secteur Public DZ)",
+  "tenantId": "tenant-123",
+  "trigger": {
+    "type": "manual",
+    "name": "Déclenché par le Rules Engine"
+  },
+  "isActive": true,
+  "stages": [
+    {
+      "name": "Vérification et Engagement Budgétaire",
+      "approvers": {
+        "type": "system"
+      },
+      "autoApprove": true
+    },
+    {
+      "name": "Validation du Chef de Service",
+      "approvers": {
+        "type": "role",
+        "value": "service_manager"
+      },
+      "autoApprove": false
+    },
+    {
+      "name": "Validation de la Direction",
+      "approvers": {
+        "type": "role",
+        "value": "director"
+      },
+      "minAmount": 200000,
+      "autoApprove": false
+    },
+    {
+      "name": "Validation du Contrôle de Gestion",
+      "approvers": {
+        "type": "role",
+        "value": "finance_manager"
+      },
+      "minAmount": 500000,
+      "autoApprove": false
+    }
+  ],
+  "createdAt": "2023-10-27T10:00:00Z",
+  "updatedAt": "2023-10-27T10:00:00Z"
+}

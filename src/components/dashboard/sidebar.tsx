@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -54,7 +55,10 @@ import {
   Zap,
   Bot,
   Sparkles,
-  ShieldAlert
+  ShieldAlert,
+  SlidersHorizontal,
+  Workflow,
+  History
 } from "lucide-react"
 
 import {
@@ -173,7 +177,7 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
       ...newTenantData,
       createdAt: new Date().toISOString(),
       createdByUserId: user.uid,
-      members: { [user.uid]: { role: 'owner' } }, // Correction: role doit être un objet
+      members: { [user.uid]: { role: 'owner' } },
       onboardingComplete: false,
       plan: 'GRATUIT',
       activeAddons: [],
@@ -181,9 +185,8 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
     };
 
     try {
-      await setDoc(newTenantRef, tenantData);
+      await setDocumentNonBlocking(newTenantRef, tenantData);
       setIsCreateDialogOpen(false);
-      // Redirection vers la page de configuration, qui est plus sûre pour un nouveau dossier
       router.push(`/dashboard/settings?tenantId=${tenantId}`);
       toast({ title: t.Common.new_dossier, description: `${newTenantData.raisonSociale} a été créé.` });
     } catch (e) {
@@ -245,6 +248,12 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
     { name: t.Navigation.dashboard, href: "/dashboard", icon: LayoutDashboard },
     { name: t.Navigation.analytics, href: "/dashboard/financial-analysis", icon: BarChart3 },
     { name: "Coach Stratégique", href: "/dashboard/assistant", icon: Bot, requireAddon: 'SEAD_STRATEGIC', isPremium: true },
+  ]
+  const publicSectorNav = [
+    { name: "Approbations", href: "/dashboard/approvals", icon: ShieldCheck },
+    { name: "Historique", href: "/dashboard/history", icon: History },
+    { name: "Workflows", href: "/dashboard/workflows", icon: Workflow },
+    { name: "Règles", href: "/dashboard/rules", icon: SlidersHorizontal },
   ]
   const customsNav = [
     { name: t.Customs.customs_hub, href: "/dashboard/customs", icon: Anchor },
@@ -334,6 +343,7 @@ export function DashboardSidebar({ locale = 'fr' }: { locale?: Locale }) {
       <SidebarContent className="px-3 py-4 custom-scrollbar bg-white">
         {isCabinetMember && <NavGroup label="Expert Cabinet Hub" items={cabinetNav} />}
         <NavGroup label={t.Navigation.global_ops} items={pilotageNav} />
+        <NavGroup label="Établissements Publics" items={publicSectorNav} visible={secteur === "PUBLIC"} />
         <NavGroup label="Commerce Extérieur" items={customsNav} visible={secteur === "COMMERCE" || secteur === "INDUSTRIE"} />
         <NavGroup label="Ventes & Clients" items={salesNav} visible={secteur === "COMMERCE" || secteur === "INDUSTRIE" || secteur === "TRANSPORT"} />
         <NavGroup label="Gestion Flotte" items={logisticsNav} visible={secteur !== "PRO_LIBERALE"} />

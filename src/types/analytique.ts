@@ -5,7 +5,7 @@
 export type AxeCode = 'CC' | 'PRJ' | 'ACT' | 'REG' | 'DEP' | string;
 export type EcritureOrigine = 'MANUEL' | 'PAIE' | 'STOCK' | 'FACTURE' | 'AUTO';
 export type BudgetType = 'CHARGE' | 'PRODUIT';
-export type Secteur = 'COMMERCE' | 'NEGOCE' | 'BTP' | 'LIBERAL' | 'INDUSTRIE' | 'HOTELLERIE' | 'AGRICULTURE' | 'SERVICES';
+export type Secteur = 'COMMERCE' | 'NEGOCE' | 'BTP' | 'LIBERAL' | 'INDUSTRIE' | 'HOTELLERIE' | 'AGRICULTURE' | 'SERVICES' | 'ASSURANCE' | 'PUBLIC';
 
 export interface AxeAnalytique {
   id: string;

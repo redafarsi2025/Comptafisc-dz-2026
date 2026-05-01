@@ -6,7 +6,7 @@
  */
 
 export type RegimeFiscal = 'REGIME_REEL' | 'IFU' | 'FORFAIT';
-export type FormeJuridique = 'SARL' | 'SPA' | 'EURL' | 'SNC' | 'EI';
+export type FormeJuridique = 'SARL' | 'SPA' | 'EURL' | 'SNC' | 'EI' | 'ETABLISSEMENT_PUBLIC';
 export type PlanAbonnement = 'ESSENTIEL' | 'PRO' | 'CABINET';
 export type OrganisationType = 'cabinet' | 'entreprise';
 export type UserRole = 'admin' | 'expert_comptable' | 'collaborateur' | 'daf' | 'readonly';
